@@ -1,14 +1,18 @@
 "use client";
 
 import { useActionState, useRef } from "react";
+import { Store, Video } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFocusFirstError } from "@/components/ui/use-focus-first-error";
 import type { Client, Leader } from "@/db/schema";
+import { cn } from "@/lib/cn";
 import { fromIso, toLocalInput } from "@/lib/dates";
 import {
+  ATTENDANCE_LABELS,
+  ATTENDANCES,
   CLIENT_STATUS_LABELS,
   CLIENT_STATUSES,
   INTEREST_LABELS,
@@ -16,6 +20,7 @@ import {
   SOURCE_LABELS,
   SOURCES,
 } from "@/lib/domain";
+import { centsToInput } from "@/lib/money";
 import { IDLE, type FormState } from "@/lib/result";
 
 type Props = {
@@ -37,6 +42,7 @@ export function ClientForm({ action, leaders, initial, cancelHref, submitLabel =
   const firstVisitDay = initial?.firstVisitAt ? toLocalInput(fromIso(initial.firstVisitAt)).day : "";
   const isEdit = Boolean(initial);
   const leaderOptions = leaders.filter((l) => l.active || l.id === initial?.leaderId);
+  const attendance = value("attendance", initial?.attendance ?? "presencial");
 
   return (
     <form ref={formRef} action={formAction} noValidate className="space-y-8">
@@ -55,6 +61,28 @@ export function ClientForm({ action, leaders, initial, cancelHref, submitLabel =
             <Input id="email" name="email" type="email" inputMode="email" autoComplete="email" defaultValue={value("email", initial?.email)} invalid={Boolean(errors.email)} placeholder="opcional" />
           </Field>
         </div>
+        <div>
+          <p className="mb-1.5 text-[13px] font-medium text-ink-2">Atendimento</p>
+          <div role="radiogroup" aria-label="Atendimento" className="grid grid-cols-2 gap-2">
+            {ATTENDANCES.map((a) => {
+              const Icon = a === "online" ? Video : Store;
+              return (
+                <label
+                  key={a}
+                  className={cn(
+                    "relative flex h-12 cursor-pointer items-center justify-center gap-2 rounded-control border text-[14px] font-medium transition-colors duration-150",
+                    "border-transparent bg-surface-2 text-ink-2 hover:bg-surface-3 has-checked:bg-dark has-checked:text-white has-focus-visible:ring-2 has-focus-visible:ring-accent/40",
+                  )}
+                >
+                  <input type="radio" name="attendance" value={a} defaultChecked={attendance === a} className="absolute inset-0 cursor-pointer appearance-none opacity-0" />
+                  <Icon className="size-4" aria-hidden />
+                  {ATTENDANCE_LABELS[a]}
+                </label>
+              );
+            })}
+          </div>
+          <p className="mt-1.5 text-[13px] text-muted">Presencial: você traz o cliente à loja. Online: cliente de longe, tudo por videochamada.</p>
+        </div>
       </fieldset>
 
       <fieldset className="space-y-4">
@@ -70,7 +98,13 @@ export function ClientForm({ action, leaders, initial, cancelHref, submitLabel =
               ))}
             </Select>
           </Field>
-          <Field label="Detalhe do interesse" htmlFor="interestNotes" error={errors.interestNotes} hint="Ex.: carta de R$ 300 mil, apartamento na zona sul">
+          <Field label="Valor da carta" htmlFor="credit" error={errors.credit} hint="Crédito pretendido. Ex.: 300.000">
+            <div className="relative">
+              <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[15px] text-muted">R$</span>
+              <Input id="credit" name="credit" inputMode="decimal" defaultValue={value("credit", centsToInput(initial?.creditCents))} invalid={Boolean(errors.credit)} placeholder="0,00" className="pl-11" />
+            </div>
+          </Field>
+          <Field label="Detalhe do interesse" htmlFor="interestNotes" error={errors.interestNotes} hint="Ex.: apartamento na zona sul, SUV até 120 mil">
             <Input id="interestNotes" name="interestNotes" defaultValue={value("interestNotes", initial?.interestNotes)} invalid={Boolean(errors.interestNotes)} placeholder="opcional" />
           </Field>
           <Field label="Origem" htmlFor="source" error={errors.source}>
@@ -93,11 +127,11 @@ export function ClientForm({ action, leaders, initial, cancelHref, submitLabel =
               ))}
             </Select>
           </Field>
-          <Field label="Dia em que veio à loja" htmlFor="firstVisitDay" error={errors.firstVisitDay} hint="Deixe vazio se ainda não veio.">
+          <Field label="Primeiro atendimento" htmlFor="firstVisitDay" error={errors.firstVisitDay} hint="Dia em que falou com o líder (loja ou online). Deixe vazio se ainda não aconteceu.">
             <Input id="firstVisitDay" name="firstVisitDay" type="date" defaultValue={value("firstVisitDay", firstVisitDay)} invalid={Boolean(errors.firstVisitDay)} />
           </Field>
           {isEdit ? (
-            <Field label="Status" htmlFor="status" error={errors.status}>
+            <Field label="Etapa do funil" htmlFor="status" error={errors.status}>
               <Select id="status" name="status" defaultValue={value("status", initial?.status)}>
                 {CLIENT_STATUSES.map((s) => (
                   <option key={s} value={s}>

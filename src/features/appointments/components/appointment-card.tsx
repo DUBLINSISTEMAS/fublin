@@ -13,6 +13,7 @@ export type CardVariant = "now" | "default" | "overdue" | "done";
 
 const KIND_CHIP: Record<AppointmentKind, string> = {
   visita: "bg-accent text-white",
+  reuniao: "bg-sky text-sky-ink",
   ligacao: "bg-lime text-lime-ink",
   retorno: "bg-sun text-sun-ink",
 };

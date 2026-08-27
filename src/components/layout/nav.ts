@@ -1,15 +1,27 @@
-import { Briefcase, CalendarDays, House, Settings, Users, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Briefcase, CalendarDays, House, Menu, Settings, Users, type LucideIcon } from "lucide-react";
 
-export type NavItem = { href: string; label: string; icon: LucideIcon };
+export type NavItem = { href: string; label: string; icon: LucideIcon; /** Rotas extras que contam como "ativas" para este item. */ also?: string[] };
 
+/** Sidebar (desktop). */
 export const NAV_ITEMS: NavItem[] = [
   { href: "/", label: "Hoje", icon: House },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/aprovados", label: "Aprovados", icon: BadgeCheck },
   { href: "/lideres", label: "Líderes", icon: Briefcase },
   { href: "/config", label: "Config", icon: Settings },
 ];
 
-export function isNavActive(href: string, pathname: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+/** Tab bar (mobile): no máximo 5 itens; o resto fica em "Mais". */
+export const MOBILE_TABS: NavItem[] = [
+  { href: "/", label: "Hoje", icon: House },
+  { href: "/clientes", label: "Clientes", icon: Users },
+  { href: "/agenda", label: "Agenda", icon: CalendarDays },
+  { href: "/aprovados", label: "Aprovados", icon: BadgeCheck },
+  { href: "/mais", label: "Mais", icon: Menu, also: ["/lideres", "/config"] },
+];
+
+export function isNavActive(item: NavItem, pathname: string): boolean {
+  const matches = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
+  return matches(item.href) || (item.also ?? []).some(matches);
 }

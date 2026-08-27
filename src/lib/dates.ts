@@ -1,6 +1,7 @@
 import {
   addDays,
   addMinutes,
+  addMonths,
   differenceInMinutes,
   endOfDay,
   format,
@@ -64,6 +65,35 @@ export function shiftDayKey(day: DayKey, days: number): DayKey {
 
 export function monthStart(now: Date): Date {
   return startOfMonth(now);
+}
+
+/** Chave de mês: "2026-08". */
+export type MonthKey = string;
+
+export function monthKey(date: Date): MonthKey {
+  return format(date, "yyyy-MM");
+}
+
+export function isValidMonthKey(value: string | null | undefined): value is MonthKey {
+  if (!value || !/^\d{4}-\d{2}$/.test(value)) return false;
+  const month = Number(value.slice(5, 7));
+  return month >= 1 && month <= 12;
+}
+
+/** [início, fim) do mês. */
+export function monthRange(key: MonthKey): { start: Date; end: Date } {
+  const start = parse(`${key}-01`, "yyyy-MM-dd", REF);
+  return { start, end: addMonths(start, 1) };
+}
+
+export function shiftMonthKey(key: MonthKey, months: number): MonthKey {
+  return monthKey(addMonths(monthRange(key).start, months));
+}
+
+/** "Agosto de 2026" */
+export function formatMonthLong(date: Date): string {
+  const raw = format(date, "MMMM 'de' yyyy", { locale: ptBR });
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
 export function formatTime(date: Date): string {

@@ -10,8 +10,9 @@ export function NavLinks() {
   const pathname = usePathname();
   return (
     <ul className="space-y-1">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-        const active = isNavActive(href, pathname);
+      {NAV_ITEMS.map((item) => {
+        const { href, label, icon: Icon } = item;
+        const active = isNavActive(item, pathname);
         return (
           <li key={href}>
             <Link

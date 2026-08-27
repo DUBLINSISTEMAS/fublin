@@ -4,10 +4,11 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
 import { errorMessage } from "@/lib/actions";
-import { formError, type FormState } from "@/lib/result";
+import { formError, formSuccess, type FormState } from "@/lib/result";
+import { getStorage } from "@/lib/storage";
 import { idSchema, parseForm } from "@/lib/validation";
-import { clientInputSchema, clientNoteSchema, clientStatusSchema } from "./schema";
-import { addClientNote, createClient, deleteClient, setClientStatus, updateClient } from "./service";
+import { approvalSchema, assignLeaderSchema, clientInputSchema, clientNoteSchema, clientStatusSchema } from "./schema";
+import { addClientNote, assignLeader, createClient, deleteClient, setClientStatus, updateApproval, updateClient } from "./service";
 
 const INVALID = "Confira os campos destacados.";
 
@@ -15,6 +16,8 @@ function revalidateClient(id?: string) {
   revalidatePath("/");
   revalidatePath("/clientes");
   revalidatePath("/agenda");
+  revalidatePath("/aprovados");
+  revalidatePath("/lideres");
   if (id) revalidatePath(`/clientes/${id}`);
 }
 
@@ -54,11 +57,50 @@ export async function setClientStatusAction(formData: FormData): Promise<void> {
   if (!parsed.ok) return;
   try {
     const db = await getDb();
-    await setClientStatus(db, parsed.data.id, parsed.data.status);
+    await setClientStatus(db, parsed.data.id, parsed.data.status, new Date(), { lostReason: parsed.data.lostReason ?? null });
   } catch (error) {
     errorMessage(error);
   }
   revalidateClient(parsed.data.id);
+}
+
+/** Usada pelo kanban (arrastar e soltar): devolve ok/erro em vez de só revalidar. */
+export async function moveClientAction(id: string, status: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  const parsed = clientStatusSchema.safeParse({ id, status });
+  if (!parsed.success) return { ok: false, error: "Status inválido." };
+  try {
+    const db = await getDb();
+    await setClientStatus(db, parsed.data.id, parsed.data.status);
+  } catch (error) {
+    return { ok: false, error: errorMessage(error) };
+  }
+  revalidateClient(parsed.data.id);
+  return { ok: true };
+}
+
+export async function assignLeaderAction(formData: FormData): Promise<void> {
+  const parsed = parseForm(assignLeaderSchema, formData);
+  if (!parsed.ok) return;
+  try {
+    const db = await getDb();
+    await assignLeader(db, parsed.data.id, parsed.data.leaderId ?? null);
+  } catch (error) {
+    errorMessage(error);
+  }
+  revalidateClient(parsed.data.id);
+}
+
+export async function updateApprovalAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const parsed = parseForm(approvalSchema, formData);
+  if (!parsed.ok) return formError(INVALID, parsed.fieldErrors, parsed.values);
+  try {
+    const db = await getDb();
+    await updateApproval(db, parsed.data);
+  } catch (error) {
+    return formError(errorMessage(error), undefined, parsed.values);
+  }
+  revalidateClient(parsed.data.id);
+  return formSuccess("Salvo.");
 }
 
 export async function addClientNoteAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -79,7 +121,7 @@ export async function deleteClientAction(formData: FormData): Promise<void> {
   if (!parsed.ok) return;
   try {
     const db = await getDb();
-    await deleteClient(db, parsed.data.id);
+    await deleteClient(db, parsed.data.id, getStorage());
   } catch (error) {
     errorMessage(error);
   }

@@ -48,7 +48,7 @@ export default async function ClientsPage(props: PageProps<"/clientes">) {
           <ClientFilters leaders={leaders} filters={filters} />
         </Suspense>
       </div>
-      {view === "funil" ? <Pipeline items={items} now={now} /> : <ClientList items={items} now={now} hasFilters={hasFilters} />}
+      {view === "funil" ? <Pipeline items={items} leaders={leaders.filter((l) => l.active)} now={now} /> : <ClientList items={items} now={now} hasFilters={hasFilters} />}
       <Fab href="/clientes/novo" label="Novo cliente" />
     </div>
   );

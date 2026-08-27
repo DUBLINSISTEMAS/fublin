@@ -3,15 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
-import { isNavActive, NAV_ITEMS } from "./nav";
+import { isNavActive, MOBILE_TABS } from "./nav";
 
 export function BottomTabs() {
   const pathname = usePathname();
   return (
     <nav aria-label="Principal" className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur md:hidden">
       <ul className="grid grid-cols-5">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = isNavActive(href, pathname);
+        {MOBILE_TABS.map((item) => {
+          const { href, label, icon: Icon } = item;
+          const active = isNavActive(item, pathname);
           return (
             <li key={href}>
               <Link

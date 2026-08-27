@@ -2,11 +2,11 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { appointments, type Appointment } from "@/db/schema";
 import { formatDate, formatTime, fromIso, fromLocalInput, toIso } from "@/lib/dates";
-import { APPOINTMENT_KIND_LABELS, APPOINTMENT_STATUS_LABELS, type AppointmentStatus } from "@/lib/domain";
+import { APPOINTMENT_KIND_LABELS, APPOINTMENT_STATUS_LABELS, ATTENDANCE_KINDS, type AppointmentStatus } from "@/lib/domain";
 import { newId } from "@/lib/ids";
 import { DomainError } from "@/lib/result";
 import { logActivity } from "@/features/activities/service";
-import { getClient, markScheduled, registerVisit } from "@/features/clients/service";
+import { getClient, markScheduled, registerAttendance } from "@/features/clients/service";
 import type { AppointmentInput } from "./schema";
 
 function describe(kind: Appointment["kind"], when: Date): string {
@@ -72,7 +72,7 @@ export async function setAppointmentStatus(db: Db, id: string, status: Appointme
     .returning();
   const when = fromIso(updated.scheduledAt);
   await logActivity(db, updated.clientId, "agendamento", `${APPOINTMENT_STATUS_LABELS[status]}: ${describe(updated.kind, when)}`, now);
-  if (status === "realizado" && updated.kind === "visita") await registerVisit(db, updated.clientId, when, now);
+  if (status === "realizado" && ATTENDANCE_KINDS.includes(updated.kind)) await registerAttendance(db, updated.clientId, when, now);
   return updated;
 }
 

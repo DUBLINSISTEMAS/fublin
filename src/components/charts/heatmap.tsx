@@ -12,8 +12,9 @@ function tone(count: number, max: number): string {
 /** Grade hora × dia com quadradinhos arredondados; a célula "agora" é limão. */
 export function Heatmap({ data, currentDayIndex, currentHour }: Props) {
   return (
-    <div className="overflow-x-auto no-scrollbar">
-      <div className="grid gap-1" style={{ gridTemplateColumns: `2.25rem repeat(${data.days.length}, minmax(0.95rem, 1fr))` }} role="img" aria-label="Agendamentos por hora e dia">
+    <div>
+      {/* Todas as colunas sempre cabem: as células encolhem em telas estreitas em vez de esconder dias. */}
+      <div className="grid gap-[3px] sm:gap-1" style={{ gridTemplateColumns: `2rem repeat(${data.days.length}, minmax(0, 1fr))` }} role="img" aria-label="Agendamentos por hora e dia">
         {data.hours.map((hour, hi) => (
           <div key={hour} className="contents">
             <span className="pr-1 text-right text-[10px] leading-4 tabular-nums text-muted">{hour}h</span>
@@ -24,7 +25,7 @@ export function Heatmap({ data, currentDayIndex, currentHour }: Props) {
                 <span
                   key={d.day}
                   title={`${d.label} · ${hour}h · ${count} agendamento${count === 1 ? "" : "s"}`}
-                  className={cn("aspect-square w-full rounded-[4px]", isNow ? "bg-lime" : tone(count, data.max))}
+                  className={cn("aspect-square w-full min-w-0 rounded-[3px] sm:rounded-[4px]", isNow ? "bg-lime" : tone(count, data.max))}
                 />
               );
             })}
@@ -32,7 +33,7 @@ export function Heatmap({ data, currentDayIndex, currentHour }: Props) {
         ))}
         <span />
         {data.days.map((d) => (
-          <span key={d.day} className="text-center text-[10px] leading-4 tabular-nums text-muted">
+          <span key={d.day} className="min-w-0 overflow-hidden text-center text-[9px] leading-4 tabular-nums text-muted sm:text-[10px]">
             {d.label}
           </span>
         ))}

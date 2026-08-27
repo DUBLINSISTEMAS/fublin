@@ -16,26 +16,56 @@ export const INTEREST_LABELS: Record<Interest, string> = {
   outro: "Outro",
 };
 
-export const CLIENT_STATUSES = ["novo", "agendado", "visitou", "negociando", "fechou", "perdido"] as const;
+/**
+ * Funil do cliente, na ordem da rotina do relacionador:
+ * cadastra → marca → o líder atende (presencial ou online) → pode voltar para
+ * novas reuniões → a proposta vai para análise → aprova → fecha (ou perde).
+ */
+export const CLIENT_STATUSES = ["novo", "agendado", "atendido", "negociando", "analise", "aprovado", "fechou", "perdido"] as const;
 export type ClientStatus = (typeof CLIENT_STATUSES)[number];
 export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
   novo: "Novo",
   agendado: "Agendado",
-  visitou: "Visitou a loja",
+  atendido: "Atendido",
   negociando: "Em negociação",
+  analise: "Em análise",
+  aprovado: "Aprovado",
   fechou: "Fechou",
   perdido: "Perdido",
+};
+export const CLIENT_STATUS_HINTS: Record<ClientStatus, string> = {
+  novo: "Cadastrado, ainda sem agendamento.",
+  agendado: "Visita ou reunião marcada.",
+  atendido: "Já conversou com o líder de vendas.",
+  negociando: "Voltou para nova reunião ou ajuste de proposta.",
+  analise: "Documentação enviada para análise.",
+  aprovado: "Crédito aprovado — informe a adesão.",
+  fechou: "Contrato fechado.",
+  perdido: "Desistiu ou foi reprovado.",
 };
 export const CLIENT_STATUS_TONE: Record<ClientStatus, Tone> = {
   novo: "neutral",
   agendado: "info",
-  visitou: "accent",
+  atendido: "accent",
   negociando: "warning",
+  analise: "warning",
+  aprovado: "success",
   fechou: "success",
   perdido: "danger",
 };
 /** Status considerados "em aberto" (ainda podem virar venda). */
-export const OPEN_CLIENT_STATUSES: readonly ClientStatus[] = ["novo", "agendado", "visitou", "negociando"];
+export const OPEN_CLIENT_STATUSES: readonly ClientStatus[] = ["novo", "agendado", "atendido", "negociando", "analise", "aprovado"];
+/** Colunas do kanban (perdido fica fora, como zona de descarte). */
+export const PIPELINE_STATUSES: readonly ClientStatus[] = ["novo", "agendado", "atendido", "negociando", "analise", "aprovado", "fechou"];
+/** Ordem numérica do funil, para saber se um status é "depois" de outro. */
+export const STATUS_RANK: Record<ClientStatus, number> = Object.fromEntries(CLIENT_STATUSES.map((s, i) => [s, i])) as Record<ClientStatus, number>;
+
+export const ATTENDANCES = ["presencial", "online"] as const;
+export type Attendance = (typeof ATTENDANCES)[number];
+export const ATTENDANCE_LABELS: Record<Attendance, string> = {
+  presencial: "Presencial",
+  online: "Online",
+};
 
 export const SOURCES = ["indicacao", "redes_sociais", "telefone", "abordagem", "outro"] as const;
 export type Source = (typeof SOURCES)[number];
@@ -47,19 +77,23 @@ export const SOURCE_LABELS: Record<Source, string> = {
   outro: "Outro",
 };
 
-export const APPOINTMENT_KINDS = ["visita", "ligacao", "retorno"] as const;
+export const APPOINTMENT_KINDS = ["visita", "reuniao", "ligacao", "retorno"] as const;
 export type AppointmentKind = (typeof APPOINTMENT_KINDS)[number];
 export const APPOINTMENT_KIND_LABELS: Record<AppointmentKind, string> = {
   visita: "Visita à loja",
+  reuniao: "Reunião online",
   ligacao: "Ligação",
   retorno: "Retorno",
 };
 /** Versão curta para colunas estreitas. */
 export const APPOINTMENT_KIND_SHORT: Record<AppointmentKind, string> = {
   visita: "Visita",
+  reuniao: "Online",
   ligacao: "Ligação",
   retorno: "Retorno",
 };
+/** Tipos que contam como "o líder atendeu o cliente". */
+export const ATTENDANCE_KINDS: readonly AppointmentKind[] = ["visita", "reuniao"];
 
 export const APPOINTMENT_STATUSES = ["agendado", "realizado", "faltou", "cancelado"] as const;
 export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];
@@ -76,8 +110,17 @@ export const APPOINTMENT_STATUS_TONE: Record<AppointmentStatus, Tone> = {
   cancelado: "neutral",
 };
 
-export const ACTIVITY_TYPES = ["nota", "status", "agendamento", "cliente"] as const;
+export const ACTIVITY_TYPES = ["nota", "status", "agendamento", "cliente", "anexo", "lider"] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+export const ATTACHMENT_KINDS = ["proposta", "documento", "comprovante", "outro"] as const;
+export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];
+export const ATTACHMENT_KIND_LABELS: Record<AttachmentKind, string> = {
+  proposta: "Proposta",
+  documento: "Documento",
+  comprovante: "Comprovante",
+  outro: "Outro",
+};
 
 export const REMINDER_OPTIONS = [
   { value: 0, label: "Na hora" },

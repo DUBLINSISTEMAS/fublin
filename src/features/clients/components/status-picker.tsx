@@ -1,28 +1,44 @@
 "use client";
 
 import { useFormStatus } from "react-dom";
-import { Select } from "@/components/ui/field";
+import { Input, Select } from "@/components/ui/field";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { cn } from "@/lib/cn";
-import { CLIENT_STATUS_LABELS, CLIENT_STATUS_TONE, CLIENT_STATUSES, type ClientStatus } from "@/lib/domain";
+import { CLIENT_STATUS_HINTS, CLIENT_STATUS_LABELS, CLIENT_STATUS_TONE, CLIENT_STATUSES, type ClientStatus } from "@/lib/domain";
 import { setClientStatusAction } from "../actions";
 
 const TONE_TEXT: Record<string, string> = {
-  neutral: "text-stone-700",
-  info: "text-sky-800",
+  neutral: "text-ink-2",
+  info: "text-sky-ink",
   accent: "text-accent-ink",
-  warning: "text-amber-800",
-  success: "text-emerald-800",
-  danger: "text-rose-800",
+  warning: "text-sun-ink",
+  success: "text-lime-ink",
+  danger: "text-rose-ink",
 };
 
-/** Select que salva ao mudar (sem botão): status do funil do cliente. */
-export function StatusPicker({ id, status }: { id: string; status: ClientStatus }) {
+type Props = { id: string; status: ClientStatus; lostReason: string | null };
+
+/** Etapa do funil: select que salva ao mudar; em "perdido", pede o motivo. */
+export function StatusPicker({ id, status, lostReason }: Props) {
   return (
-    // `key` força o remount quando o status muda no servidor (select não controlado).
-    <form key={status} action={setClientStatusAction}>
-      <input type="hidden" name="id" value={id} />
-      <StatusSelect status={status} />
-    </form>
+    <div className="space-y-3">
+      {/* `key` força o remount quando o status muda no servidor (select não controlado). */}
+      <form key={status} action={setClientStatusAction}>
+        <input type="hidden" name="id" value={id} />
+        <StatusSelect status={status} />
+      </form>
+      <p className="text-[13px] text-muted">{CLIENT_STATUS_HINTS[status]}</p>
+      {status === "perdido" ? (
+        <form action={setClientStatusAction} className="flex gap-2">
+          <input type="hidden" name="id" value={id} />
+          <input type="hidden" name="status" value="perdido" />
+          <Input name="lostReason" aria-label="Motivo da perda" defaultValue={lostReason ?? ""} placeholder="Motivo (ex.: fechou com concorrente)" className="h-10 text-[14px]" />
+          <SubmitButton size="sm" variant="secondary" className="h-10 shrink-0">
+            Salvar
+          </SubmitButton>
+        </form>
+      ) : null}
+    </div>
   );
 }
 
@@ -31,11 +47,11 @@ function StatusSelect({ status }: { status: ClientStatus }) {
   return (
     <Select
       name="status"
-      aria-label="Status do cliente"
+      aria-label="Etapa do funil"
       defaultValue={status}
       disabled={pending}
       onChange={(e) => e.currentTarget.form?.requestSubmit()}
-      className={cn("font-semibold", TONE_TEXT[CLIENT_STATUS_TONE[status]])}
+      className={cn("font-medium", TONE_TEXT[CLIENT_STATUS_TONE[status]])}
     >
       {CLIENT_STATUSES.map((s) => (
         <option key={s} value={s}>

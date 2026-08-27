@@ -2,6 +2,7 @@ import Link from "next/link";
 import { addHours, addMinutes, startOfMonth, subMonths } from "date-fns";
 import { CalendarPlus } from "lucide-react";
 import { AreaChart } from "@/components/charts/area-chart";
+import { FunnelStrip } from "@/components/charts/funnel-strip";
 import { Heatmap } from "@/components/charts/heatmap";
 import { Badge, CountBadge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -9,9 +10,10 @@ import { Card } from "@/components/ui/card";
 import { getDb } from "@/db/client";
 import { AppointmentCard, type CardVariant } from "@/features/appointments/components/appointment-card";
 import { getActivityHeatmap, listAppointmentsForDay, listOverdueAppointments } from "@/features/appointments/queries";
-import { getDailySeries, getMonthStats } from "@/features/clients/queries";
+import { countClientsByStatus, getDailySeries, getMonthStats } from "@/features/clients/queries";
 import { capitalize, plural } from "@/lib/text";
 import { dayKey, formatDayLong, fromIso, REMINDER_GRACE_MINUTES, shiftDayKey } from "@/lib/dates";
+import { formatBRLCompact } from "@/lib/money";
 import type { AppointmentWithClient } from "@/features/appointments/queries";
 
 export const dynamic = "force-dynamic";
@@ -24,7 +26,7 @@ export default async function TodayPage() {
   const today = dayKey(now);
   const thisMonth = startOfMonth(now);
   const lastMonth = startOfMonth(subMonths(now, 1));
-  const [todayItems, tomorrowItems, overdue, stats, previous, series, heat] = await Promise.all([
+  const [todayItems, tomorrowItems, overdue, stats, previous, series, heat, counts] = await Promise.all([
     listAppointmentsForDay(db, today),
     listAppointmentsForDay(db, shiftDayKey(today, 1)),
     listOverdueAppointments(db, now),
@@ -32,6 +34,7 @@ export default async function TodayPage() {
     getMonthStats(db, lastMonth, thisMonth),
     getDailySeries(db, now, 7),
     getActivityHeatmap(db, now, 14),
+    countClientsByStatus(db),
   ]);
 
   const graceStart = addMinutes(now, -REMINDER_GRACE_MINUTES);
@@ -63,8 +66,8 @@ export default async function TodayPage() {
         </ButtonLink>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_200px]">
-        <Card className="p-5">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_220px]">
+        <Card className="p-5 md:col-span-2 xl:col-span-1">
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-[19px] font-normal text-ink">Novos clientes</h2>
             <span className="flex items-center gap-3 text-[12px] text-muted">
@@ -72,7 +75,7 @@ export default async function TodayPage() {
                 <span className="size-2 rounded-full bg-accent" /> Novos
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="size-2 rounded-full bg-lime" /> Visitas
+                <span className="size-2 rounded-full bg-lime" /> Atendidos
               </span>
             </span>
           </div>
@@ -81,7 +84,7 @@ export default async function TodayPage() {
           </div>
         </Card>
 
-        <Card className="p-5">
+        <Card className="p-5 md:col-span-2 xl:col-span-1">
           <h2 className="text-[19px] font-normal text-ink">Atividade</h2>
           <p className="text-[12px] text-muted">Agendamentos por hora, últimos 14 dias</p>
           <div className="mt-4">
@@ -89,11 +92,25 @@ export default async function TodayPage() {
           </div>
         </Card>
 
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-1">
-          <Stat label="Agendados hoje" value={todayPending} hint={overdue.length ? `${plural(overdue.length, "atrasado")}` : undefined} hintTone="warning" />
-          <Stat label="Fechados no mês" value={stats.closed} hint={delta(stats.closed, previous.closed)} hintTone="success" />
+        <div className="grid grid-cols-2 gap-4 md:col-span-2 md:grid-cols-4 xl:col-span-1 xl:grid-cols-1">
+          <Stat label="Agendados hoje" value={String(todayPending)} hint={overdue.length ? plural(overdue.length, "atrasado") : undefined} hintTone="warning" />
+          <Stat label="Em análise" value={String(counts.analise)} hint={counts.aprovado ? `${counts.aprovado} aprovado${counts.aprovado === 1 ? "" : "s"} aguardando fechamento` : undefined} hintTone="success" />
+          <Stat label="Fechados no mês" value={String(stats.closed)} hint={delta(stats.closed, previous.closed)} hintTone="success" />
+          <Stat label="Adesão no mês" value={formatBRLCompact(stats.adesaoCents)} hint={delta(stats.adesaoCents, previous.adesaoCents)} hintTone="success" compact />
         </div>
       </div>
+
+      <Card className="p-5">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-[19px] font-normal text-ink">Funil</h2>
+          <Link href="/clientes" className="text-[13px] font-medium text-accent hover:underline">
+            Abrir kanban
+          </Link>
+        </div>
+        <div className="mt-3">
+          <FunnelStrip counts={counts} />
+        </div>
+      </Card>
 
       <div className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 no-scrollbar scroll-pl-4 sm:-mx-5 sm:px-5 sm:scroll-pl-5 md:mx-0 md:grid md:grid-cols-2 md:overflow-visible md:px-0 md:scroll-pl-0 xl:grid-cols-4">
         {columns.map((col) => (
@@ -121,19 +138,29 @@ export default async function TodayPage() {
 }
 
 function delta(current: number, previous: number): string | undefined {
-  if (previous === 0) return current > 0 ? `+${current} vs. mês anterior` : undefined;
+  if (previous === 0) return current > 0 ? "novo este mês" : undefined;
   const pct = Math.round(((current - previous) / previous) * 100);
   return `${pct >= 0 ? "+" : ""}${pct}% vs. mês anterior`;
 }
 
-function Stat({ label, value, hint, hintTone }: { label: string; value: number; hint?: string; hintTone: "success" | "warning" }) {
+function Stat({ label, value, hint, hintTone, compact = false }: { label: string; value: string; hint?: string; hintTone: "success" | "warning"; compact?: boolean }) {
   return (
-    <Card className="flex flex-col justify-between p-5">
-      <p className="text-[15px] text-ink-2">{label}</p>
-      <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
-        <p className="text-[40px] leading-none font-light tabular-nums tracking-tight text-ink">{value}</p>
-        {hint ? <Badge tone={hintTone}>{hint}</Badge> : null}
+    <Card className="flex flex-col justify-between p-4 xl:p-5">
+      <p className="text-[14px] text-ink-2">{label}</p>
+      <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
+        <p className={cnValue(compact)}>{value}</p>
+        {hint ? (
+          <Badge tone={hintTone} className="h-6 text-[11px]">
+            {hint}
+          </Badge>
+        ) : null}
       </div>
     </Card>
   );
+}
+
+function cnValue(compact: boolean): string {
+  return compact
+    ? "min-w-0 break-words text-[22px] leading-tight font-light tabular-nums tracking-tight text-ink xl:text-[26px]"
+    : "text-[36px] leading-none font-light tabular-nums tracking-tight text-ink";
 }

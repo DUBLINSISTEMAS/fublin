@@ -26,8 +26,9 @@ describe("appointmentInputSchema", () => {
   it("validates day/time and coerces reminder", () => {
     expect(appointmentInputSchema.safeParse({ clientId, day: "2026-02-30", time: "10:00", kind: "visita" }).success).toBe(false);
     expect(appointmentInputSchema.safeParse({ clientId, day: "2026-08-27", time: "25:00", kind: "visita" }).success).toBe(false);
-    const ok = appointmentInputSchema.parse({ clientId, day: "2026-08-27", time: "10:00", kind: "ligacao", reminderMinutes: "60", notes: "" });
+    const ok = appointmentInputSchema.parse({ clientId, day: "2026-08-27", time: "10:00", kind: "reuniao", reminderMinutes: "60", notes: "" });
     expect(ok.reminderMinutes).toBe(60);
+    expect(ok.kind).toBe("reuniao");
     expect(ok.notes).toBeUndefined();
   });
 });
@@ -43,18 +44,27 @@ describe("appointments", () => {
     expect(await listAppointmentsForDay(db, "2026-08-29")).toHaveLength(0);
     const [item] = await listClients(db, {}, now);
     expect(item.nextAppointment?.id).toBe(a.id);
+    expect(item.meetingsCount).toBe(0);
   });
 
   it("rejects unknown client", async () => {
     await expect(createAppointment(db, { ...input("2026-08-28", "09:30"), clientId: "nope" }, now)).rejects.toThrow("Cliente não encontrado");
   });
 
-  it("realizado on a visita registers the visit and advances the funnel", async () => {
+  it("realizado on a visita or reunião registers the attendance and counts meetings", async () => {
     const a = await createAppointment(db, input("2026-08-27", "10:00"), now);
     await setAppointmentStatus(db, a.id, "realizado", now);
-    const client = await getClientDetail(db, clientId);
-    expect(client?.status).toBe("visitou");
+    let client = await getClientDetail(db, clientId);
+    expect(client?.status).toBe("atendido");
     expect(client?.firstVisitAt).toBe(new Date(2026, 7, 27, 10, 0).toISOString());
+
+    const online = await createAppointment(db, input("2026-08-28", "19:00", { kind: "reuniao" }), now);
+    await setAppointmentStatus(db, online.id, "realizado", now);
+    const call = await createAppointment(db, input("2026-08-29", "09:00", { kind: "ligacao" }), now);
+    await setAppointmentStatus(db, call.id, "realizado", now);
+    client = await getClientDetail(db, clientId);
+    expect(client?.meetingsCount).toBe(2); // ligação não conta como atendimento
+    expect(client?.status).toBe("atendido");
   });
 
   it("faltou / cancelado do not advance funnel; reschedule logs activity", async () => {

@@ -35,23 +35,34 @@ Se o celular não abrir, libere a porta 3000 no Firewall do Windows (na primeira
 - A tela **Hoje** mostra o que está por vir agora, o dia inteiro e o que ficou atrasado sem baixa.
 - Em **Config**, ative as notificações do navegador. Com o app aberto (em qualquer aba), você recebe um aviso do sistema antes de cada agendamento, conforme o lembrete escolhido (15 min, 30 min, 1 h…).
 
-## Funil do cliente
+## Funil do cliente (a sua rotina)
 
-`Novo` → `Agendado` → `Visitou a loja` → `Em negociação` → `Fechou` / `Perdido`
+`Novo` → `Agendado` → `Atendido` → `Em negociação` → `Em análise` → `Aprovado` → `Fechou` · `Perdido`
 
-O status é livre (você muda quando quiser), mas o sistema ajuda:
+- **Atendido** = o cliente falou com o líder de vendas, na loja (presencial) ou por videochamada (online). Cada cliente tem o campo **Atendimento** (presencial/online) e o sistema conta quantas visitas/reuniões já aconteceram.
+- **Em negociação** = voltou para nova reunião ou ajuste de proposta (é normal fechar na 2ª ou 3ª visita).
+- **Em análise → Aprovado → Fechou** = a proposta foi para análise, passou, e a adesão foi paga. As datas de cada etapa são carimbadas sozinhas quando você move o card; a **adesão** e o **valor da carta** você preenche no card "Aprovação" da página do cliente.
+- **Perdido** guarda o motivo.
 
-- criar um agendamento para um cliente **Novo** o marca como **Agendado**;
-- marcar uma **visita** como **Realizado** registra a data da primeira visita e avança para **Visitou a loja**.
+Mova o cliente **arrastando o card** no kanban (mouse, toque com pressão longa ou teclado), pelo menu "…" do card ("Mover para"), ou pelo seletor na página do cliente. Automatismos que ajudam:
 
-Toda mudança fica na linha do tempo do cliente, junto das suas notas.
+- agendar para um cliente **Novo** o marca como **Agendado**;
+- marcar uma **visita** ou **reunião online** como **Realizado** registra o 1º atendimento e avança para **Atendido**.
+
+Tudo fica na linha do tempo do cliente: status, líder, notas, agendamentos e anexos.
+
+### Líderes, Aprovados e propostas
+
+- **Líderes**: você atribui o líder no card ("…" → Líder de vendas) ou no cadastro; a aba mostra, por líder, clientes recebidos, atendidos, aprovados, fechados, conversão e adesão somada.
+- **Aprovados**: aba com quem passou na análise — líder, carta, adesão, datas, anexos — por mês ou geral, com exportação CSV.
+- **Propostas e documentos**: na página do cliente, anexe fotos ou PDFs (arrastando, escolhendo ou pela câmera do celular). Os arquivos ficam em `data/uploads/` — faça backup da pasta `data/` inteira.
 
 ## Visual
 
 Direção inspirada em dashboards SaaS de CRM (referências: *B2B SaaS Web CRM Dashboard* e *Customer Journey CRM Dashboard*, Dribbble): canvas cinza-azulado claro, painéis brancos flutuantes com raio grande, azul como cor principal, chips pastel (azul, limão, amarelo), contadores pretos redondos, tipografia geométrica leve (Outfit).
 
 - **Hoje**: gráfico de área (novos clientes × visitas, 7 dias), heatmap de atividade (hora × dia, 14 dias), KPIs e a agenda em colunas (Agora · Hoje · Atrasados · Amanhã).
-- **Clientes**: kanban do funil por status (rola na horizontal no celular) ou lista; busca global na barra superior.
+- **Clientes**: kanban do funil por status com arrastar-e-soltar (`@dnd-kit`), ou lista; busca global na barra superior.
 - Sidebar com os líderes de vendas e um card escuro com o próximo agendamento.
 
 Tokens de cor, raio e sombra ficam em `src/app/globals.css` (`@theme`).

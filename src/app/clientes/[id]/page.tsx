@@ -1,21 +1,24 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, CalendarPlus, MessageCircle, Pencil, Phone } from "lucide-react";
-import { InterestChip } from "@/components/ui/badge";
+import { ArrowLeft, CalendarPlus, MessageCircle, Pencil, Phone, Store, Video } from "lucide-react";
+import { Badge, ClientStatusBadge, InterestChip } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Section } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { getDb } from "@/db/client";
 import { AppointmentRow } from "@/features/appointments/components/appointment-row";
+import { AttachmentsPanel } from "@/features/attachments/components/attachments-panel";
 import { deleteClientAction } from "@/features/clients/actions";
+import { ApprovalForm } from "@/features/clients/components/approval-form";
 import { NoteForm } from "@/features/clients/components/note-form";
 import { StatusPicker } from "@/features/clients/components/status-picker";
 import { Timeline } from "@/features/clients/components/timeline";
 import { getClientDetail } from "@/features/clients/queries";
 import { formatDate, fromIso } from "@/lib/dates";
-import { labelOf, SOURCE_LABELS } from "@/lib/domain";
+import { ATTENDANCE_LABELS, labelOf, SOURCE_LABELS } from "@/lib/domain";
+import { formatBRL } from "@/lib/money";
 import { formatPhone, telUrl, whatsappUrl } from "@/lib/phone";
-import { initials } from "@/lib/text";
+import { initials, plural } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
 
@@ -36,13 +39,21 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
   const withClient = client.appointments.map((a) => ({ ...a, client }));
   const pending = withClient.filter((a) => a.status === "agendado").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   const past = withClient.filter((a) => a.status !== "agendado");
+  const AttendanceIcon = client.attendance === "online" ? Video : Store;
+  const needsAdesao = (client.status === "aprovado" || client.status === "fechou") && !client.adesaoCents;
+  const dateOrDash = (iso: string | null) => (iso ? formatDate(fromIso(iso)) : "—");
 
   const facts: [string, string][] = [
     ["Telefone", formatPhone(client.phone)],
     ["E-mail", client.email ?? "—"],
+    ["Atendimento", ATTENDANCE_LABELS[client.attendance]],
     ["Origem", labelOf(SOURCE_LABELS, client.source)],
     ["Líder de vendas", client.leader?.name ?? "—"],
-    ["Veio à loja em", client.firstVisitAt ? formatDate(fromIso(client.firstVisitAt)) : "Ainda não veio"],
+    ["1º atendimento", client.firstVisitAt ? formatDate(fromIso(client.firstVisitAt)) : "Ainda não"],
+    ["Atendimentos", String(client.meetingsCount)],
+    ["Em análise desde", dateOrDash(client.analysisStartedAt)],
+    ["Aprovado em", dateOrDash(client.approvedAt)],
+    ["Fechou em", dateOrDash(client.closedAt)],
     ["Cadastrado em", formatDate(fromIso(client.createdAt))],
   ];
 
@@ -53,17 +64,27 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
         Clientes
       </Link>
 
-      {/* Cabeçalho em painel: avatar grande, chip de interesse, nome e ações */}
       <Card className="p-5 md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-4">
             <span className="grid size-14 shrink-0 place-items-center rounded-full bg-accent-soft text-[18px] font-semibold text-accent-ink">{initials(client.name)}</span>
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <ClientStatusBadge status={client.status} />
                 <InterestChip interest={client.interest} />
-                {client.interestNotes ? <span className="truncate text-[13px] text-muted">{client.interestNotes}</span> : null}
+                <span className="inline-flex h-7 items-center gap-1 rounded-chip bg-surface-2 px-2 text-[12px] text-muted">
+                  <AttendanceIcon className="size-3.5" aria-hidden />
+                  {ATTENDANCE_LABELS[client.attendance]}
+                </span>
+                {needsAdesao ? <Badge tone="warning">Adesão pendente</Badge> : null}
               </div>
               <h1 className="mt-1.5 text-[26px] font-medium tracking-tight text-ink md:text-[30px]">{client.name}</h1>
+              <p className="text-[14px] text-muted">
+                {client.creditCents ? <span className="font-medium text-ink">Carta de {formatBRL(client.creditCents)}</span> : null}
+                {client.creditCents && client.interestNotes ? " · " : null}
+                {client.interestNotes}
+                {client.meetingsCount ? ` · ${plural(client.meetingsCount, "atendimento")}` : null}
+              </p>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -87,11 +108,11 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
         </div>
       </Card>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
           <Section title="Agendamentos" count={withClient.length} action={<Link href={`/agenda/novo?cliente=${client.id}`} className="text-[13px] font-medium text-accent hover:underline">Novo</Link>}>
             {pending.length === 0 && past.length === 0 ? (
-              <Card className="px-5 py-6 text-[14px] text-muted">Nenhum agendamento ainda. Marque uma visita, ligação ou retorno.</Card>
+              <Card className="px-5 py-6 text-[14px] text-muted">Nenhum agendamento ainda. Marque uma visita, reunião online, ligação ou retorno.</Card>
             ) : (
               <Card>
                 <ul className="divide-y divide-line">
@@ -106,6 +127,12 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
             )}
           </Section>
 
+          <Section title="Propostas e documentos" count={client.attachments.length}>
+            <Card className="p-4 sm:p-5">
+              <AttachmentsPanel clientId={client.id} attachments={client.attachments} />
+            </Card>
+          </Section>
+
           <Section title="Histórico" count={client.activities.length}>
             <Card className="space-y-6 p-4 sm:p-5">
               <NoteForm clientId={client.id} />
@@ -115,15 +142,20 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
         </div>
 
         <aside className="space-y-5">
-          <Section title="Status no funil">
+          <Section title="Etapa do funil">
             <Card className="p-4">
-              <StatusPicker id={client.id} status={client.status} />
+              <StatusPicker id={client.id} status={client.status} lostReason={client.lostReason} />
+            </Card>
+          </Section>
+          <Section title="Aprovação" action={needsAdesao ? <Badge tone="warning" className="h-6 text-[11px]">Falta a adesão</Badge> : undefined}>
+            <Card className="p-4">
+              <ApprovalForm client={client} />
             </Card>
           </Section>
           <Section title="Dados">
             <Card className="divide-y divide-line">
               {facts.map(([label, value]) => (
-                <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-3 text-[14px]">
+                <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-2.5 text-[14px]">
                   <dt className="shrink-0 text-muted">{label}</dt>
                   <dd className="truncate text-right font-medium text-ink">{value}</dd>
                 </div>

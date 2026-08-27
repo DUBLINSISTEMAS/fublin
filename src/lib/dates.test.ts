@@ -3,14 +3,19 @@ import {
   dayBounds,
   dayKey,
   formatCountdown,
+  formatMonthLong,
   formatRelativeDay,
   formatWhen,
   fromLocalInput,
   isReminderDue,
   isValidDayKey,
+  isValidMonthKey,
   isValidTime,
+  monthKey,
+  monthRange,
   reminderDueAt,
   shiftDayKey,
+  shiftMonthKey,
   toLocalInput,
 } from "./dates";
 
@@ -71,6 +76,20 @@ describe("relative formatting", () => {
     expect(formatCountdown(new Date(2026, 7, 27, 16, 0), now)).toBe("em 2 h");
     expect(formatCountdown(new Date(2026, 7, 27, 13, 50), now)).toBe("há 10 min");
     expect(formatCountdown(now, now)).toBe("agora");
+  });
+});
+
+describe("months", () => {
+  it("builds and validates month keys and ranges", () => {
+    expect(monthKey(now)).toBe("2026-08");
+    expect(isValidMonthKey("2026-08")).toBe(true);
+    expect(isValidMonthKey("2026-13")).toBe(false);
+    expect(isValidMonthKey("todos")).toBe(false);
+    const { start, end } = monthRange("2026-12");
+    expect(dayKey(start)).toBe("2026-12-01");
+    expect(dayKey(end)).toBe("2027-01-01");
+    expect(shiftMonthKey("2026-01", -1)).toBe("2025-12");
+    expect(formatMonthLong(start)).toBe("Dezembro de 2026");
   });
 });
 

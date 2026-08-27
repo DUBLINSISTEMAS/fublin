@@ -120,3 +120,26 @@ Tradução para o produto:
 - Shell: sidebar branca flutuante (nav + Líderes + card escuro "Próximo"), barra superior com busca global + "Novo cliente" azul; tab bar branca no mobile.
 - Hoje: gráfico de área azul/limão (7 dias), heatmap hora×dia (14 dias), KPIs com chip de variação, agenda em colunas kanban (Agora em azul-claro).
 - Clientes: kanban do funil (Novo → Fechou) com cards (chip de interesse, líder com avatar, próximo agendamento); lista para busca/filtros; toggle Funil/Lista na URL (`?view=lista`).
+
+---
+
+## Adendo 2 (2026-08-27, noite) — lógica v2: a rotina do relacionador
+
+Pedido: "aja como tech lead", kanban com arrastar, líder por cliente, análise/aprovação com adesão, anexar propostas, responsivo em tudo.
+
+Domínio:
+- Funil: `novo → agendado → atendido → negociando → analise → aprovado → fechou | perdido` (`visitou` migrado para `atendido`). `PIPELINE_STATUSES` define as colunas; `perdido` é a última coluna (zona de descarte).
+- Cliente ganha `attendance` (presencial/online), `credit_cents` (carta), `adesao_cents`, `analysis_started_at`, `approved_at`, `closed_at`, `lost_at`, `lost_reason`. `statusStamps()` carimba as datas ao entrar em cada etapa (só se vazias; fechar direto carimba aprovação também; sair de perdido limpa `lost_*`).
+- Agendamento ganha o tipo `reuniao` (online). Realizar `visita` ou `reuniao` = atendimento (conta em `meetingsCount`, avança novo/agendado → atendido).
+- Anexos: tabela `attachments` + arquivos em `data/uploads/<clientId>/<id>.<ext>`; upload por route handler (`POST /api/anexos`, multipart, 10 MB, JPG/PNG/WebP/HEIC/PDF), leitura por `GET /api/anexos/[id]`.
+- Dinheiro sempre em centavos (`lib/money.ts`: `parseBRL`, `formatBRL`).
+
+UI:
+- Kanban com @dnd-kit (PointerSensor 6px, TouchSensor 220ms, KeyboardSensor); atualização otimista + `moveClientAction`; menu "…" com "Mover para" e "Líder de vendas" como alternativa acessível.
+- Página do cliente: cabeçalho com chips (etapa, interesse, atendimento), card "Aprovação" (carta, adesão, datas), "Propostas e documentos" (upload por arrasto/escolha/câmera, galeria), etapa com motivo de perda.
+- Aba **Aprovados** (`/aprovados?mes=YYYY-MM|todos&lider=`): KPIs, tabela (desktop) / cards (mobile), CSV.
+- **Líderes**: tabela de desempenho (`getLeaderStats`).
+- Nav mobile: Hoje · Clientes · Agenda · Aprovados · Mais (Líderes, Config).
+- Hoje: faixa do funil, KPIs (agendados hoje, em análise, fechados e adesão no mês), gráfico com hover.
+
+QA: gstack `responsive` em 375/768/1280 para Hoje, Funil, Cliente, Aprovados, Líderes; DnD validado com pointer events reais (Gabriela: Em análise → Aprovado, `approved_at` carimbado, timeline registrada).
