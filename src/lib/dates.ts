@@ -80,6 +80,12 @@ export function formatDayShort(date: Date): string {
   return format(date, "d MMM", { locale: ptBR }).replace(".", "");
 }
 
+/** "Qui" (3 primeiras letras de "quinta-feira"). */
+export function formatWeekdayShort(date: Date): string {
+  const raw = format(date, "EEEE", { locale: ptBR }).slice(0, 3);
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
 /** "27/08/2026" */
 export function formatDate(date: Date): string {
   return format(date, "dd/MM/yyyy");

@@ -34,7 +34,7 @@ export function DayNav({ day }: { day: DayKey }) {
           const next = e.target.value;
           if (isValidDayKey(next)) router.push(`/agenda?d=${next}`);
         }}
-        className="h-9 rounded-lg border border-line-strong bg-surface px-2.5 text-[13px] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
+        className="h-9 rounded-control border border-line-strong bg-surface px-2.5 text-[13px] text-ink focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/20"
       />
     </div>
   );

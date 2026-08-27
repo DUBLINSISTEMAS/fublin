@@ -18,7 +18,7 @@ export function Timeline({ items }: { items: ActivityItem[] }) {
         const at = fromIso(item.createdAt);
         return (
           <li key={item.id} className="relative">
-            <span className="absolute top-0.5 -left-[31px] grid size-5 place-items-center rounded-full border border-line bg-surface text-muted">
+            <span className="absolute top-0.5 -left-[31px] grid size-5 place-items-center rounded-full bg-accent-soft text-accent-ink">
               <Icon className="size-3" aria-hidden />
             </span>
             <p className={item.type === "nota" ? "text-[15px] whitespace-pre-wrap text-ink" : "text-sm text-ink-2"}>{item.content}</p>

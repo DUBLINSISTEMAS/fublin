@@ -8,10 +8,7 @@ import { isNavActive, NAV_ITEMS } from "./nav";
 export function BottomTabs() {
   const pathname = usePathname();
   return (
-    <nav
-      aria-label="Principal"
-      className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur md:hidden"
-    >
+    <nav aria-label="Principal" className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur md:hidden">
       <ul className="grid grid-cols-5">
         {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
           const active = isNavActive(href, pathname);
@@ -25,7 +22,9 @@ export function BottomTabs() {
                   active ? "text-accent" : "text-muted hover:text-ink",
                 )}
               >
-                <Icon className="size-[22px]" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                <span className={cn("grid h-7 w-11 place-items-center rounded-full transition-colors", active && "bg-accent-soft")}>
+                  <Icon className="size-[20px]" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
+                </span>
                 {label}
               </Link>
             </li>

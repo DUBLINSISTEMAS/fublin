@@ -5,7 +5,7 @@ import { clientInputSchema } from "@/features/clients/schema";
 import { getClientDetail, listClients } from "@/features/clients/queries";
 import { createClient } from "@/features/clients/service";
 import { appointmentInputSchema } from "./schema";
-import { listAppointmentsForDay, listOverdueAppointments, listReminders, listUpcomingAppointments } from "./queries";
+import { getActivityHeatmap, listAppointmentsForDay, listOverdueAppointments, listReminders, listUpcomingAppointments } from "./queries";
 import { createAppointment, deleteAppointment, setAppointmentStatus, updateAppointment } from "./service";
 
 const now = new Date(2026, 7, 27, 14, 0);
@@ -67,6 +67,23 @@ describe("appointments", () => {
     expect(logs.some((l) => l.startsWith("Remarcou"))).toBe(true);
     await deleteAppointment(db, a.id);
     await expect(deleteAppointment(db, a.id)).rejects.toThrow();
+  });
+
+  it("buckets appointments into an hour x day heatmap", async () => {
+    await createAppointment(db, input("2026-08-27", "14:10"), now);
+    await createAppointment(db, input("2026-08-27", "14:50"), now);
+    await createAppointment(db, input("2026-08-20", "09:00"), now);
+    const cancelled = await createAppointment(db, input("2026-08-27", "16:00"), now);
+    await setAppointmentStatus(db, cancelled.id, "cancelado", now);
+    const heat = await getActivityHeatmap(db, now, 14);
+    expect(heat.days).toHaveLength(14);
+    expect(heat.days[13].day).toBe("2026-08-27");
+    expect(heat.days[13].label).toBe("27");
+    const hour14 = heat.hours.indexOf(14);
+    expect(heat.cells[hour14][13]).toBe(2);
+    expect(heat.cells[heat.hours.indexOf(16)][13]).toBe(0);
+    expect(heat.cells[heat.hours.indexOf(9)][6]).toBe(1);
+    expect(heat.max).toBe(2);
   });
 
   it("overdue, upcoming and reminders windows", async () => {

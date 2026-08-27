@@ -34,7 +34,7 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
         actions={
           <>
             <DayNav day={day} />
-            <ButtonLink href={`/agenda/novo?d=${day}`} size="sm" className="max-md:hidden">
+            <ButtonLink href={`/agenda/novo?d=${day}`} size="sm" variant="dark" className="max-md:hidden">
               <CalendarPlus className="size-4" aria-hidden />
               Agendar
             </ButtonLink>
@@ -58,7 +58,7 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
         <Card>
           <ul className="divide-y divide-line">
             {items.map((a) => (
-              <AppointmentRow key={a.id} appointment={a} now={now} variant={variantFor(a.status, fromIso(a.scheduledAt), now)} />
+              <AppointmentRow key={a.id} appointment={a} now={now} showDay={false} variant={variantFor(a.status, fromIso(a.scheduledAt), now)} />
             ))}
           </ul>
         </Card>

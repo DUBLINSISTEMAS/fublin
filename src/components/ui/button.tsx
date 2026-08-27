@@ -2,23 +2,24 @@ import Link from "next/link";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/cn";
 
-export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "danger";
+export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "danger" | "dark";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const BASE =
-  "inline-flex cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-lg font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-control font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50";
 
 const VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-ink text-white shadow-card hover:bg-ink-2",
-  accent: "bg-accent text-white shadow-card hover:bg-accent-strong",
+  primary: "bg-accent text-white hover:bg-accent-strong",
+  accent: "bg-accent text-white hover:bg-accent-strong",
+  dark: "bg-dark text-white hover:bg-dark-2",
   secondary: "border border-line-strong bg-surface text-ink hover:bg-surface-2",
   ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink",
-  danger: "bg-red-600 text-white hover:bg-red-700",
+  danger: "bg-rose text-rose-ink hover:bg-red-200",
 };
 
 const SIZES: Record<ButtonSize, string> = {
-  sm: "h-9 px-3 text-[13px]",
-  md: "h-11 px-4 text-sm",
+  sm: "h-9 px-3.5 text-[13px]",
+  md: "h-11 px-4 text-[14px]",
   lg: "h-12 px-5 text-[15px]",
 };
 

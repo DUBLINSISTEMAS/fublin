@@ -46,6 +46,16 @@ O status é livre (você muda quando quiser), mas o sistema ajuda:
 
 Toda mudança fica na linha do tempo do cliente, junto das suas notas.
 
+## Visual
+
+Direção inspirada em dashboards SaaS de CRM (referências: *B2B SaaS Web CRM Dashboard* e *Customer Journey CRM Dashboard*, Dribbble): canvas cinza-azulado claro, painéis brancos flutuantes com raio grande, azul como cor principal, chips pastel (azul, limão, amarelo), contadores pretos redondos, tipografia geométrica leve (Outfit).
+
+- **Hoje**: gráfico de área (novos clientes × visitas, 7 dias), heatmap de atividade (hora × dia, 14 dias), KPIs e a agenda em colunas (Agora · Hoje · Atrasados · Amanhã).
+- **Clientes**: kanban do funil por status (rola na horizontal no celular) ou lista; busca global na barra superior.
+- Sidebar com os líderes de vendas e um card escuro com o próximo agendamento.
+
+Tokens de cor, raio e sombra ficam em `src/app/globals.css` (`@theme`).
+
 ## Stack
 
 | Camada | Escolha |
@@ -53,7 +63,7 @@ Toda mudança fica na linha do tempo do cliente, junto das suas notas.
 | App | Next.js 16 (App Router, Server Actions), React 19, TypeScript |
 | Dados | SQLite via `@libsql/client` + Drizzle ORM (migrações em `drizzle/`) |
 | Validação | Zod (no servidor, em todas as entradas) |
-| UI | Tailwind CSS 4, IBM Plex Sans, ícones Lucide |
+| UI | Tailwind CSS 4, Outfit (Google Fonts via `next/font`), ícones Lucide, gráficos em SVG puro |
 | Testes | Vitest (unitários + integração com SQLite em memória) |
 
 ```

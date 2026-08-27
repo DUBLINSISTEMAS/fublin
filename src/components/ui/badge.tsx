@@ -5,36 +5,40 @@ import {
   APPOINTMENT_STATUS_TONE,
   CLIENT_STATUS_LABELS,
   CLIENT_STATUS_TONE,
+  INTEREST_LABELS,
   type AppointmentStatus,
   type ClientStatus,
+  type Interest,
   type Tone,
 } from "@/lib/domain";
 
+/* Chips pastel com texto escuro (azul, limão, amarelo…), como na referência. */
 const TONES: Record<Tone, string> = {
-  neutral: "bg-stone-100 text-stone-700",
-  info: "bg-sky-50 text-sky-800",
-  accent: "bg-accent-soft text-accent-ink",
-  warning: "bg-amber-50 text-amber-800",
-  success: "bg-emerald-50 text-emerald-800",
-  danger: "bg-rose-50 text-rose-800",
+  neutral: "bg-surface-3 text-ink-2",
+  info: "bg-sky text-sky-ink",
+  accent: "bg-accent text-white",
+  warning: "bg-sun text-sun-ink",
+  success: "bg-lime text-lime-ink",
+  danger: "bg-rose text-rose-ink",
 };
 
-const DOTS: Record<Tone, string> = {
-  neutral: "bg-stone-400",
-  info: "bg-sky-500",
-  accent: "bg-accent",
-  warning: "bg-amber-500",
-  success: "bg-emerald-500",
-  danger: "bg-rose-500",
+const INTEREST_TONE: Record<Interest, string> = {
+  imovel: "bg-accent text-white",
+  automovel: "bg-lime text-lime-ink",
+  moto: "bg-sun text-sun-ink",
+  servicos: "bg-sky text-sky-ink",
+  pesados: "bg-dark text-white",
+  outro: "bg-surface-3 text-ink-2",
 };
 
-export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
-  return (
-    <span className={cn("inline-flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium whitespace-nowrap", TONES[tone], className)}>
-      <span className={cn("size-1.5 rounded-full", DOTS[tone])} aria-hidden />
-      {children}
-    </span>
-  );
+type ChipProps = { children: ReactNode; className?: string };
+
+export function Chip({ className, children }: ChipProps & { className?: string }) {
+  return <span className={cn("inline-flex h-7 items-center rounded-chip px-2.5 text-[13px] font-medium whitespace-nowrap", className)}>{children}</span>;
+}
+
+export function Badge({ tone = "neutral", children, className }: { tone?: Tone } & ChipProps) {
+  return <Chip className={cn(TONES[tone], className)}>{children}</Chip>;
 }
 
 export function ClientStatusBadge({ status, className }: { status: ClientStatus; className?: string }) {
@@ -50,5 +54,18 @@ export function AppointmentStatusBadge({ status, className }: { status: Appointm
     <Badge tone={APPOINTMENT_STATUS_TONE[status]} className={className}>
       {APPOINTMENT_STATUS_LABELS[status]}
     </Badge>
+  );
+}
+
+export function InterestChip({ interest, className }: { interest: Interest; className?: string }) {
+  return <Chip className={cn(INTEREST_TONE[interest], className)}>{INTEREST_LABELS[interest]}</Chip>;
+}
+
+/** Contador redondo escuro ao lado de títulos de coluna. */
+export function CountBadge({ value, className }: { value: number; className?: string }) {
+  return (
+    <span className={cn("inline-grid h-7 min-w-7 place-items-center rounded-full bg-dark px-2 text-[12px] font-medium tabular-nums text-white", className)}>
+      {value}
+    </span>
   );
 }

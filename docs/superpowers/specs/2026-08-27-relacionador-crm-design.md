@@ -106,3 +106,17 @@ Datas: gravadas em ISO‑8601 UTC; exibidas no fuso local do servidor (o PC do u
 ## 9. Fora da v1 (explicitamente)
 
 Login/multiusuário · push com app fechado · WhatsApp API · relatórios avançados · anexos · deploy em nuvem (README explica como fazer depois).
+
+---
+
+## Adendo (2026-08-27, mesma tarde) — redesign "SaaS azul"
+
+Pedido do dono: reproduzir o visual de dois shots do Dribbble (*Customer Journey CRM Dashboard*, RonDesignLab; *B2B SaaS Web CRM Dashboard*, Ronas IT) e usar azul.
+
+Tradução para o produto:
+- Canvas `#EEF1F6`; painéis brancos `radius 24px`, cards `20px`, sombra quase nula; controles com fundo cinza `#F4F6F9` sem borda e foco azul.
+- Azul principal `#3B7BFF`; pastéis: limão `#C9F26B`, amarelo `#FFD84D`, azul-claro `#BFD7FF`; carvão `#1F242B` para CTA secundário, contadores e card "Próximo".
+- Fonte Outfit (300–600); títulos 26–30px peso 500; números KPI 40px peso 300.
+- Shell: sidebar branca flutuante (nav + Líderes + card escuro "Próximo"), barra superior com busca global + "Novo cliente" azul; tab bar branca no mobile.
+- Hoje: gráfico de área azul/limão (7 dias), heatmap hora×dia (14 dias), KPIs com chip de variação, agenda em colunas kanban (Agora em azul-claro).
+- Clientes: kanban do funil (Novo → Fechou) com cards (chip de interesse, líder com avatar, próximo agendamento); lista para busca/filtros; toggle Funil/Lista na URL (`?view=lista`).

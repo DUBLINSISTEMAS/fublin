@@ -1,0 +1,91 @@
+import Link from "next/link";
+import { CalendarDays, Check, MessageCircle, MoreHorizontal, Phone, UserX } from "lucide-react";
+import { AppointmentStatusBadge, Chip } from "@/components/ui/badge";
+import { cn } from "@/lib/cn";
+import { formatCountdown, formatRelativeDay, formatTime, fromIso } from "@/lib/dates";
+import { APPOINTMENT_KIND_LABELS, type AppointmentKind } from "@/lib/domain";
+import { telUrl, whatsappUrl } from "@/lib/phone";
+import { initials } from "@/lib/text";
+import { setAppointmentStatusAction } from "../actions";
+import type { AppointmentWithClient } from "../queries";
+
+export type CardVariant = "now" | "default" | "overdue" | "done";
+
+const KIND_CHIP: Record<AppointmentKind, string> = {
+  visita: "bg-accent text-white",
+  ligacao: "bg-lime text-lime-ink",
+  retorno: "bg-sun text-sun-ink",
+};
+
+type Props = { appointment: AppointmentWithClient; now: Date; variant?: CardVariant };
+
+/**
+ * Card de agendamento no estilo kanban: chip do tipo, nome, contexto,
+ * avatar do cliente, horário e baixa rápida. "Agora" ganha fundo azul-claro.
+ */
+export function AppointmentCard({ appointment, now, variant = "default" }: Props) {
+  const when = fromIso(appointment.scheduledAt);
+  const { client } = appointment;
+  const pending = appointment.status === "agendado";
+  const isNow = variant === "now";
+  const context = appointment.notes ?? client.interestNotes;
+
+  return (
+    <article className={cn("rounded-card p-4 shadow-card", isNow ? "bg-sky" : "bg-surface", variant === "done" && "opacity-70")}>
+      <div className="flex items-start justify-between gap-2">
+        {pending ? (
+          <Chip className={cn(KIND_CHIP[appointment.kind], isNow && appointment.kind === "visita" && "bg-dark")}>{APPOINTMENT_KIND_LABELS[appointment.kind]}</Chip>
+        ) : (
+          <AppointmentStatusBadge status={appointment.status} />
+        )}
+        <Link href={`/agenda/${appointment.id}/editar`} className="icon-btn -mt-1 -mr-1 size-8" aria-label="Editar agendamento">
+          <MoreHorizontal className="size-4" aria-hidden />
+        </Link>
+      </div>
+
+      <Link href={`/clientes/${client.id}`} className="mt-3 block text-[17px] font-medium leading-tight text-ink hover:underline">
+        {client.name}
+      </Link>
+      {context ? <p className={cn("mt-1 line-clamp-2 text-[13px] leading-snug", isNow ? "text-ink-2" : "text-muted")}>{context}</p> : null}
+
+      <div className="mt-3 flex items-center gap-2.5">
+        <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold", isNow ? "bg-white/70 text-accent-ink" : "bg-accent-soft text-accent-ink")}>
+          {initials(client.name)}
+        </span>
+        <div className="min-w-0 text-[12px] leading-tight">
+          <p className="truncate text-ink">{client.leader?.name ?? "Sem líder"}</p>
+          <p className={isNow ? "text-ink-2" : "text-muted"}>{client.leader ? "Líder de vendas" : "Definir na loja"}</p>
+        </div>
+      </div>
+
+      <div className={cn("mt-3 flex items-center justify-between gap-2 border-t pt-3", isNow ? "border-ink/10" : "border-line")}>
+        <span className="inline-flex items-center gap-1.5 text-[13px] tabular-nums text-ink-2">
+          <CalendarDays className="size-4" aria-hidden />
+          {variant === "now" ? `${formatTime(when)} · ${formatCountdown(when, now)}` : `${formatRelativeDay(when, now)} ${formatTime(when)}`}
+        </span>
+        <span className="flex items-center gap-0.5">
+          <a href={whatsappUrl(client.phone)} target="_blank" rel="noreferrer" className="icon-btn size-8" aria-label={`WhatsApp de ${client.name}`}>
+            <MessageCircle className="size-4" aria-hidden />
+          </a>
+          <a href={telUrl(client.phone)} className="icon-btn size-8" aria-label={`Ligar para ${client.name}`}>
+            <Phone className="size-4" aria-hidden />
+          </a>
+        </span>
+      </div>
+
+      {pending ? (
+        <form action={setAppointmentStatusAction} className="mt-3 grid grid-cols-2 gap-2">
+          <input type="hidden" name="id" value={appointment.id} />
+          <button type="submit" name="status" value="realizado" className={cn("quick-btn justify-center", isNow ? "bg-white text-ink hover:bg-white/80" : "quick-btn-ok")}>
+            <Check className="size-3.5" aria-hidden />
+            Realizado
+          </button>
+          <button type="submit" name="status" value="faltou" className={cn("quick-btn justify-center", isNow && "border-ink/10 bg-white/40")}>
+            <UserX className="size-3.5" aria-hidden />
+            Faltou
+          </button>
+        </form>
+      ) : null}
+    </article>
+  );
+}

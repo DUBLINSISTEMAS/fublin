@@ -1,7 +1,8 @@
-import { and, asc, count, desc, eq, gte, like, or, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, like, lt, or, sql } from "drizzle-orm";
+import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { Db } from "@/db/client";
 import { appointments, clients, type Appointment, type Client, type Leader } from "@/db/schema";
-import { toIso } from "@/lib/dates";
+import { dayBounds, dayKey, formatWeekdayShort, fromIso, shiftDayKey, toIso, type DayKey } from "@/lib/dates";
 import { CLIENT_STATUSES, INTERESTS, OPEN_CLIENT_STATUSES, type ClientStatus, type Interest } from "@/lib/domain";
 import { digitsOnly } from "@/lib/phone";
 
@@ -92,17 +93,48 @@ export async function countClientsByStatus(db: Db): Promise<Record<ClientStatus,
 
 export type MonthStats = { newClients: number; visits: number; closed: number };
 
-/** Números do mês corrente: novos cadastros, visitas realizadas e fechamentos. */
-export async function getMonthStats(db: Db, monthStartDate: Date): Promise<MonthStats> {
-  const start = toIso(monthStartDate);
-  const [{ newClients }] = await db.select({ newClients: count() }).from(clients).where(gte(clients.createdAt, start));
+/** Números de um período [start, end): novos cadastros, visitas realizadas e fechamentos. */
+export async function getMonthStats(db: Db, periodStart: Date, periodEnd?: Date): Promise<MonthStats> {
+  const start = toIso(periodStart);
+  const end = periodEnd ? toIso(periodEnd) : undefined;
+  const within = (column: AnySQLiteColumn) => (end ? and(gte(column, start), lt(column, end)) : gte(column, start));
+  const [{ newClients }] = await db.select({ newClients: count() }).from(clients).where(within(clients.createdAt));
   const [{ visits }] = await db
     .select({ visits: count() })
     .from(appointments)
-    .where(and(eq(appointments.kind, "visita"), eq(appointments.status, "realizado"), gte(appointments.scheduledAt, start)));
+    .where(and(eq(appointments.kind, "visita"), eq(appointments.status, "realizado"), within(appointments.scheduledAt)));
   const [{ closed }] = await db
     .select({ closed: count() })
     .from(clients)
-    .where(and(eq(clients.status, "fechou"), gte(clients.updatedAt, start)));
+    .where(and(eq(clients.status, "fechou"), within(clients.updatedAt)));
   return { newClients, visits, closed };
+}
+
+export type DayPoint = { day: DayKey; label: string; newClients: number; visits: number };
+
+/** Série dos últimos N dias (inclui hoje): novos clientes e visitas realizadas por dia. */
+export async function getDailySeries(db: Db, now: Date, days = 7): Promise<DayPoint[]> {
+  const firstDay = shiftDayKey(dayKey(now), -(days - 1));
+  const startIso = toIso(dayBounds(firstDay).start);
+  const [clientRows, visitRows] = await Promise.all([
+    db.select({ at: clients.createdAt }).from(clients).where(gte(clients.createdAt, startIso)),
+    db
+      .select({ at: appointments.scheduledAt })
+      .from(appointments)
+      .where(and(eq(appointments.kind, "visita"), eq(appointments.status, "realizado"), gte(appointments.scheduledAt, startIso))),
+  ]);
+  const countByDay = (rows: { at: string }[]) => {
+    const map = new Map<string, number>();
+    for (const r of rows) {
+      const key = dayKey(fromIso(r.at));
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return map;
+  };
+  const newByDay = countByDay(clientRows);
+  const visitsByDay = countByDay(visitRows);
+  return Array.from({ length: days }, (_, i) => {
+    const day = shiftDayKey(firstDay, i);
+    return { day, label: formatWeekdayShort(dayBounds(day).start), newClients: newByDay.get(day) ?? 0, visits: visitsByDay.get(day) ?? 0 };
+  });
 }

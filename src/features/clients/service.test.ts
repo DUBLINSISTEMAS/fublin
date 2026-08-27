@@ -3,7 +3,7 @@ import type { Db } from "@/db/client";
 import { createTestDb } from "@/db/test-db";
 import { createLeader } from "@/features/leaders/service";
 import { clientInputSchema } from "./schema";
-import { countClientsByStatus, getClientDetail, getMonthStats, listClients, parseClientFilters } from "./queries";
+import { countClientsByStatus, getClientDetail, getDailySeries, getMonthStats, listClients, parseClientFilters } from "./queries";
 import { addClientNote, createClient, deleteClient, registerVisit, setClientStatus, STATUS_ARROW, updateClient } from "./service";
 
 const now = new Date(2026, 7, 27, 14, 0);
@@ -99,5 +99,18 @@ describe("listClients filters", () => {
     expect(counts.fechou).toBe(1);
     const stats = await getMonthStats(db, new Date(2026, 7, 1));
     expect(stats).toEqual({ newClients: 2, visits: 0, closed: 1 });
+    const previous = await getMonthStats(db, new Date(2026, 6, 1), new Date(2026, 7, 1));
+    expect(previous).toEqual({ newClients: 0, visits: 0, closed: 0 });
+  });
+
+  it("builds a 7-day series ending today", async () => {
+    await createClient(db, base, now);
+    await createClient(db, base, new Date(2026, 7, 25, 9, 0));
+    await createClient(db, base, new Date(2026, 7, 1, 9, 0)); // fora da janela
+    const series = await getDailySeries(db, now, 7);
+    expect(series).toHaveLength(7);
+    expect(series[6]).toMatchObject({ day: "2026-08-27", label: "Qui", newClients: 1, visits: 0 });
+    expect(series[4]).toMatchObject({ day: "2026-08-25", newClients: 1 });
+    expect(series.reduce((s, p) => s + p.newClients, 0)).toBe(2);
   });
 });

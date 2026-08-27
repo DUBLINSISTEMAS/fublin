@@ -98,14 +98,14 @@ export function ReminderWatcher() {
       {alerts.map((item) => {
         const { title, body } = describe(item);
         return (
-          <div key={item.id} className="animate-rise pointer-events-auto flex items-start gap-3 rounded-xl border border-line bg-surface p-3.5 shadow-float">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-ink">
+          <div key={item.id} className="animate-rise pointer-events-auto flex items-start gap-3 rounded-card bg-dark p-4 text-white shadow-float">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-lime text-lime-ink">
               <Bell className="size-4" aria-hidden />
             </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-ink">{title}</p>
-              <p className="text-[13px] text-muted">{body}</p>
-              <Link href={`/clientes/${item.clientId}`} className="mt-1.5 inline-block text-[13px] font-medium text-accent hover:underline">
+              <p className="truncate text-[15px] font-medium">{title}</p>
+              <p className="text-[13px] text-white/70">{body}</p>
+              <Link href={`/clientes/${item.clientId}`} className="mt-2.5 inline-flex h-9 items-center rounded-control bg-white px-3.5 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2">
                 Ver cliente
               </Link>
             </div>
@@ -113,7 +113,7 @@ export function ReminderWatcher() {
               type="button"
               aria-label="Dispensar aviso"
               onClick={() => setAlerts((prev) => prev.filter((a) => a.id !== item.id))}
-              className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-md text-muted transition-colors hover:bg-surface-2 hover:text-ink"
+              className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"
             >
               <X className="size-4" aria-hidden />
             </button>

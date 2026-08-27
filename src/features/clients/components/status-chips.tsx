@@ -21,7 +21,7 @@ function hrefWithStatus(params: Props["params"], status: string | undefined): st
   return query ? `/clientes?${query}` : "/clientes";
 }
 
-/** Chips de status com contagem; o filtro ativo fica em carvão. */
+/** Chips de status com contagem; o filtro ativo fica escuro. */
 export function StatusChips({ filters, counts, params }: Props) {
   const total = CLIENT_STATUSES.reduce((sum, s) => sum + counts[s], 0);
   const open = OPEN_CLIENT_STATUSES.reduce((sum, s) => sum + counts[s], 0);
@@ -31,8 +31,8 @@ export function StatusChips({ filters, counts, params }: Props) {
     ...CLIENT_STATUSES.map((s) => ({ value: s, label: CLIENT_STATUS_LABELS[s], count: counts[s] })),
   ];
   return (
-    <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 [scrollbar-width:none]">
-      <ul className="flex w-max gap-1.5 pb-1">
+    <div className="-mx-4 min-w-0 overflow-x-auto px-4 no-scrollbar sm:-mx-5 sm:px-5 md:mx-0 md:px-0">
+      <ul className="flex w-max gap-1.5">
         {chips.map((chip) => {
           const active = (filters.status ?? undefined) === chip.value;
           return (
@@ -42,8 +42,8 @@ export function StatusChips({ filters, counts, params }: Props) {
                 scroll={false}
                 aria-current={active ? "true" : undefined}
                 className={cn(
-                  "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors duration-150",
-                  active ? "border-ink bg-ink text-white" : "border-line-strong bg-surface text-ink-2 hover:bg-surface-2",
+                  "inline-flex h-9 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors duration-150",
+                  active ? "bg-dark text-white" : "bg-surface text-ink-2 shadow-card hover:bg-surface-2",
                 )}
               >
                 {chip.label}
