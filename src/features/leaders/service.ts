@@ -14,7 +14,7 @@ export async function listLeaders(db: Db, options: { includeInactive?: boolean }
 }
 
 export async function createLeader(db: Db, input: LeaderInput, now: Date = new Date()): Promise<Leader> {
-  const row: Leader = { id: newId(), name: input.name, phone: input.phone ?? null, active: true, createdAt: toIso(now) };
+  const row: Leader = { id: newId(), name: input.name, phone: input.phone ?? null, active: true, photoKey: null, createdAt: toIso(now) };
   await db.insert(leaders).values(row);
   return row;
 }

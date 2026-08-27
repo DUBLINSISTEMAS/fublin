@@ -2,124 +2,215 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Bell, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { AlarmClock, Bell, Check, X } from "lucide-react";
 import type { ReminderItem } from "@/features/appointments/queries";
-import { formatWhen } from "@/lib/dates";
+import { setAppointmentStatusAction } from "@/features/appointments/actions";
+import { beep, unlockAudio } from "@/lib/beep";
+import { formatCountdown, formatWhen } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS } from "@/lib/domain";
+import { OK } from "@/lib/result";
+import { toast } from "@/components/ui/toast";
 
-const POLL_MS = 60_000;
-const STORAGE_KEY = "relacionador:notified";
+const POLL_MS = 30_000;
+const SNOOZE_MS = 5 * 60_000;
+const STORAGE_KEY = "relacionador:alerts";
 const KEEP_MS = 2 * 24 * 60 * 60 * 1000;
 
-type Notified = Record<string, number>;
+type Memory = { dismissed: Record<string, number>; snoozed: Record<string, number> };
+type AlertPrefs = { repeatMinutes: number; sound: boolean };
+type Payload = { now: string; items: ReminderItem[]; alerts: AlertPrefs };
 
-function readNotified(): Notified {
+function readMemory(): Memory {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    const parsed: Notified = raw ? JSON.parse(raw) : {};
+    const parsed: Partial<Memory> = raw ? JSON.parse(raw) : {};
     const cutoff = Date.now() - KEEP_MS;
-    return Object.fromEntries(Object.entries(parsed).filter(([, ts]) => ts > cutoff));
+    const keep = (map: Record<string, number> | undefined) => Object.fromEntries(Object.entries(map ?? {}).filter(([, ts]) => ts > cutoff));
+    return { dismissed: keep(parsed.dismissed), snoozed: keep(parsed.snoozed) };
   } catch {
-    return {};
+    return { dismissed: {}, snoozed: {} };
   }
 }
 
-function writeNotified(value: Notified) {
+function writeMemory(memory: Memory) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(memory));
   } catch {
     /* armazenamento indisponível: seguimos só com o aviso in-app */
   }
 }
 
 function describe(item: ReminderItem): { title: string; body: string } {
-  return {
-    title: `${APPOINTMENT_KIND_LABELS[item.kind]}: ${item.clientName}`,
-    body: formatWhen(new Date(item.scheduledAt)),
+  return { title: `${APPOINTMENT_KIND_LABELS[item.kind]}: ${item.clientName}`, body: formatWhen(new Date(item.scheduledAt)) };
+}
+
+function notify(item: ReminderItem, onOpen: () => void) {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  const { title, body } = describe(item);
+  const n = new Notification(title, { body, tag: item.id, icon: "/icon.svg", requireInteraction: true });
+  n.onclick = () => {
+    window.focus();
+    onOpen();
+    n.close();
   };
 }
 
 /**
- * Consulta /api/reminders a cada minuto; quando um agendamento entra na janela
- * de lembrete, mostra um aviso in-app e (se permitido) uma notificação do sistema.
+ * Consulta /api/reminders a cada 30 s. Quando um agendamento entra na janela do
+ * lembrete, mostra um alerta que fica na tela (e repete som/notificação no intervalo
+ * configurado) até você dispensar, adiar 5 min ou dar baixa.
  */
 export function ReminderWatcher() {
   const router = useRouter();
   const [alerts, setAlerts] = useState<ReminderItem[]>([]);
-  const notified = useRef<Notified>({});
+  const [now, setNow] = useState(() => new Date());
+  const memory = useRef<Memory>({ dismissed: {}, snoozed: {} });
+  const lastFired = useRef<Record<string, number>>({});
+  const prefs = useRef<AlertPrefs>({ repeatMinutes: 2, sound: true });
+
+  const fire = useCallback(
+    (item: ReminderItem) => {
+      lastFired.current[item.id] = Date.now();
+      notify(item, () => router.push(`/clientes/${item.clientId}`));
+      if (prefs.current.sound) beep();
+    },
+    [router],
+  );
 
   const check = useCallback(async () => {
     try {
       const res = await fetch("/api/reminders", { cache: "no-store" });
       if (!res.ok) return;
-      const data: { items: ReminderItem[] } = await res.json();
-      const fresh = data.items.filter((i) => i.due && !notified.current[i.id]);
-      if (fresh.length === 0) return;
-      for (const item of fresh) notified.current[item.id] = Date.now();
-      writeNotified(notified.current);
-      setAlerts((prev) => [...prev, ...fresh]);
-      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        for (const item of fresh) {
-          const { title, body } = describe(item);
-          const n = new Notification(title, { body, tag: item.id, icon: "/icon.svg" });
-          n.onclick = () => {
-            window.focus();
-            router.push(`/clientes/${item.clientId}`);
-            n.close();
-          };
-        }
+      const data: Payload = await res.json();
+      prefs.current = data.alerts;
+      const stamp = Date.now();
+      const active = data.items.filter((i) => i.due && !memory.current.dismissed[i.id] && (memory.current.snoozed[i.id] ?? 0) <= stamp);
+      setAlerts(active);
+      setNow(new Date());
+      const repeatMs = prefs.current.repeatMinutes * 60_000;
+      for (const item of active) {
+        const last = lastFired.current[item.id];
+        if (last === undefined || (repeatMs > 0 && stamp - last >= repeatMs)) fire(item);
       }
     } catch {
       /* rede indisponível: tenta de novo no próximo ciclo */
     }
-  }, [router]);
+  }, [fire]);
 
   useEffect(() => {
-    notified.current = readNotified();
+    memory.current = readMemory();
     void check();
     const timer = window.setInterval(check, POLL_MS);
     const onVisible = () => document.visibilityState === "visible" && void check();
     document.addEventListener("visibilitychange", onVisible);
+    // O som só pode tocar depois de um gesto: o primeiro clique/tecla libera o áudio.
+    const unlock = () => unlockAudio();
+    window.addEventListener("pointerdown", unlock, { once: true });
+    window.addEventListener("keydown", unlock, { once: true });
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("pointerdown", unlock);
+      window.removeEventListener("keydown", unlock);
     };
   }, [check]);
+
+  // Título da aba mostra quantos alertas estão esperando.
+  useEffect(() => {
+    const base = document.title.replace(/^\(\d+\) /, "");
+    document.title = alerts.length ? `(${alerts.length}) ${base}` : base;
+  }, [alerts.length]);
+
+  /** Tira o alerta da tela e lembra disso: dispensado (para sempre) ou adiado (até `until`). */
+  function remove(id: string, bucket: keyof Memory, until: number) {
+    memory.current = { ...memory.current, [bucket]: { ...memory.current[bucket], [id]: until } };
+    writeMemory(memory.current);
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  }
 
   if (alerts.length === 0) return null;
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-3 bottom-[calc(4.5rem+env(safe-area-inset-bottom,0px))] z-50 flex flex-col gap-2 md:inset-x-auto md:right-4 md:bottom-4 md:w-96"
+      className="pointer-events-none fixed inset-x-3 top-3 z-50 flex flex-col gap-2 md:inset-x-auto md:top-auto md:right-4 md:bottom-4 md:w-96"
       role="status"
-      aria-live="polite"
+      aria-live="assertive"
     >
-      {alerts.map((item) => {
-        const { title, body } = describe(item);
-        return (
-          <div key={item.id} className="animate-rise pointer-events-auto flex items-start gap-3 rounded-card bg-dark p-4 text-white shadow-float">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-lime text-lime-ink">
-              <Bell className="size-4" aria-hidden />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-medium">{title}</p>
-              <p className="text-[13px] text-white/70">{body}</p>
-              <Link href={`/clientes/${item.clientId}`} className="mt-2.5 inline-flex h-9 items-center rounded-control bg-white px-3.5 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2">
-                Ver cliente
-              </Link>
-            </div>
-            <button
-              type="button"
-              aria-label="Dispensar aviso"
-              onClick={() => setAlerts((prev) => prev.filter((a) => a.id !== item.id))}
-              className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <X className="size-4" aria-hidden />
-            </button>
-          </div>
-        );
-      })}
+      {alerts.map((item) => (
+        <AlertCard
+          key={item.id}
+          item={item}
+          now={now}
+          onDismiss={() => remove(item.id, "dismissed", Date.now())}
+          onSnooze={() => {
+            remove(item.id, "snoozed", Date.now() + SNOOZE_MS);
+            toast.info("Alerta adiado por 5 minutos.");
+          }}
+          onDone={() => {
+            remove(item.id, "dismissed", Date.now());
+            router.refresh();
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+type AlertCardProps = { item: ReminderItem; now: Date; onDismiss: () => void; onSnooze: () => void; onDone: () => void };
+
+function AlertCard({ item, now, onDismiss, onSnooze, onDone }: AlertCardProps) {
+  const { title } = describe(item);
+  const when = new Date(item.scheduledAt);
+  const [pending, startTransition] = useTransition();
+
+  function markDone() {
+    startTransition(async () => {
+      const data = new FormData();
+      data.set("id", item.id);
+      data.set("status", "realizado");
+      const result = await setAppointmentStatusAction(OK, data);
+      if (result.ok) {
+        toast.success("Baixa registrada.");
+        onDone();
+      } else toast.error(result.error);
+    });
+  }
+
+  return (
+    <div className="animate-rise animate-alert pointer-events-auto rounded-card bg-dark p-4 text-white shadow-float">
+      <div className="flex items-start gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-lime text-lime-ink">
+          <Bell className="size-4" aria-hidden />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[15px] font-medium">{title}</p>
+          <p className="text-[13px] text-white/70">
+            {formatWhen(when, now)} · <span className="text-lime">{formatCountdown(when, now)}</span>
+          </p>
+        </div>
+        <button
+          type="button"
+          aria-label="Dispensar alerta"
+          onClick={onDismiss}
+          className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-full text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+        >
+          <X className="size-4" aria-hidden />
+        </button>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Link href={`/clientes/${item.clientId}`} className="inline-flex h-9 items-center rounded-control bg-white px-3.5 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2">
+          Ver cliente
+        </Link>
+        <button type="button" onClick={markDone} disabled={pending} className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-control bg-white/10 px-3 text-[13px] font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-50">
+          <Check className="size-4" aria-hidden />
+          Realizado
+        </button>
+        <button type="button" onClick={onSnooze} className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-control px-3 text-[13px] font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white">
+          <AlarmClock className="size-4" aria-hidden />
+          Soneca 5 min
+        </button>
+      </div>
     </div>
   );
 }

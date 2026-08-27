@@ -15,6 +15,13 @@
       "when": 1787862029036,
       "tag": "0001_funil_v2_anexos",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1787871701837,
+      "tag": "0002_agenda_metas_perfil",
+      "breakpoints": true
     }
   ]
 }

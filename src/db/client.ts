@@ -29,19 +29,25 @@ function resolveDatabaseUrl(): string {
   return `file:${file}`;
 }
 
-const globalForDb = globalThis as unknown as { __relacionadorDb?: Promise<Db> };
+type Cached = { db: Promise<Db>; schema: typeof schema };
+const globalForDb = globalThis as unknown as { __relacionadorDb?: Cached };
 
-/** Singleton por processo (sobrevive ao HMR do Next). Migra na primeira chamada. */
+/**
+ * Singleton por processo (sobrevive ao HMR do Next). Migra na primeira chamada.
+ * Se o módulo de schema mudou (nova migração com o `next dev` aberto), a conexão
+ * é recriada com o schema novo em vez de servir `db.query.<tabela nova>` indefinido.
+ */
 export function getDb(): Promise<Db> {
-  if (!globalForDb.__relacionadorDb) {
-    globalForDb.__relacionadorDb = (async () => {
-      const db = createDb(resolveDatabaseUrl());
-      await migrateDb(db);
-      return db;
-    })().catch((error: unknown) => {
-      globalForDb.__relacionadorDb = undefined;
-      throw error;
-    });
-  }
-  return globalForDb.__relacionadorDb;
+  const cached = globalForDb.__relacionadorDb;
+  if (cached && cached.schema === schema) return cached.db;
+  const db = (async () => {
+    const fresh = createDb(resolveDatabaseUrl());
+    await migrateDb(fresh);
+    return fresh;
+  })().catch((error: unknown) => {
+    globalForDb.__relacionadorDb = undefined;
+    throw error;
+  });
+  globalForDb.__relacionadorDb = { db, schema };
+  return db;
 }

@@ -94,6 +94,31 @@ export const APPOINTMENT_KIND_SHORT: Record<AppointmentKind, string> = {
 };
 /** Tipos que contam como "o líder atendeu o cliente". */
 export const ATTENDANCE_KINDS: readonly AppointmentKind[] = ["visita", "reuniao"];
+/** Cor de cada tipo (chips, blocos da agenda, filtros). */
+export const APPOINTMENT_KIND_TONE: Record<AppointmentKind, Tone> = {
+  visita: "accent",
+  reuniao: "info",
+  ligacao: "success",
+  retorno: "warning",
+};
+
+/** Duração prevista do agendamento (bloco na grade da agenda). */
+export const DURATION_OPTIONS = [
+  { value: 15, label: "15 min" },
+  { value: 30, label: "30 min" },
+  { value: 45, label: "45 min" },
+  { value: 60, label: "1 hora" },
+  { value: 90, label: "1h30" },
+  { value: 120, label: "2 horas" },
+] as const;
+export const DEFAULT_DURATION_MINUTES = 60;
+/** Duração sugerida por tipo, quando o usuário não escolhe. */
+export const DEFAULT_DURATION_BY_KIND: Record<AppointmentKind, number> = {
+  visita: 60,
+  reuniao: 45,
+  ligacao: 15,
+  retorno: 30,
+};
 
 export const APPOINTMENT_STATUSES = ["agendado", "realizado", "faltou", "cancelado"] as const;
 export type AppointmentStatus = (typeof APPOINTMENT_STATUSES)[number];

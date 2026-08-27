@@ -3,7 +3,8 @@ import { getDb } from "@/db/client";
 import { createAppointmentAction } from "@/features/appointments/actions";
 import { AppointmentForm } from "@/features/appointments/components/appointment-form";
 import { listClientOptions } from "@/features/clients/queries";
-import { dayKey, isValidDayKey } from "@/lib/dates";
+import { getSettings } from "@/features/settings/service";
+import { dayKey, isValidDayKey, isValidTime } from "@/lib/dates";
 import { pickParam } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
@@ -13,19 +14,31 @@ export const metadata = { title: "Novo agendamento" };
 export default async function NewAppointmentPage(props: PageProps<"/agenda/novo">) {
   const params = await props.searchParams;
   const requestedDay = pickParam(params, "d");
+  const requestedTime = pickParam(params, "h");
   const clientId = pickParam(params, "cliente");
   const day = isValidDayKey(requestedDay) ? requestedDay : dayKey(new Date());
+  const time = isValidTime(requestedTime) ? requestedTime : undefined;
 
   const db = await getDb();
-  const clients = await listClientOptions(db);
+  const [clients, settings] = await Promise.all([listClientOptions(db), getSettings(db)]);
   const locked = clientId ? clients.find((c) => c.id === clientId) : undefined;
   const returnTo = locked ? "cliente" : "agenda";
   const cancelHref = locked ? `/clientes/${locked.id}` : `/agenda?d=${day}`;
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader eyebrow="Agenda" title="Novo agendamento" description="Você recebe um lembrete antes do horário, no computador e no celular." />
-      <AppointmentForm action={createAppointmentAction} clients={clients} lockedClient={locked} defaultDay={day} returnTo={returnTo} cancelHref={cancelHref} submitLabel="Agendar" />
+      <PageHeader eyebrow="Agenda" title="Novo agendamento" description="Você recebe um alerta antes do horário, no computador e no celular." />
+      <AppointmentForm
+        action={createAppointmentAction}
+        clients={clients}
+        lockedClient={locked}
+        defaultDay={day}
+        defaultTime={time}
+        defaultReminderMinutes={settings.alerts.leadMinutes}
+        returnTo={returnTo}
+        cancelHref={cancelHref}
+        submitLabel="Agendar"
+      />
     </div>
   );
 }

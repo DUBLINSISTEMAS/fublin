@@ -1,4 +1,5 @@
 import { Suspense, type ReactNode } from "react";
+import { Toaster } from "@/components/ui/toast";
 import { BottomTabs } from "./bottom-tabs";
 import { ReminderWatcher } from "./reminder-watcher";
 import { Sidebar } from "./sidebar";
@@ -20,6 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
       <BottomTabs />
       <ReminderWatcher />
+      <Toaster />
     </div>
   );
 }

@@ -9,6 +9,8 @@ import {
   parse,
   parseISO,
   startOfDay,
+  startOfMonth,
+  startOfWeek,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -60,6 +62,27 @@ export function dayBounds(day: DayKey): { start: Date; end: Date } {
 
 export function shiftDayKey(day: DayKey, days: number): DayKey {
   return dayKey(addDays(parse(day, "yyyy-MM-dd", REF), days));
+}
+
+/** Segunda-feira da semana que contém o dia. */
+export function weekStartKey(day: DayKey): DayKey {
+  return dayKey(startOfWeek(dayBounds(day).start, { weekStartsOn: 1 }));
+}
+
+/** Os N dias a partir de `first` (inclusive). */
+export function dayKeysFrom(first: DayKey, count: number): DayKey[] {
+  return Array.from({ length: count }, (_, i) => shiftDayKey(first, i));
+}
+
+/** Segunda-feira da 1ª linha da grade do mês (o mês sempre cabe em 6 semanas). */
+export function monthGridStartKey(day: DayKey): DayKey {
+  return dayKey(startOfWeek(startOfMonth(dayBounds(day).start), { weekStartsOn: 1 }));
+}
+
+/** "8 a 14 de set" ou "29 set a 5 out" — intervalo inclusivo de dias. */
+export function formatDayRange(first: Date, last: Date): string {
+  const month = (d: Date) => format(d, "MMM", { locale: ptBR }).replace(".", "");
+  return first.getMonth() === last.getMonth() ? `${first.getDate()} a ${last.getDate()} de ${month(last)}` : `${first.getDate()} ${month(first)} a ${last.getDate()} ${month(last)}`;
 }
 
 /** Chave de mês: "2026-08". */

@@ -1,9 +1,10 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { Check, UserX } from "lucide-react";
 import { ActionError } from "@/components/ui/action-error";
+import { useActionToast } from "@/components/ui/toast";
 import { cn } from "@/lib/cn";
 import { OK } from "@/lib/result";
 import { setAppointmentStatusAction } from "../actions";
@@ -14,13 +15,23 @@ type Props = {
   layout: "card" | "row";
   /** Sobre fundo azul-claro (card "Agora") os botões ficam brancos. */
   tinted?: boolean;
+  /** Chamado depois de uma baixa bem-sucedida (fechar painel, etc.). */
+  onDone?: () => void;
 };
 
-/** Baixa rápida de um agendamento em aberto: Realizado / Faltou. Erros aparecem logo abaixo. */
-export function QuickStatus({ appointmentId, layout, tinted = false }: Props) {
+/** Baixa rápida de um agendamento em aberto: Realizado / Faltou. Erros aparecem logo abaixo; sucesso vira um aviso "Baixa registrada". */
+export function QuickStatus({ appointmentId, layout, tinted = false, onDone }: Props) {
   const [state, formAction] = useActionState(setAppointmentStatusAction, OK);
+  useActionToast(state, "Baixa registrada.");
+  const seen = useRef(state);
+  useEffect(() => {
+    if (state === seen.current) return;
+    seen.current = state;
+    if (state.ok) onDone?.();
+  }, [state, onDone]);
+
   return (
-    <form action={formAction} className={layout === "card" ? "mt-3 space-y-2" : "ml-auto"}>
+    <form action={formAction} className={layout === "card" ? "space-y-2" : "ml-auto"}>
       <input type="hidden" name="id" value={appointmentId} />
       <Buttons layout={layout} tinted={tinted} />
       <ActionError state={state} className={layout === "row" ? "mt-1 text-right text-[12px]" : undefined} />

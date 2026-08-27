@@ -1,34 +1,19 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { buttonClasses } from "@/components/ui/button";
 import { Select } from "@/components/ui/field";
+import { PeriodPicker } from "@/components/ui/period-picker";
 import { useUrlUpdate } from "@/components/ui/use-url-update";
-import { formatMonthLong, monthRange, shiftMonthKey, type MonthKey } from "@/lib/dates";
+import type { ResolvedPeriod } from "@/lib/period-filter";
 
-type Props = { month: MonthKey | "todos"; leaders: { id: string; name: string }[]; leaderId?: string; currentMonth: MonthKey };
+type Props = { period: ResolvedPeriod; leaders: { id: string; name: string }[]; leaderId?: string };
 
-/** Mês (← →), "todos os meses" e líder — tudo na URL. */
-export function ApprovedFilters({ month, leaders, leaderId, currentMonth }: Props) {
+/** Período (quinzena · mês · tudo) e líder — tudo na URL. */
+export function ApprovedFilters({ period, leaders, leaderId }: Props) {
   const update = useUrlUpdate();
-  const isAll = month === "todos";
-  const label = isAll ? "Todos os meses" : formatMonthLong(monthRange(month).start);
-
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <div className="inline-flex items-center gap-1 rounded-control bg-surface p-1 shadow-card">
-        <button type="button" aria-label="Mês anterior" disabled={isAll} onClick={() => update({ mes: shiftMonthKey(month as MonthKey, -1) })} className={buttonClasses("ghost", "sm", "size-8 px-0 disabled:opacity-40")}>
-          <ChevronLeft className="size-4" aria-hidden />
-        </button>
-        <span className="min-w-36 px-1 text-center text-[13px] font-medium text-ink">{label}</span>
-        <button type="button" aria-label="Próximo mês" disabled={isAll || month === currentMonth} onClick={() => update({ mes: shiftMonthKey(month as MonthKey, 1) })} className={buttonClasses("ghost", "sm", "size-8 px-0 disabled:opacity-40")}>
-          <ChevronRight className="size-4" aria-hidden />
-        </button>
-      </div>
-      <button type="button" onClick={() => update({ mes: isAll ? undefined : "todos" })} className={buttonClasses(isAll ? "dark" : "secondary", "sm")}>
-        {isAll ? "Só este mês" : "Todos os meses"}
-      </button>
-      <div className="w-40">
+      <PeriodPicker mode={period.mode} label={period.label} previousKey={period.previousKey} nextKey={period.nextKey} isCurrent={period.isCurrent} />
+      <div className="w-44">
         <Select aria-label="Líder de vendas" value={leaderId ?? ""} onChange={(e) => update({ lider: e.target.value || undefined })} className="h-9 bg-surface text-[13px] shadow-card">
           <option value="">Todos os líderes</option>
           {leaders.map((l) => (

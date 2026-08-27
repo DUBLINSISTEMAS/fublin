@@ -7,6 +7,7 @@ import {
   ATTACHMENT_KINDS,
   ATTENDANCES,
   CLIENT_STATUSES,
+  DEFAULT_DURATION_MINUTES,
   DEFAULT_REMINDER_MINUTES,
   INTERESTS,
   SOURCES,
@@ -17,6 +18,8 @@ export const leaders = sqliteTable("leaders", {
   name: text("name").notNull(),
   phone: text("phone"),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
+  /** Chave da foto em data/uploads (ex.: "lideres/<id>.jpg"). */
+  photoKey: text("photo_key"),
   createdAt: text("created_at").notNull(),
 });
 
@@ -54,6 +57,7 @@ export const clients = sqliteTable(
     index("clients_leader_idx").on(t.leaderId),
     index("clients_name_idx").on(t.name),
     index("clients_approved_idx").on(t.approvedAt),
+    index("clients_closed_idx").on(t.closedAt),
   ],
 );
 
@@ -65,6 +69,8 @@ export const appointments = sqliteTable(
       .notNull()
       .references(() => clients.id, { onDelete: "cascade" }),
     scheduledAt: text("scheduled_at").notNull(),
+    /** Duração prevista, para o bloco na grade da agenda. */
+    durationMinutes: integer("duration_minutes").notNull().default(DEFAULT_DURATION_MINUTES),
     kind: text("kind", { enum: APPOINTMENT_KINDS }).notNull().default("visita"),
     status: text("status", { enum: APPOINTMENT_STATUSES }).notNull().default("agendado"),
     notes: text("notes"),
@@ -109,6 +115,22 @@ export const attachments = sqliteTable(
   (t) => [index("attachments_client_idx").on(t.clientId)],
 );
 
+/** Preferências do dono (perfil, quinzenas, alertas), uma linha por chave, valor em JSON. */
+export const settings = sqliteTable("settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
+/** Meta de produção (soma das cartas fechadas) por quinzena. */
+export const goals = sqliteTable("goals", {
+  /** Chave da quinzena, ex.: "2026-09-1". */
+  periodKey: text("period_key").primaryKey(),
+  targetCents: integer("target_cents").notNull(),
+  createdAt: text("created_at").notNull(),
+  updatedAt: text("updated_at").notNull(),
+});
+
 export const leadersRelations = relations(leaders, ({ many }) => ({
   clients: many(clients),
 }));
@@ -137,3 +159,5 @@ export type Client = typeof clients.$inferSelect;
 export type Appointment = typeof appointments.$inferSelect;
 export type Activity = typeof activities.$inferSelect;
 export type Attachment = typeof attachments.$inferSelect;
+export type Setting = typeof settings.$inferSelect;
+export type Goal = typeof goals.$inferSelect;

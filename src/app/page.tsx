@@ -13,6 +13,9 @@ import { AppointmentCard } from "@/features/appointments/components/appointment-
 import type { AppointmentVariant } from "@/features/appointments/components/variant";
 import { getActivityHeatmap, listAppointmentsForDay, listOverdueAppointments, type AppointmentWithClient } from "@/features/appointments/queries";
 import { countClientsByStatus, getDailySeries, getMonthStats } from "@/features/clients/queries";
+import { GoalHeroCard } from "@/features/goals/components/goal-card";
+import { getCurrentPeriodProgress } from "@/features/goals/queries";
+import { getSettings } from "@/features/settings/service";
 import { dayKey, formatDayLong, fromIso, REMINDER_GRACE_MINUTES, shiftDayKey } from "@/lib/dates";
 import { formatBRLCompact } from "@/lib/money";
 import { capitalize, plural } from "@/lib/text";
@@ -29,7 +32,8 @@ export default async function TodayPage() {
   const today = dayKey(now);
   const thisMonth = startOfMonth(now);
   const lastMonth = startOfMonth(subMonths(now, 1));
-  const [todayItems, tomorrowItems, overdue, stats, previous, series, heat, counts] = await Promise.all([
+  const settings = await getSettings(db);
+  const [todayItems, tomorrowItems, overdue, stats, previous, series, heat, counts, goal] = await Promise.all([
     listAppointmentsForDay(db, today),
     listAppointmentsForDay(db, shiftDayKey(today, 1)),
     listOverdueAppointments(db, now),
@@ -38,6 +42,7 @@ export default async function TodayPage() {
     getDailySeries(db, now, 7),
     getActivityHeatmap(db, now, 14),
     countClientsByStatus(db),
+    getCurrentPeriodProgress(db, settings.period, now, settings.goals.defaultTargetCents),
   ]);
 
   const graceStart = addMinutes(now, -REMINDER_GRACE_MINUTES);
@@ -68,6 +73,12 @@ export default async function TodayPage() {
           Agendar
         </ButtonLink>
       </div>
+
+      <GoalHeroCard progress={goal}>
+        <Link href="/metas" className="text-[13px] font-medium text-accent hover:underline">
+          Ver metas e histórico
+        </Link>
+      </GoalHeroCard>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)_220px]">
         <Card className="p-5 md:col-span-2 xl:col-span-1">

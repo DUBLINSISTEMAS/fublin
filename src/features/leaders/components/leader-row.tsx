@@ -5,17 +5,21 @@ import { ActionError } from "@/components/ui/action-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
+import { PhotoUpload } from "@/components/ui/photo-upload";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { useActionToast } from "@/components/ui/toast";
 import type { Leader } from "@/db/schema";
 import { formatPhone } from "@/lib/phone";
 import { formErrors, IDLE, OK } from "@/lib/result";
-import { initials, plural } from "@/lib/text";
+import { plural } from "@/lib/text";
 import { toggleLeaderAction, updateLeaderAction } from "../actions";
 
 export function LeaderRow({ leader, clientCount }: { leader: Leader; clientCount: number }) {
   const [editing, setEditing] = useState(false);
   const [state, formAction] = useActionState(updateLeaderAction.bind(null, leader.id), IDLE);
   const [toggleState, toggleAction] = useActionState(toggleLeaderAction, OK);
+  useActionToast(state);
+  useActionToast(toggleState, leader.active ? "Líder desativado." : "Líder ativado.");
 
   // Estado derivado durante o render: ao salvar com sucesso, sai do modo de edição.
   const [seenState, setSeenState] = useState(state);
@@ -48,7 +52,7 @@ export function LeaderRow({ leader, clientCount }: { leader: Leader; clientCount
   return (
     <li className="px-4 py-3">
       <div className="flex items-center gap-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2 text-xs font-semibold text-ink-2">{initials(leader.name)}</span>
+        <PhotoUpload kind="lider" id={leader.id} name={leader.name} photoKey={leader.photoKey} size={44} />
         <span className="min-w-0 flex-1">
           <span className="flex flex-wrap items-center gap-2">
             <span className="truncate text-[15px] font-medium text-ink">{leader.name}</span>

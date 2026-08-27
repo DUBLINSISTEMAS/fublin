@@ -3,6 +3,9 @@ import { Download, Smartphone } from "lucide-react";
 import { NotificationSettings } from "@/components/layout/notification-settings";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, Section } from "@/components/ui/card";
+import { getDb } from "@/db/client";
+import { AlertsForm, GoalDefaultsForm, PeriodForm, ProfileForm } from "@/features/settings/components/settings-forms";
+import { getSettings } from "@/features/settings/service";
 
 export const dynamic = "force-dynamic";
 
@@ -19,17 +22,38 @@ function lanAddresses(): string[] {
   return out;
 }
 
-export default function ConfigPage() {
+export default async function ConfigPage() {
   const port = process.env.PORT ?? "3000";
   const addresses = lanAddresses();
+  const settings = await getSettings(await getDb());
 
   return (
     <div className="mx-auto max-w-3xl">
-      <PageHeader title="Configurações" description="Lembretes, acesso pelo celular e seus dados." />
+      <PageHeader title="Configurações" description="Seu perfil, quinzenas e metas, alertas, acesso pelo celular e seus dados." />
       <div className="space-y-8">
-        <Section title="Lembretes">
+        <Section title="Perfil">
           <Card className="p-4 sm:p-5">
-            <NotificationSettings />
+            <ProfileForm profile={settings.profile} />
+          </Card>
+        </Section>
+
+        <Section title="Quinzenas e meta" className="scroll-mt-24" >
+          <div id="quinzenas" className="grid gap-4 md:grid-cols-2">
+            <Card className="p-4 sm:p-5">
+              <PeriodForm period={settings.period} />
+            </Card>
+            <Card className="p-4 sm:p-5">
+              <GoalDefaultsForm goals={settings.goals} />
+            </Card>
+          </div>
+        </Section>
+
+        <Section title="Alertas de agendamento">
+          <Card className="p-4 sm:p-5">
+            <AlertsForm alerts={settings.alerts} />
+            <div className="mt-5 border-t border-line pt-5">
+              <NotificationSettings />
+            </div>
           </Card>
         </Section>
 
@@ -65,15 +89,15 @@ export default function ConfigPage() {
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-[15px] font-medium text-ink">Exportar clientes</p>
-                <p className="mt-0.5 text-sm text-muted">Planilha CSV (abre no Excel) com todos os clientes, status, líder e telefone.</p>
+                <p className="mt-0.5 text-sm text-muted">Planilha CSV (abre no Excel) com todos os clientes, etapa, carta, adesão, líder e telefone.</p>
               </div>
-              <a href="/api/export/clientes" className="inline-flex h-11 items-center gap-2 rounded-lg border border-line-strong bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-surface-2">
+              <a href="/api/export/clientes" className="inline-flex h-11 items-center gap-2 rounded-control border border-line-strong bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-surface-2">
                 <Download className="size-4" aria-hidden />
                 Baixar CSV
               </a>
             </div>
             <p className="mt-4 border-t border-line pt-4 text-[13px] text-muted">
-              Os dados ficam só neste computador, no arquivo <code className="rounded bg-surface-2 px-1">data/app.db</code>. Faça backup dessa pasta de tempos em tempos.
+              Os dados ficam só neste computador, na pasta <code className="rounded bg-surface-2 px-1">data/</code> (banco, fotos e anexos). Faça backup dela de tempos em tempos.
             </p>
           </Card>
         </Section>

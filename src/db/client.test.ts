@@ -22,4 +22,13 @@ describe("getDb", () => {
     await expect(getDb()).rejects.toThrow();
     expect(globalRef.__relacionadorDb).toBeUndefined();
   });
+
+  it("recreates the connection when the cached schema module is stale (HMR after a migration)", async () => {
+    process.env.DATABASE_URL = ":memory:";
+    const first = await getDb();
+    (globalRef.__relacionadorDb as { schema: unknown }).schema = { stale: true };
+    const second = await getDb();
+    expect(second).not.toBe(first);
+    expect(await second.select().from(leaders)).toEqual([]);
+  });
 });

@@ -11,10 +11,12 @@ import { getDb } from "@/db/client";
 import { ApprovedFilters } from "@/features/clients/components/approved-filters";
 import { listApproved, type ApprovedItem } from "@/features/clients/queries";
 import { listLeaders } from "@/features/leaders/service";
-import { formatDate, fromIso, isValidMonthKey, monthKey, monthRange } from "@/lib/dates";
+import { getSettings } from "@/features/settings/service";
+import { formatDate, fromIso } from "@/lib/dates";
 import { formatBRL, formatBRLCompact } from "@/lib/money";
+import { resolvePeriodFilter } from "@/lib/period-filter";
 import { formatPhone } from "@/lib/phone";
-import { pickParam } from "@/lib/search-params";
+import { pickParam, type SearchParams } from "@/lib/search-params";
 import { initials, plural } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
@@ -22,25 +24,22 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Aprovados" };
 
 export default async function ApprovedPage(props: PageProps<"/aprovados">) {
-  const params = await props.searchParams;
+  const params = (await props.searchParams) as SearchParams;
   const now = new Date();
-  const currentMonth = monthKey(now);
-  const requested = pickParam(params, "mes");
-  const month = requested === "todos" ? "todos" : isValidMonthKey(requested) ? requested : currentMonth;
-  const leaderId = pickParam(params, "lider") || undefined;
-  const range = month === "todos" ? undefined : monthRange(month);
-
   const db = await getDb();
+  const settings = await getSettings(db);
+  const period = resolvePeriodFilter(params, settings.period, now);
+  const leaderId = pickParam(params, "lider") || undefined;
+
   const [items, leaders] = await Promise.all([
-    listApproved(db, { periodStart: range?.start, periodEnd: range?.end, leaderId }),
+    listApproved(db, { periodStart: period.range?.start, periodEnd: period.range?.end, leaderId }),
     listLeaders(db, { includeInactive: true }),
   ]);
   const closed = items.filter((c) => c.status === "fechou");
   const adesaoTotal = closed.reduce((sum, c) => sum + (c.adesaoCents ?? 0), 0);
   const creditTotal = items.reduce((sum, c) => sum + (c.creditCents ?? 0), 0);
   const ticket = closed.length ? Math.round(adesaoTotal / closed.length) : 0;
-  const query = new URLSearchParams();
-  if (month !== currentMonth) query.set("mes", month);
+  const query = new URLSearchParams(period.query);
   if (leaderId) query.set("lider", leaderId);
   const exportHref = `/api/export/aprovados${query.size ? `?${query}` : ""}`;
 
@@ -57,7 +56,7 @@ export default async function ApprovedPage(props: PageProps<"/aprovados">) {
         }
       />
       <Suspense>
-        <ApprovedFilters month={month} leaders={leaders} leaderId={leaderId} currentMonth={currentMonth} />
+        <ApprovedFilters period={period} leaders={leaders} leaderId={leaderId} />
       </Suspense>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">

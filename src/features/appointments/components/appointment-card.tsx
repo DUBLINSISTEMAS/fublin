@@ -1,11 +1,11 @@
 import Link from "next/link";
 import { CalendarDays, MessageCircle, MoreHorizontal, Phone } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
 import { AppointmentKindChip, AppointmentStatusBadge, Chip } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { formatCountdown, formatRelativeDay, formatTime, fromIso } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS } from "@/lib/domain";
 import { telUrl, whatsappUrl } from "@/lib/phone";
-import { initials } from "@/lib/text";
 import type { AppointmentWithClient } from "../queries";
 import { QuickStatus } from "./quick-status";
 import type { AppointmentVariant } from "./variant";
@@ -45,9 +45,7 @@ export function AppointmentCard({ appointment, now, variant = "default" }: Props
       {context ? <p className={cn("mt-1 line-clamp-2 text-[13px] leading-snug", isNow ? "text-ink-2" : "text-muted")}>{context}</p> : null}
 
       <div className="mt-3 flex items-center gap-2.5">
-        <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold", isNow ? "bg-white/70 text-accent-ink" : "bg-accent-soft text-accent-ink")}>
-          {initials(client.name)}
-        </span>
+        <Avatar name={client.leader?.name ?? client.name} photoKey={client.leader?.photoKey} size={32} tone={isNow ? "white" : "accent"} />
         <div className="min-w-0 text-[12px] leading-tight">
           <p className="truncate text-ink">{client.leader?.name ?? "Sem líder"}</p>
           <p className={isNow ? "text-ink-2" : "text-muted"}>{client.leader ? "Líder de vendas" : "Definir na loja"}</p>

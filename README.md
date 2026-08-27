@@ -30,10 +30,24 @@ npm run db:reset   # apaga banco e anexos (recriados vazios no próximo `npm run
 
 Se o celular não abrir, libere a porta 3000 no Firewall do Windows (na primeira execução ele costuma perguntar).
 
-### Lembretes
+### Agenda
+
+- **Dia · Semana · Mês**, no estilo Google Agenda: grade de horas com os blocos no tamanho da duração, linha vermelha do "agora", mini-calendário e filtro por tipo (visita, reunião online, ligação, retorno). Clique num horário vazio para agendar já naquela hora; clique num bloco para ver o cliente, chamar no WhatsApp, dar baixa ou editar.
+- No celular a semana desliza de lado, um dia por vez.
+
+### Alertas
 
 - A tela **Hoje** mostra o que está por vir agora, o dia inteiro e o que ficou atrasado sem baixa.
-- Em **Config**, ative as notificações do navegador. Com o app aberto (em qualquer aba), você recebe um aviso do sistema antes de cada agendamento, conforme o lembrete escolhido (15 min, 30 min, 1 h…).
+- Cada agendamento tem um lembrete (15 min, 30 min, 1 h…). Quando chega a hora, o alerta **fica na tela até você dispensar (X), adiar 5 min ou dar baixa**, repetindo som e notificação no intervalo que você escolher em **Config → Alertas**.
+- Em **Config**, ative as notificações do navegador para receber o aviso do sistema mesmo em outra aba.
+
+### Metas por quinzena
+
+A loja fecha a produção em duas quinzenas por mês (por padrão do dia 5 ao 19 e do dia 20 ao 4 — ajuste em **Config → Quinzenas**). Em **Metas** você define a meta de cada quinzena (ou uma meta padrão); cada cliente que chega a **Fechou** soma o valor da carta na barra, e o sistema diz quanto falta, quanto precisa fechar por dia e como está a produção (as duas quinzenas juntas). A meta também aparece no menu e na tela Hoje.
+
+### Você e os líderes
+
+Em **Config → Perfil** coloque seu nome e sua foto (aparecem no topo do menu). Na aba **Líderes**, clique na câmera do avatar para colocar a foto de cada líder — ela aparece nos cards, na agenda e nas tabelas.
 
 ## Funil do cliente (a sua rotina)
 
@@ -53,8 +67,8 @@ Tudo fica na linha do tempo do cliente: status, líder, notas, agendamentos e an
 
 ### Líderes, Aprovados e propostas
 
-- **Líderes**: você atribui o líder no card ("…" → Líder de vendas) ou no cadastro; a aba mostra, por líder, clientes recebidos, atendidos, aprovados, fechados, conversão e adesão somada.
-- **Aprovados**: aba com quem passou na análise — líder, carta, adesão, datas, anexos — por mês ou geral, com exportação CSV.
+- **Líderes**: você atribui o líder no card ("…" → Líder de vendas) ou no cadastro; a aba mostra, por líder e por período (quinzena, mês ou tudo), clientes recebidos, atendidos, aprovados, fechados, conversão, cartas fechadas e adesão.
+- **Aprovados**: aba com quem passou na análise — líder, carta, adesão, datas, anexos — por quinzena, mês ou geral, com exportação CSV.
 - **Propostas e documentos**: na página do cliente, anexe fotos ou PDFs (arrastando, escolhendo ou pela câmera do celular). Os arquivos ficam em `data/uploads/` — faça backup da pasta `data/` inteira.
 - **Exportar clientes** (Config ou Mais): CSV para o Excel com todas as colunas do funil (etapa, carta, adesão, datas, líder, motivo da perda…).
 
@@ -62,9 +76,9 @@ Tudo fica na linha do tempo do cliente: status, líder, notas, agendamentos e an
 
 Direção inspirada em dashboards SaaS de CRM (referências: *B2B SaaS Web CRM Dashboard* e *Customer Journey CRM Dashboard*, Dribbble): canvas cinza-azulado claro, painéis brancos flutuantes com raio grande, azul como cor principal, chips pastel (azul, limão, amarelo), contadores pretos redondos, tipografia geométrica leve (Outfit).
 
-- **Hoje**: gráfico de área (novos clientes × atendimentos, 7 dias), heatmap de atividade (hora × dia, 14 dias), KPIs e a agenda em colunas (Agora · Hoje · Atrasados · Amanhã).
-- **Clientes**: kanban do funil por status com arrastar-e-soltar (`@dnd-kit`), ou lista; busca global na barra superior.
-- Sidebar com os líderes de vendas e um card escuro com o próximo agendamento.
+- **Hoje**: meta da quinzena, gráfico de área (novos clientes × atendimentos, 7 dias), heatmap de atividade (hora × dia, 14 dias), KPIs e a agenda em colunas (Agora · Hoje · Atrasados · Amanhã).
+- **Clientes**: kanban do funil por status com arrastar-e-soltar (`@dnd-kit`) — arraste o fundo ou use as setas para ver as outras etapas; o card que chega "pousa" com animação e um brilho azul. Ou lista; busca global na barra superior.
+- Sidebar com seu perfil, a meta da quinzena, os líderes de vendas (com foto) e um card escuro com o próximo agendamento.
 
 Tokens de cor, raio e sombra ficam em `src/app/globals.css` (`@theme`). Todo componente usa só esses tokens.
 
@@ -80,12 +94,12 @@ Tokens de cor, raio e sombra ficam em `src/app/globals.css` (`@theme`). Todo com
 
 ```
 src/
-  app/          rotas (Hoje, Clientes, Agenda, Aprovados, Líderes, Config, Mais, API), manifest e ícones
-  components/   ui/ (primitivos) · layout/ (shell, sidebar, tabs, lembretes) · charts/ (SVG)
-  features/     clients · appointments · leaders · attachments · activities
+  app/          rotas (Hoje, Clientes, Agenda, Aprovados, Metas, Líderes, Config, Mais, API), manifest e ícones
+  components/   ui/ (primitivos, toasts, avatar, upload de foto) · layout/ (shell, sidebar, tabs, alertas) · charts/ (SVG)
+  features/     clients · appointments (+ calendar/) · leaders · attachments · activities · goals · settings · photos
                  └ schema.ts (Zod) · service.ts · queries.ts · actions.ts · components/
   db/           schema Drizzle, conexão, seed, banco de teste
-  lib/          domínio (rótulos), datas, dinheiro, csv, telefone, validação, resultado de ações
+  lib/          domínio (rótulos), datas, quinzenas, períodos, dinheiro, csv, telefone, validação, resultado de ações
   test/         setup do Vitest e fixtures
 ```
 

@@ -1,4 +1,4 @@
-import { BadgeCheck, Briefcase, CalendarDays, House, Menu, Settings, Users, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Briefcase, CalendarDays, House, Menu, Settings, Target, Users, type LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; /** Rotas extras que contam como "ativas" para este item. */ also?: string[] };
 
@@ -8,6 +8,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
   { href: "/aprovados", label: "Aprovados", icon: BadgeCheck },
+  { href: "/metas", label: "Metas", icon: Target },
   { href: "/lideres", label: "Líderes", icon: Briefcase },
   { href: "/config", label: "Config", icon: Settings },
 ];
@@ -17,8 +18,8 @@ export const MOBILE_TABS: NavItem[] = [
   { href: "/", label: "Hoje", icon: House },
   { href: "/clientes", label: "Clientes", icon: Users },
   { href: "/agenda", label: "Agenda", icon: CalendarDays },
-  { href: "/aprovados", label: "Aprovados", icon: BadgeCheck },
-  { href: "/mais", label: "Mais", icon: Menu, also: ["/lideres", "/config"] },
+  { href: "/metas", label: "Metas", icon: Target },
+  { href: "/mais", label: "Mais", icon: Menu, also: ["/aprovados", "/lideres", "/config"] },
 ];
 
 export function isNavActive(item: NavItem, pathname: string): boolean {

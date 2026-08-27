@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef } from "react";
+import { useActionState, useRef, useState } from "react";
 import { ButtonLink } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
@@ -9,7 +9,15 @@ import { useFocusFirstError } from "@/components/ui/use-focus-first-error";
 import type { Appointment } from "@/db/schema";
 import { cn } from "@/lib/cn";
 import { fromIso, toLocalInput } from "@/lib/dates";
-import { APPOINTMENT_KIND_LABELS, APPOINTMENT_KINDS, DEFAULT_REMINDER_MINUTES, REMINDER_OPTIONS } from "@/lib/domain";
+import {
+  APPOINTMENT_KIND_LABELS,
+  APPOINTMENT_KINDS,
+  DEFAULT_DURATION_BY_KIND,
+  DEFAULT_REMINDER_MINUTES,
+  DURATION_OPTIONS,
+  REMINDER_OPTIONS,
+  type AppointmentKind,
+} from "@/lib/domain";
 import { formatPhone } from "@/lib/phone";
 import { formErrors, formValue, IDLE, type FormState } from "@/lib/result";
 import type { ClientOption } from "@/features/clients/queries";
@@ -20,12 +28,27 @@ type Props = {
   lockedClient?: ClientOption;
   initial?: Appointment;
   defaultDay?: string;
+  /** Horário sugerido (clique num horário vazio da agenda). */
+  defaultTime?: string;
+  /** Antecedência padrão do lembrete, vinda das configurações. */
+  defaultReminderMinutes?: number;
   returnTo: "agenda" | "cliente";
   cancelHref: string;
   submitLabel?: string;
 };
 
-export function AppointmentForm({ action, clients, lockedClient, initial, defaultDay, returnTo, cancelHref, submitLabel = "Salvar agendamento" }: Props) {
+export function AppointmentForm({
+  action,
+  clients,
+  lockedClient,
+  initial,
+  defaultDay,
+  defaultTime = "09:00",
+  defaultReminderMinutes = DEFAULT_REMINDER_MINUTES,
+  returnTo,
+  cancelHref,
+  submitLabel = "Salvar agendamento",
+}: Props) {
   const [state, formAction] = useActionState(action, IDLE);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstError(state, formRef);
@@ -33,7 +56,16 @@ export function AppointmentForm({ action, clients, lockedClient, initial, defaul
   const value = (key: string, fallback: string | null | undefined) => formValue(state, key, fallback);
 
   const initialLocal = initial ? toLocalInput(fromIso(initial.scheduledAt)) : undefined;
-  const kind = value("kind", initial?.kind ?? "visita");
+  const initialKind = (value("kind", initial?.kind ?? "visita") || "visita") as AppointmentKind;
+  const [kind, setKind] = useState<AppointmentKind>(initialKind);
+  // A duração acompanha o tipo (visita 1h, ligação 15 min…) até o usuário escolher uma à mão.
+  const [duration, setDuration] = useState(value("durationMinutes", initial ? String(initial.durationMinutes) : String(DEFAULT_DURATION_BY_KIND[initialKind])));
+  const [durationTouched, setDurationTouched] = useState(Boolean(initial));
+
+  function pickKind(next: AppointmentKind) {
+    setKind(next);
+    if (!durationTouched) setDuration(String(DEFAULT_DURATION_BY_KIND[next]));
+  }
 
   return (
     <form ref={formRef} action={formAction} noValidate className="space-y-8">
@@ -64,7 +96,7 @@ export function AppointmentForm({ action, clients, lockedClient, initial, defaul
 
       <fieldset className="space-y-4">
         <legend className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">O quê</legend>
-        <div role="radiogroup" aria-label="Tipo" className="grid grid-cols-3 gap-2">
+        <div role="radiogroup" aria-label="Tipo" className="grid grid-cols-2 gap-2 sm:grid-cols-4">
           {APPOINTMENT_KINDS.map((k) => (
             <label
               key={k}
@@ -74,7 +106,7 @@ export function AppointmentForm({ action, clients, lockedClient, initial, defaul
               )}
             >
               {/* O input ocupa o chip inteiro (invisível): clique e foco caem nele mesmo. */}
-              <input type="radio" name="kind" value={k} defaultChecked={kind === k} className="absolute inset-0 cursor-pointer appearance-none opacity-0" />
+              <input type="radio" name="kind" value={k} checked={kind === k} onChange={() => pickKind(k)} className="absolute inset-0 cursor-pointer appearance-none opacity-0" />
               {APPOINTMENT_KIND_LABELS[k]}
             </label>
           ))}
@@ -88,15 +120,32 @@ export function AppointmentForm({ action, clients, lockedClient, initial, defaul
 
       <fieldset className="space-y-4">
         <legend className="mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted">Quando</legend>
-        <div className="grid gap-4 sm:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Field label="Data" htmlFor="day" required error={errors.day}>
             <Input id="day" name="day" type="date" defaultValue={value("day", initialLocal?.day ?? defaultDay)} invalid={Boolean(errors.day)} />
           </Field>
           <Field label="Horário" htmlFor="time" required error={errors.time}>
-            <Input id="time" name="time" type="time" step={300} defaultValue={value("time", initialLocal?.time ?? "09:00")} invalid={Boolean(errors.time)} />
+            <Input id="time" name="time" type="time" step={300} defaultValue={value("time", initialLocal?.time ?? defaultTime)} invalid={Boolean(errors.time)} />
+          </Field>
+          <Field label="Duração" htmlFor="durationMinutes" error={errors.durationMinutes}>
+            <Select
+              id="durationMinutes"
+              name="durationMinutes"
+              value={duration}
+              onChange={(e) => {
+                setDuration(e.target.value);
+                setDurationTouched(true);
+              }}
+            >
+              {DURATION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </Select>
           </Field>
           <Field label="Lembrar" htmlFor="reminderMinutes" error={errors.reminderMinutes}>
-            <Select id="reminderMinutes" name="reminderMinutes" defaultValue={value("reminderMinutes", String(initial?.reminderMinutes ?? DEFAULT_REMINDER_MINUTES))}>
+            <Select id="reminderMinutes" name="reminderMinutes" defaultValue={value("reminderMinutes", String(initial?.reminderMinutes ?? defaultReminderMinutes))}>
               {REMINDER_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
                   {o.label}

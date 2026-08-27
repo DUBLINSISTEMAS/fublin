@@ -8,6 +8,7 @@ import { createAppointment, setAppointmentStatus } from "@/features/appointments
 import { addClientNote, createClient, setClientStatus, updateApproval } from "@/features/clients/service";
 import { createLeader } from "@/features/leaders/service";
 import { dayKey, formatTime } from "@/lib/dates";
+import { DEFAULT_DURATION_BY_KIND } from "@/lib/domain";
 import { getDb } from "./client";
 import { clients } from "./schema";
 
@@ -124,7 +125,7 @@ async function main() {
   await addClientNote(db, carla.id, "Pediu simulação com parcela menor. Carlos vai montar proposta.");
 
   const mk = (clientId: string, when: Date, kind: "visita" | "reuniao" | "ligacao" | "retorno", reminderMinutes = 30, notes?: string) =>
-    createAppointment(db, { clientId, day: dayKey(when), time: formatTime(when), kind, reminderMinutes, notes });
+    createAppointment(db, { clientId, day: dayKey(when), time: formatTime(when), kind, durationMinutes: DEFAULT_DURATION_BY_KIND[kind], reminderMinutes, notes });
 
   await mk(ana.id, addMinutes(now, 25), "visita", 30, "Trazer documentos");
   await mk(felipe.id, at(today, Math.min(now.getHours() + 3, 18)), "ligacao", 15);

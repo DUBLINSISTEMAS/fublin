@@ -4,7 +4,7 @@ import type { ClientListItem } from "@/features/clients/queries";
 export const NOW = new Date(2026, 7, 27, 14, 0);
 
 export function makeLeader(overrides: Partial<Leader> = {}): Leader {
-  return { id: "lead-1", name: "Carlos Menezes", phone: null, active: true, createdAt: NOW.toISOString(), ...overrides };
+  return { id: "lead-1", name: "Carlos Menezes", phone: null, active: true, photoKey: null, createdAt: NOW.toISOString(), ...overrides };
 }
 
 export function makeClient(overrides: Partial<Client> = {}): Client {

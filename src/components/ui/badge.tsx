@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import {
   APPOINTMENT_KIND_LABELS,
+  APPOINTMENT_KIND_TONE,
   APPOINTMENT_STATUS_LABELS,
   APPOINTMENT_STATUS_TONE,
   ATTACHMENT_KIND_LABELS,
@@ -33,13 +34,6 @@ const INTEREST_TONE: Record<Interest, string> = {
   servicos: "bg-sky text-sky-ink",
   pesados: "bg-dark text-white",
   outro: "bg-surface-3 text-ink-2",
-};
-
-const APPOINTMENT_KIND_TONE: Record<AppointmentKind, string> = {
-  visita: "bg-accent text-white",
-  reuniao: "bg-sky text-sky-ink",
-  ligacao: "bg-lime text-lime-ink",
-  retorno: "bg-sun text-sun-ink",
 };
 
 const ATTACHMENT_KIND_TONE: Record<AttachmentKind, string> = {
@@ -80,7 +74,7 @@ export function InterestChip({ interest, className }: { interest: Interest; clas
 }
 
 export function AppointmentKindChip({ kind, className }: { kind: AppointmentKind; className?: string }) {
-  return <Chip className={cn(APPOINTMENT_KIND_TONE[kind], className)}>{APPOINTMENT_KIND_LABELS[kind]}</Chip>;
+  return <Chip className={cn(TONES[APPOINTMENT_KIND_TONE[kind]], className)}>{APPOINTMENT_KIND_LABELS[kind]}</Chip>;
 }
 
 export function AttachmentKindChip({ kind, className }: { kind: AttachmentKind; className?: string }) {

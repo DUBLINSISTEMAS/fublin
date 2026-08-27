@@ -33,6 +33,7 @@ export async function createAppointment(db: Db, input: AppointmentInput, now: Da
     id: newId(),
     clientId: input.clientId,
     scheduledAt: toIso(when),
+    durationMinutes: input.durationMinutes,
     kind: input.kind,
     status: "agendado",
     notes: input.notes ?? null,
@@ -54,6 +55,7 @@ export async function updateAppointment(db: Db, id: string, input: AppointmentIn
     .set({
       clientId: input.clientId,
       scheduledAt: toIso(when),
+      durationMinutes: input.durationMinutes,
       kind: input.kind,
       notes: input.notes ?? null,
       reminderMinutes: input.reminderMinutes,

@@ -2,20 +2,20 @@
 
 import Link from "next/link";
 import { CalendarDays, MessagesSquare, Store, Video } from "lucide-react";
+import { Avatar } from "@/components/ui/avatar";
 import { InterestChip } from "@/components/ui/badge";
 import type { Leader } from "@/db/schema";
 import { cn } from "@/lib/cn";
 import { formatDayShort, formatRelativeDay, fromIso } from "@/lib/dates";
 import { CLIENT_STATUS_LABELS, type ClientStatus } from "@/lib/domain";
 import { formatBRLCompact } from "@/lib/money";
-import { initials } from "@/lib/text";
 import type { ClientListItem } from "../queries";
 import { CardMenu } from "./card-menu";
 
 type Props = {
   client: ClientListItem;
   now: Date;
-  leaders: Pick<Leader, "id" | "name">[];
+  leaders: Pick<Leader, "id" | "name" | "photoKey">[];
   onMove: (status: ClientStatus) => void;
   highlight?: boolean;
   dragging?: boolean;
@@ -71,9 +71,7 @@ export function ClientCard({ client, now, leaders, onMove, highlight = false, dr
       ) : null}
 
       <div className="mt-3 flex items-center gap-2.5">
-        <span className={cn("grid size-8 shrink-0 place-items-center rounded-full text-[11px] font-semibold", highlight ? "bg-white/70 text-accent-ink" : "bg-accent-soft text-accent-ink")}>
-          {initials(client.leader?.name ?? client.name)}
-        </span>
+        <Avatar name={client.leader?.name ?? client.name} photoKey={client.leader?.photoKey} size={32} tone={highlight ? "white" : "accent"} />
         <div className="min-w-0 text-[12px] leading-tight">
           <p className="truncate text-ink">{client.leader?.name ?? "Sem líder"}</p>
           <p className={highlight ? "text-ink-2" : "text-muted"}>{client.leader ? "Líder de vendas" : "Atribuir no menu"}</p>

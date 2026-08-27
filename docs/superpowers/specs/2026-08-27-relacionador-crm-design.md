@@ -143,3 +143,20 @@ UI:
 - Hoje: faixa do funil, KPIs (agendados hoje, em análise, fechados e adesão no mês), gráfico com hover.
 
 QA: gstack `responsive` em 375/768/1280 para Hoje, Funil, Cliente, Aprovados, Líderes; DnD validado com pointer events reais (Gabriela: Em análise → Aprovado, `approved_at` carimbado, timeline registrada).
+
+---
+
+## Adendo 3 (2026-08-27, noite) — agenda de verdade, metas por quinzena, perfil e alertas
+
+Pedido do dono (áudio transcrito): foto dos líderes; agenda "tipo Google Agenda" (referência: *Agenda Concept*, Pim Scholten/Dribbble) com filtro por dia/semana; kanban que role de lado sem esforço e com animação de pouso ("não sei qual card entrou"); X para dispensar aviso; alerta contínuo N minutos antes até desativar; "salvo" visível; seu nome e foto no lugar de "Relacionador"; **meta por quinzena** (a loja fecha produção em 2 quinzenas: dia 5→19 e 20→4; ex.: 616 mil na 1ª quinzena, 81 mil na 2ª, meta de 700 mil agora e 1 milhão na produção) que vá contando a cada cliente fechado e motive.
+
+Decisões:
+- **Quinzenas** (`lib/quinzena.ts`): dois dias de corte configuráveis (padrão 5 e 20). 1ª = [1º corte, 2º corte), 2ª = [2º corte, 1º corte do mês seguinte). Chave `YYYY-MM-1|2` (mês de referência). Produção = as duas quinzenas do mesmo mês de referência. Dias de corte > dias do mês são presos ao último dia.
+- **Meta** = soma do **valor da carta** (`credit_cents`) dos clientes que chegaram a "Fechou" com `closed_at` dentro da quinzena (adesão é pequena demais para ser a produção). Tabela `goals(period_key, target_cents)`; meta padrão nas configurações para quinzenas sem meta própria. Página `/metas` (hero + cartas fechadas + produção + histórico), card na sidebar e na tela Hoje, frases de motivação por faixa de progresso × dias restantes (`goals/motivation.ts`).
+- **Settings** (`settings` tabela chave/valor JSON validada por Zod, `features/settings`): `profile` (nome, foto), `period` (cortes), `alerts` (antecedência padrão, repetição, som), `goals` (meta padrão). Linha inválida cai no padrão.
+- **Fotos** (`features/photos`, `/api/fotos`): líderes e perfil; conteúdo verificado pelos bytes; chave com sufixo aleatório a cada troca (`lideres/<id>-<x>.jpg`) → cache imutável sem foto velha; o navegador reduz para 512px JPEG antes de enviar (`PhotoUpload`). `Avatar` é a peça única (foto ou iniciais).
+- **Agenda** (`features/appointments/components/calendar`): `duration_minutes` no agendamento (padrão por tipo: visita 60, reunião 45, ligação 15, retorno 30); visões Dia · Semana · Mês (`?view=`), grade 07–20h com 64px/h, blocos por duração com faixas para sobreposição (`layout.ts`), linha do "agora", clique no horário vazio → `/agenda/novo?d=&h=`, painel lateral do evento (WhatsApp, ligar, baixa, editar), mini-calendário com pontinhos, filtro por tipo (`?tipo=`) e "só em aberto" (`?ocultar=1`). No celular a semana rola de lado com encaixe por dia.
+- **Kanban**: arrastar o fundo rola o quadro (mouse), setas nas bordas, `dropAnimation` do dnd-kit (o fantasma pousa no lugar final), FLIP para os vizinhos abrirem espaço (`useFlip`) e brilho azul no card que chegou (`card-settle`). Toast "Nome → Etapa".
+- **Alertas** (`ReminderWatcher`): poll de 30 s; alerta fica na tela até dispensar (X), adiar 5 min (soneca) ou dar baixa; repete som (WebAudio, liberado no 1º clique) e notificação do sistema a cada N min configurados; título da aba mostra "(n)". Dispensados/adiados ficam no `localStorage` por 2 dias.
+- **Toasts** (`components/ui/toast.tsx`): store fora do React; `useActionToast` transforma resultados de ações em "Salvo"/erro. Todas as ações automáticas (etapa, líder, baixa, foto, metas, configurações) avisam.
+- **Períodos nas abas**: `PeriodPicker` (Quinzena · Mês · Tudo) em Aprovados e Líderes; `getLeaderStats(range)` conta cada fato pela própria data; nova coluna "Cartas" (produção do líder).

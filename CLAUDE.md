@@ -15,11 +15,12 @@ Roda local (`npm run dev`, acessível na rede Wi-Fi), sem login. Textos da UI em
 ## Arquitetura (o que vai onde)
 
 ```
-src/lib/          utilidades puras: domain.ts (enums + rótulos), dates, money (centavos), csv, result, validation
+src/lib/          utilidades puras: domain.ts (enums + rótulos), dates, quinzena (períodos), period-filter, money (centavos), csv, result, validation, beep
 src/db/           schema Drizzle (SQLite via @libsql/client), conexão singleton, seed, test-db (:memory:)
 src/features/<x>/ schema.ts (Zod) · service.ts (regras, lança DomainError) · queries.ts (leitura) · actions.ts ("use server") · components/
-src/components/   ui/ (primitivos) · layout/ (shell, sidebar, tabs, lembretes) · charts/ (SVG puro)
-src/app/          rotas; páginas são Server Components com `force-dynamic`; API só para upload/download/CSV/lembretes
+                  clients · appointments (calendar/ = agenda dia/semana/mês) · leaders · attachments · activities · goals (metas) · settings · photos
+src/components/   ui/ (primitivos, toast, avatar, photo-upload, period-picker) · layout/ (shell, sidebar, tabs, alertas) · charts/ (SVG puro)
+src/app/          rotas; páginas são Server Components com `force-dynamic`; API só para upload/download/CSV/lembretes/fotos
 ```
 
 Regras que mantêm o sistema coerente:
@@ -32,6 +33,12 @@ Regras que mantêm o sistema coerente:
 - **Filtros vivem na URL** (`?q=&status=&interesse=&lider=`, `?d=`, `?mes=`); leia com `pickParam`, atualize com `useUrlUpdate`.
 - **Cores só via tokens** de `src/app/globals.css` (`@theme`): `accent`, `lime`, `sun`, `sky`, `rose(-ink)`, `surface-*`, `ink*`. Não use a paleta padrão do Tailwind (`red-600`, `gray-500`…).
 - Sem `window.confirm`: exclusões usam `<ConfirmButton>` (dois passos inline).
+- **Toda ação automática avisa**: `toast.success(...)` ou `useActionToast(state, "Salvo.")` — o dono precisa ver que salvou.
+- **Preferências** vivem em `features/settings` (tabela `settings`, JSON validado por Zod, `getSettings(db)` sempre com padrões). Perfil, dias de corte das quinzenas, alertas e meta padrão. Mudanças chamam `revalidatePath("/", "layout")` porque a sidebar depende delas.
+- **Quinzenas e metas**: períodos em `lib/quinzena.ts` (chave `YYYY-MM-1|2`); progresso em `features/goals/queries.ts` (soma de `credit_cents` fechados por `closed_at`); frases em `goals/motivation.ts`. Filtros de período nas abas: `resolvePeriodFilter` + `<PeriodPicker>`.
+- **Fotos** (líderes e perfil): `features/photos/service.ts` + `/api/fotos`; a chave muda a cada troca (cache imutável). Sempre renderize com `<Avatar>`; para trocar, `<PhotoUpload>`.
+- **Agenda**: `appointments.duration_minutes` define o bloco; `calendar/layout.ts` posiciona (faixas para sobreposição) e é testado; `TimeGrid` é cliente (linha do agora, painel do evento), `MonthGrid`/`MiniCalendar` são servidor.
+- **Alertas**: `ReminderWatcher` lê `/api/reminders` (itens + preferências) a cada 30 s; dispensados/adiados ficam no `localStorage` (`relacionador:alerts`). Som via `lib/beep.ts` só depois de um gesto do usuário.
 - Testes de componente ficam ao lado do componente com `// @vitest-environment jsdom` na primeira linha; o padrão do Vitest é Node.
 
 ## Limitações conhecidas (decisões, não esquecimentos)

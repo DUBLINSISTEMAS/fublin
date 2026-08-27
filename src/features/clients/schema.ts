@@ -1,17 +1,8 @@
 import { z } from "zod";
 import { isValidDayKey } from "@/lib/dates";
 import { ATTENDANCES, CLIENT_STATUSES, INTERESTS, SOURCES } from "@/lib/domain";
-import { parseBRL } from "@/lib/money";
 import { digitsOnly } from "@/lib/phone";
-import { optionalString } from "@/lib/validation";
-
-/** Teto de R$ 999.999.999,99 — cabe folgado num inteiro seguro e evita lixo no banco. */
-const MAX_MONEY_CENTS = 99_999_999_999;
-
-/** Campo de dinheiro digitado livremente ("300.000", "R$ 1.234,56") -> centavos ou null. */
-const money = optionalString(z.string().max(40, "Valor muito longo"))
-  .transform((v) => parseBRL(v ?? null))
-  .refine((v) => v === null || (v >= 0 && v <= MAX_MONEY_CENTS), "Valor inválido");
+import { moneyField as money, optionalString } from "@/lib/validation";
 
 export const clientInputSchema = z.object({
   name: z.string().trim().min(2, "Informe o nome do cliente").max(120, "Nome muito longo"),

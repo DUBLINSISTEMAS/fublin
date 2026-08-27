@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { Briefcase, ChevronRight, Download, Settings } from "lucide-react";
+import { BadgeCheck, Briefcase, ChevronRight, Download, Settings } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
 
 export const metadata = { title: "Mais" };
 
 const ITEMS = [
+  { href: "/aprovados", label: "Aprovados", description: "Quem passou na análise: valores, líder, datas e propostas.", icon: BadgeCheck },
   { href: "/lideres", label: "Líderes de vendas", description: "Quem atende na loja e como cada um está convertendo.", icon: Briefcase },
-  { href: "/config", label: "Configurações", description: "Lembretes, acesso pelo celular e seus dados.", icon: Settings },
+  { href: "/config", label: "Configurações", description: "Perfil, quinzenas, alertas, acesso pelo celular e seus dados.", icon: Settings },
   { href: "/api/export/clientes", label: "Exportar clientes (CSV)", description: "Planilha com todos os clientes para o Excel.", icon: Download },
 ];
 

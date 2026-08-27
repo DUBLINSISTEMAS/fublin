@@ -190,32 +190,61 @@ export type LeaderStats = {
   attended: number;
   approved: number;
   closed: number;
+  /** Soma das cartas fechadas (a "produção" do líder). */
+  creditCents: number;
   adesaoCents: number;
   /** fechados / total, em % inteiro (0 quando não há clientes). */
   conversion: number;
 };
 
-/** Desempenho por líder de vendas: quantos clientes recebeu, atendeu, aprovou e fechou. */
-export async function getLeaderStats(db: Db): Promise<LeaderStats[]> {
+export type DateRange = { start: Date; end: Date };
+
+/**
+ * Desempenho por líder de vendas: quantos clientes recebeu, atendeu, aprovou e fechou.
+ * Com `range`, cada número conta pela data do próprio fato dentro de [start, end):
+ * recebidos pelo cadastro, atendidos pelo 1º atendimento, aprovados/fechados pelas datas de etapa.
+ */
+export async function getLeaderStats(db: Db, range?: DateRange): Promise<LeaderStats[]> {
   const [leaderRows, clientRows] = await Promise.all([
     db.select().from(leaders).orderBy(asc(leaders.name)),
-    db.select({ leaderId: clients.leaderId, status: clients.status, adesao: clients.adesaoCents, firstVisitAt: clients.firstVisitAt }).from(clients),
+    db
+      .select({
+        leaderId: clients.leaderId,
+        status: clients.status,
+        credit: clients.creditCents,
+        adesao: clients.adesaoCents,
+        createdAt: clients.createdAt,
+        firstVisitAt: clients.firstVisitAt,
+        approvedAt: clients.approvedAt,
+        closedAt: clients.closedAt,
+      })
+      .from(clients),
   ]);
+  const within = (iso: string | null) => {
+    if (!range) return true;
+    if (!iso) return false;
+    const start = toIso(range.start);
+    const end = toIso(range.end);
+    return iso >= start && iso < end;
+  };
   return leaderRows.map((leader) => {
     const mine = clientRows.filter((c) => c.leaderId === leader.id);
+    const total = mine.filter((c) => within(c.createdAt)).length;
     // Atendido é um fato histórico: quem foi atendido e depois se perdeu continua contando.
-    const attended = mine.filter((c) => c.firstVisitAt !== null || (c.status !== "perdido" && STATUS_RANK[c.status] >= STATUS_RANK.atendido)).length;
-    const approved = mine.filter((c) => c.status === "aprovado" || c.status === "fechou").length;
-    const closedRows = mine.filter((c) => c.status === "fechou");
-    const adesaoCents = closedRows.reduce((sum, c) => sum + (c.adesao ?? 0), 0);
+    const attended = range
+      ? mine.filter((c) => within(c.firstVisitAt)).length
+      : mine.filter((c) => c.firstVisitAt !== null || (c.status !== "perdido" && STATUS_RANK[c.status] >= STATUS_RANK.atendido)).length;
+    const approved = mine.filter((c) => (c.status === "aprovado" || c.status === "fechou") && (!range || within(c.approvedAt))).length;
+    const closedRows = mine.filter((c) => c.status === "fechou" && within(c.closedAt));
     return {
       leader,
-      total: mine.length,
+      total,
       attended,
       approved,
       closed: closedRows.length,
-      adesaoCents,
-      conversion: mine.length ? Math.round((closedRows.length / mine.length) * 100) : 0,
+      creditCents: closedRows.reduce((sum, c) => sum + (c.credit ?? 0), 0),
+      adesaoCents: closedRows.reduce((sum, c) => sum + (c.adesao ?? 0), 0),
+      conversion: total ? Math.round((closedRows.length / total) * 100) : 0,
     };
   });
 }

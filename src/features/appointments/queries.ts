@@ -17,6 +17,29 @@ export async function listAppointmentsForDay(db: Db, day: DayKey): Promise<Appoi
   });
 }
 
+/** Agendamentos com início em [start, end) — a agenda de uma semana ou de um mês. */
+export async function listAppointmentsBetween(db: Db, start: Date, end: Date): Promise<AppointmentWithClient[]> {
+  return db.query.appointments.findMany({
+    where: and(gte(appointments.scheduledAt, toIso(start)), lt(appointments.scheduledAt, toIso(end))),
+    orderBy: [asc(appointments.scheduledAt)],
+    with: WITH_CLIENT,
+  });
+}
+
+/** Quantos agendamentos (exceto cancelados) por dia em [start, end) — os pontinhos do mini-calendário. */
+export async function countAppointmentsByDay(db: Db, start: Date, end: Date): Promise<Record<DayKey, number>> {
+  const rows = await db
+    .select({ at: appointments.scheduledAt })
+    .from(appointments)
+    .where(and(gte(appointments.scheduledAt, toIso(start)), lt(appointments.scheduledAt, toIso(end)), ne(appointments.status, "cancelado")));
+  const counts: Record<DayKey, number> = {};
+  for (const r of rows) {
+    const key = dayKey(fromIso(r.at));
+    counts[key] = (counts[key] ?? 0) + 1;
+  }
+  return counts;
+}
+
 /** Agendados no passado sem baixa (o usuário precisa marcar realizado/faltou). */
 export async function listOverdueAppointments(db: Db, now: Date, limit = 50): Promise<AppointmentWithClient[]> {
   return db.query.appointments.findMany({
