@@ -73,6 +73,10 @@ describe("client lifecycle", () => {
     expect(lost.lostAt).toBe(t3.toISOString());
     expect(lost.lostReason).toBe("Desistiu");
     expect(lost.closedAt).toBe(t3.toISOString()); // perder não apaga o histórico de datas
+    // Re-salvar só o motivo mantém a data da perda.
+    const reasonOnly = await setClientStatus(db, c.id, "perdido", new Date(2026, 8, 5), { lostReason: "Fechou com concorrente" });
+    expect(reasonOnly.lostAt).toBe(t3.toISOString());
+    expect(reasonOnly.lostReason).toBe("Fechou com concorrente");
     const back = await setClientStatus(db, c.id, "negociando", t3);
     expect(back.lostAt).toBeNull();
     expect(back.lostReason).toBeNull();
@@ -191,6 +195,8 @@ describe("approved list and leader stats", () => {
     const a = await createClient(db, { ...base, name: "Aprovada", leaderId: carlos.id }, now);
     const b = await createClient(db, { ...base, name: "Fechado", leaderId: bia.id }, now);
     await createClient(db, { ...base, name: "Em análise", leaderId: carlos.id, status: "analise" }, now);
+    // Atendida e depois perdida: continua contando como atendida para o líder.
+    await createClient(db, { ...base, name: "Perdida", leaderId: carlos.id, status: "perdido", firstVisitDay: "2026-08-10" }, now);
     await setClientStatus(db, a.id, "aprovado", new Date(2026, 7, 10));
     await setClientStatus(db, b.id, "fechou", new Date(2026, 6, 15));
     await updateApproval(db, { id: b.id, credit: 10000000, adesao: 90000, approvedDay: undefined, closedDay: undefined }, now);
@@ -205,7 +211,7 @@ describe("approved list and leader stats", () => {
 
     const stats = await getLeaderStats(db);
     const carlosStats = stats.find((s) => s.leader.id === carlos.id)!;
-    expect(carlosStats).toMatchObject({ total: 2, attended: 2, approved: 1, closed: 0, adesaoCents: 0, conversion: 0 });
+    expect(carlosStats).toMatchObject({ total: 3, attended: 3, approved: 1, closed: 0, adesaoCents: 0, conversion: 0 });
     const biaStats = stats.find((s) => s.leader.id === bia.id)!;
     expect(biaStats).toMatchObject({ total: 1, attended: 1, approved: 1, closed: 1, adesaoCents: 90000, conversion: 100 });
   });

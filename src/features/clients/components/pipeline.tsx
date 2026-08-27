@@ -37,10 +37,13 @@ type Props = { items: ClientListItem[]; leaders: Pick<Leader, "id" | "name">[]; 
 export function Pipeline({ items, leaders, now }: Props) {
   const [clients, setClients] = useState(items);
   const [seenItems, setSeenItems] = useState(items);
+  /** Movimentos ainda em voo: o refresh de outra ação não pode "puxar de volta" estes cards. */
+  const [pending, setPending] = useState<Map<string, ClientStatus>>(() => new Map());
   if (items !== seenItems) {
-    // Dados novos do servidor substituem o estado otimista (padrão "derivar durante o render").
+    // Dados novos do servidor substituem o estado otimista (padrão "derivar durante o render"),
+    // exceto os cards cujo movimento ainda não foi confirmado.
     setSeenItems(items);
-    setClients(items);
+    setClients(items.map((c) => (pending.has(c.id) ? { ...c, status: pending.get(c.id)! } : c)));
   }
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -61,9 +64,15 @@ export function Pipeline({ items, leaders, now }: Props) {
     if (!current || current.status === status) return;
     const previous = current.status;
     setError(null);
+    setPending((map) => new Map(map).set(id, status));
     setClients((list) => list.map((c) => (c.id === id ? { ...c, status } : c)));
     startTransition(async () => {
       const result = await moveClientAction(id, status);
+      setPending((map) => {
+        const next = new Map(map);
+        next.delete(id);
+        return next;
+      });
       if (!result.ok) {
         setClients((list) => list.map((c) => (c.id === id ? { ...c, status: previous } : c)));
         setError(result.error);

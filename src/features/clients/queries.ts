@@ -13,9 +13,11 @@ export type ClientFilters = {
   leaderId?: string;
 };
 
+export type NextAppointment = Pick<Appointment, "id" | "scheduledAt" | "kind" | "status">;
+
 export type ClientListItem = Client & {
   leader: Leader | null;
-  nextAppointment: Appointment | null;
+  nextAppointment: NextAppointment | null;
   /** Visitas/reuniões já realizadas com o líder. */
   meetingsCount: number;
 };
@@ -39,9 +41,12 @@ export function parseClientFilters(params: SearchParams): ClientFilters {
   };
 }
 
-function isAttendanceDone(a: Appointment): boolean {
+function isAttendanceDone(a: Pick<Appointment, "kind" | "status">): boolean {
   return a.status === "realizado" && (ATTENDANCE_KINDS as readonly string[]).includes(a.kind);
 }
+
+/** Só o necessário para "próximo agendamento" e "atendimentos realizados". */
+const LIGHT_APPOINTMENT_COLUMNS = { id: true, scheduledAt: true, kind: true, status: true } as const;
 
 export async function listClients(db: Db, filters: ClientFilters = {}, now: Date = new Date()): Promise<ClientListItem[]> {
   const conditions = [];
@@ -59,7 +64,7 @@ export async function listClients(db: Db, filters: ClientFilters = {}, now: Date
   const rows = await db.query.clients.findMany({
     where: conditions.length ? and(...conditions) : undefined,
     orderBy: [desc(clients.updatedAt)],
-    with: { leader: true, appointments: { orderBy: [asc(appointments.scheduledAt)] } },
+    with: { leader: true, appointments: { columns: LIGHT_APPOINTMENT_COLUMNS, orderBy: [asc(appointments.scheduledAt)] } },
   });
   return rows.map(({ appointments: all, ...client }) => ({
     ...client,
@@ -160,7 +165,7 @@ export async function listApproved(db: Db, filters: ApprovedFilters = {}): Promi
   const rows = await db.query.clients.findMany({
     where: and(...conditions),
     orderBy: [desc(clients.approvedAt), desc(clients.updatedAt)],
-    with: { leader: true, attachments: { columns: { id: true } }, appointments: { columns: { kind: true, status: true, id: true, clientId: true, scheduledAt: true, notes: true, reminderMinutes: true, createdAt: true, updatedAt: true } } },
+    with: { leader: true, attachments: { columns: { id: true } }, appointments: { columns: { kind: true, status: true } } },
   });
   return rows.map(({ attachments: files, appointments: all, ...client }) => ({
     ...client,
@@ -186,11 +191,12 @@ export type LeaderStats = {
 export async function getLeaderStats(db: Db): Promise<LeaderStats[]> {
   const [leaderRows, clientRows] = await Promise.all([
     db.select().from(leaders).orderBy(asc(leaders.name)),
-    db.select({ leaderId: clients.leaderId, status: clients.status, adesao: clients.adesaoCents }).from(clients),
+    db.select({ leaderId: clients.leaderId, status: clients.status, adesao: clients.adesaoCents, firstVisitAt: clients.firstVisitAt }).from(clients),
   ]);
   return leaderRows.map((leader) => {
     const mine = clientRows.filter((c) => c.leaderId === leader.id);
-    const attended = mine.filter((c) => c.status !== "perdido" && STATUS_RANK[c.status] >= STATUS_RANK.atendido).length;
+    // Atendido é um fato histórico: quem foi atendido e depois se perdeu continua contando.
+    const attended = mine.filter((c) => c.firstVisitAt !== null || (c.status !== "perdido" && STATUS_RANK[c.status] >= STATUS_RANK.atendido)).length;
     const approved = mine.filter((c) => c.status === "aprovado" || c.status === "fechou").length;
     const closedRows = mine.filter((c) => c.status === "fechou");
     const adesaoCents = closedRows.reduce((sum, c) => sum + (c.adesao ?? 0), 0);

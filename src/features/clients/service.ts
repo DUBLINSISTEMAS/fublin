@@ -42,7 +42,8 @@ function statusStamps(before: Client, status: ClientStatus, now: Date, lostReaso
   const rank = STATUS_RANK[status];
   const patch: Partial<Client> = {};
   if (status === "perdido") {
-    patch.lostAt = iso;
+    // Re-salvar só o motivo não muda a data em que o cliente foi perdido.
+    patch.lostAt = before.status === "perdido" ? (before.lostAt ?? iso) : iso;
     patch.lostReason = lostReason ?? before.lostReason ?? null;
     return patch;
   }
@@ -157,7 +158,18 @@ export async function deleteClient(db: Db, id: string, storage?: Storage): Promi
   const keys = storage ? (await db.select({ key: attachments.storageKey }).from(attachments).where(eq(attachments.clientId, id))).map((r) => r.key) : [];
   const deleted = await db.delete(clients).where(eq(clients.id, id)).returning({ id: clients.id });
   if (deleted.length === 0) throw new DomainError("Cliente não encontrado.");
-  if (storage) await Promise.all(keys.map((key) => storage.remove(key)));
+  if (storage) await removeFilesQuietly(storage, keys);
+}
+
+/** O banco já apagou; um arquivo travado no disco não pode desfazer isso — só registra. */
+export async function removeFilesQuietly(storage: Storage, keys: string[]): Promise<void> {
+  await Promise.all(
+    keys.map((key) =>
+      storage.remove(key).catch((error: unknown) => {
+        console.error(`[storage] não removeu ${key}`, error);
+      }),
+    ),
+  );
 }
 
 /**

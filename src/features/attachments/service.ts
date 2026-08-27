@@ -7,7 +7,7 @@ import { newId } from "@/lib/ids";
 import { DomainError } from "@/lib/result";
 import type { Storage } from "@/lib/storage";
 import { logActivity } from "@/features/activities/service";
-import { getClient } from "@/features/clients/service";
+import { getClient, removeFilesQuietly } from "@/features/clients/service";
 import { ALLOWED_MIME_TYPES, MAX_ATTACHMENT_BYTES, MAX_TOTAL_UPLOAD_BYTES, sniffMimeType, type AttachmentMeta } from "./schema";
 
 export type NewAttachment = AttachmentMeta & { fileName: string; mimeType: string; bytes: Uint8Array };
@@ -56,16 +56,9 @@ export async function getAttachment(db: Db, id: string): Promise<Attachment> {
 export async function deleteAttachment(db: Db, storage: Storage, id: string, now: Date = new Date()): Promise<Attachment> {
   const row = await getAttachment(db, id);
   await db.delete(attachments).where(eq(attachments.id, id));
-  await storage.remove(row.storageKey);
   await logActivity(db, row.clientId, "anexo", `Removeu anexo: ${row.title}`, now);
+  await removeFilesQuietly(storage, [row.storageKey]);
   return row;
-}
-
-/** Apaga do disco todos os arquivos de um cliente (as linhas somem por cascade ao excluir o cliente). */
-export async function removeClientFiles(db: Db, storage: Storage, clientId: string): Promise<number> {
-  const rows = await listAttachments(db, clientId);
-  await Promise.all(rows.map((r) => storage.remove(r.storageKey)));
-  return rows.length;
 }
 
 function defaultTitle(fileName: string): string {
