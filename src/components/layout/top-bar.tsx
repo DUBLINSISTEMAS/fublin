@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CalendarPlus, Plus, Search } from "lucide-react";
-import { cn } from "@/lib/cn";
 
 const DEBOUNCE_MS = 300;
 
@@ -17,12 +16,18 @@ export function TopBar() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const onClients = pathname === "/clientes";
-  const [q, setQ] = useState(onClients ? (searchParams.get("q") ?? "") : "");
+  const urlQuery = onClients ? (searchParams.get("q") ?? "") : "";
+
+  // A URL é a fonte de verdade: voltar/avançar no navegador (ou limpar filtros) atualiza o campo.
+  const [q, setQ] = useState(urlQuery);
+  const [seenUrlQuery, setSeenUrlQuery] = useState(urlQuery);
+  if (urlQuery !== seenUrlQuery) {
+    setSeenUrlQuery(urlQuery);
+    setQ(urlQuery);
+  }
 
   useEffect(() => {
-    if (!onClients) return;
-    const current = searchParams.get("q") ?? "";
-    if (q.trim() === current) return;
+    if (!onClients || q.trim() === urlQuery) return;
     const timer = window.setTimeout(() => {
       const params = new URLSearchParams(searchParams.toString());
       if (q.trim()) params.set("q", q.trim());
@@ -31,7 +36,7 @@ export function TopBar() {
       router.replace(query ? `/clientes?${query}` : "/clientes", { scroll: false });
     }, DEBOUNCE_MS);
     return () => window.clearTimeout(timer);
-  }, [q, onClients, router, searchParams]);
+  }, [q, onClients, urlQuery, router, searchParams]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,10 +53,10 @@ export function TopBar() {
           onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar cliente"
           aria-label="Buscar cliente"
-          className="h-12 w-full min-w-0 rounded-control bg-transparent pr-3 pl-11 text-[15px] text-ink placeholder:text-ink-2/70 focus:bg-surface-2 focus:outline-none md:h-12"
+          className="h-12 w-full min-w-0 rounded-control bg-transparent pr-3 pl-11 text-[15px] text-ink placeholder:text-ink-2/70 focus:bg-surface-2 focus:outline-none"
         />
       </form>
-      <Link href="/agenda/novo" className={cn("icon-btn size-11 max-md:hidden", "text-ink-2")} aria-label="Novo agendamento" title="Novo agendamento">
+      <Link href="/agenda/novo" className="icon-btn size-11 text-ink-2 max-md:hidden" aria-label="Novo agendamento" title="Novo agendamento">
         <CalendarPlus className="size-5" aria-hidden />
       </Link>
       <Link

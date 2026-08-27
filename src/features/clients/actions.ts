@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
 import { errorMessage } from "@/lib/actions";
-import { formError, formSuccess, type FormState } from "@/lib/result";
+import { actionError, formError, formSuccess, OK, type ActionResult, type FormState } from "@/lib/result";
 import { getStorage } from "@/lib/storage";
 import { idSchema, parseForm } from "@/lib/validation";
 import { approvalSchema, assignLeaderSchema, clientInputSchema, clientNoteSchema, clientStatusSchema } from "./schema";
@@ -49,45 +49,47 @@ export async function updateClientAction(id: string, _prev: FormState, formData:
 }
 
 /**
- * Ações rápidas (sem formulário com estado) não podem lançar: um registro apagado
- * em outro aparelho viraria a página de erro. Registramos e apenas revalidamos.
+ * Ações rápidas (sem formulário com campos) devolvem `ActionResult`: um registro
+ * apagado em outro aparelho vira uma mensagem na tela, não a página de erro.
  */
-export async function setClientStatusAction(formData: FormData): Promise<void> {
+export async function setClientStatusAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const parsed = parseForm(clientStatusSchema, formData);
-  if (!parsed.ok) return;
+  if (!parsed.ok) return actionError("Status inválido.");
   try {
     const db = await getDb();
     await setClientStatus(db, parsed.data.id, parsed.data.status, new Date(), { lostReason: parsed.data.lostReason ?? null });
   } catch (error) {
-    errorMessage(error);
+    return actionError(errorMessage(error));
   }
   revalidateClient(parsed.data.id);
+  return OK;
 }
 
-/** Usada pelo kanban (arrastar e soltar): devolve ok/erro em vez de só revalidar. */
-export async function moveClientAction(id: string, status: string): Promise<{ ok: true } | { ok: false; error: string }> {
+/** Usada pelo kanban (arrastar e soltar) e pelo menu do card. */
+export async function moveClientAction(id: string, status: string): Promise<ActionResult> {
   const parsed = clientStatusSchema.safeParse({ id, status });
-  if (!parsed.success) return { ok: false, error: "Status inválido." };
+  if (!parsed.success) return actionError("Status inválido.");
   try {
     const db = await getDb();
     await setClientStatus(db, parsed.data.id, parsed.data.status);
   } catch (error) {
-    return { ok: false, error: errorMessage(error) };
+    return actionError(errorMessage(error));
   }
   revalidateClient(parsed.data.id);
-  return { ok: true };
+  return OK;
 }
 
-export async function assignLeaderAction(formData: FormData): Promise<void> {
+export async function assignLeaderAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const parsed = parseForm(assignLeaderSchema, formData);
-  if (!parsed.ok) return;
+  if (!parsed.ok) return actionError("Líder inválido.");
   try {
     const db = await getDb();
     await assignLeader(db, parsed.data.id, parsed.data.leaderId ?? null);
   } catch (error) {
-    errorMessage(error);
+    return actionError(errorMessage(error));
   }
   revalidateClient(parsed.data.id);
+  return OK;
 }
 
 export async function updateApprovalAction(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -113,17 +115,17 @@ export async function addClientNoteAction(_prev: FormState, formData: FormData):
     return formError(errorMessage(error), undefined, parsed.values);
   }
   revalidateClient(parsed.data.id);
-  return { status: "success" };
+  return formSuccess();
 }
 
-export async function deleteClientAction(formData: FormData): Promise<void> {
+export async function deleteClientAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const parsed = parseForm(idSchema, formData);
-  if (!parsed.ok) return;
+  if (!parsed.ok) return actionError("Cliente inválido.");
   try {
     const db = await getDb();
     await deleteClient(db, parsed.data.id, getStorage());
   } catch (error) {
-    errorMessage(error);
+    return actionError(errorMessage(error));
   }
   revalidateClient();
   redirect("/clientes");

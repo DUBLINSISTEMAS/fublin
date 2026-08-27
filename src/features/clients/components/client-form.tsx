@@ -21,7 +21,7 @@ import {
   SOURCES,
 } from "@/lib/domain";
 import { centsToInput } from "@/lib/money";
-import { IDLE, type FormState } from "@/lib/result";
+import { formErrors, formValue, IDLE, type FormState } from "@/lib/result";
 
 type Props = {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
@@ -35,9 +35,8 @@ export function ClientForm({ action, leaders, initial, cancelHref, submitLabel =
   const [state, formAction] = useActionState(action, IDLE);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstError(state, formRef);
-  const errors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
-  const value = (key: string, fallback: string | null | undefined) =>
-    state.status === "error" && state.values ? (state.values[key] ?? "") : (fallback ?? "");
+  const errors = formErrors(state);
+  const value = (key: string, fallback: string | null | undefined) => formValue(state, key, fallback);
 
   const firstVisitDay = initial?.firstVisitAt ? toLocalInput(fromIso(initial.firstVisitAt)).day : "";
   const isEdit = Boolean(initial);

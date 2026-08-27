@@ -1,19 +1,21 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { ActionError } from "@/components/ui/action-error";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { Leader } from "@/db/schema";
 import { formatPhone } from "@/lib/phone";
-import { IDLE } from "@/lib/result";
-import { initials } from "@/lib/text";
+import { formErrors, IDLE, OK } from "@/lib/result";
+import { initials, plural } from "@/lib/text";
 import { toggleLeaderAction, updateLeaderAction } from "../actions";
 
 export function LeaderRow({ leader, clientCount }: { leader: Leader; clientCount: number }) {
   const [editing, setEditing] = useState(false);
   const [state, formAction] = useActionState(updateLeaderAction.bind(null, leader.id), IDLE);
+  const [toggleState, toggleAction] = useActionState(toggleLeaderAction, OK);
 
   // Estado derivado durante o render: ao salvar com sucesso, sai do modo de edição.
   const [seenState, setSeenState] = useState(state);
@@ -23,7 +25,7 @@ export function LeaderRow({ leader, clientCount }: { leader: Leader; clientCount
   }
 
   if (editing) {
-    const errors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
+    const errors = formErrors(state);
     return (
       <li className="px-4 py-3">
         <form action={formAction} noValidate className="grid gap-2 sm:grid-cols-[1fr_180px_auto_auto] sm:items-center">
@@ -34,7 +36,7 @@ export function LeaderRow({ leader, clientCount }: { leader: Leader; clientCount
             Cancelar
           </Button>
           {state.status === "error" ? (
-            <p role="alert" className="text-[13px] text-red-600 sm:col-span-4">
+            <p role="alert" className="text-[13px] text-rose-ink sm:col-span-4">
               {errors.name?.[0] ?? state.message}
             </p>
           ) : null}
@@ -44,28 +46,31 @@ export function LeaderRow({ leader, clientCount }: { leader: Leader; clientCount
   }
 
   return (
-    <li className="flex items-center gap-3 px-4 py-3">
-      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2 text-xs font-semibold text-ink-2">{initials(leader.name)}</span>
-      <span className="min-w-0 flex-1">
-        <span className="flex flex-wrap items-center gap-2">
-          <span className="truncate text-[15px] font-medium text-ink">{leader.name}</span>
-          {!leader.active ? <Badge tone="neutral">Inativo</Badge> : null}
+    <li className="px-4 py-3">
+      <div className="flex items-center gap-3">
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-surface-2 text-xs font-semibold text-ink-2">{initials(leader.name)}</span>
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="truncate text-[15px] font-medium text-ink">{leader.name}</span>
+            {!leader.active ? <Badge tone="neutral">Inativo</Badge> : null}
+          </span>
+          <span className="block text-[13px] text-muted">
+            {leader.phone ? `${formatPhone(leader.phone)} · ` : ""}
+            {plural(clientCount, "cliente")}
+          </span>
         </span>
-        <span className="block text-[13px] text-muted">
-          {leader.phone ? `${formatPhone(leader.phone)} · ` : ""}
-          {clientCount} {clientCount === 1 ? "cliente" : "clientes"}
-        </span>
-      </span>
-      <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-        Editar
-      </Button>
-      <form action={toggleLeaderAction}>
-        <input type="hidden" name="id" value={leader.id} />
-        <input type="hidden" name="active" value={leader.active ? "false" : "true"} />
-        <SubmitButton size="sm" variant="ghost" pendingLabel="…">
-          {leader.active ? "Desativar" : "Ativar"}
-        </SubmitButton>
-      </form>
+        <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
+          Editar
+        </Button>
+        <form action={toggleAction}>
+          <input type="hidden" name="id" value={leader.id} />
+          <input type="hidden" name="active" value={leader.active ? "false" : "true"} />
+          <SubmitButton size="sm" variant="ghost" pendingLabel="…">
+            {leader.active ? "Desativar" : "Ativar"}
+          </SubmitButton>
+        </form>
+      </div>
+      <ActionError state={toggleState} className="mt-1 text-right" />
     </li>
   );
 }

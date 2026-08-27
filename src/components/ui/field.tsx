@@ -3,7 +3,7 @@ import { cn } from "@/lib/cn";
 
 /* Controles com preenchimento cinza e sem borda (foco em azul), como na referência. */
 export const controlClasses =
-  "w-full rounded-control border border-transparent bg-surface-2 px-4 text-[15px] text-ink placeholder:text-faint transition-colors duration-150 hover:bg-surface-3 focus:border-accent focus:bg-surface focus:outline-none focus:ring-4 focus:ring-accent/15 aria-[invalid=true]:border-red-400 aria-[invalid=true]:bg-red-50 disabled:opacity-60";
+  "w-full rounded-control border border-transparent bg-surface-2 px-4 text-[15px] text-ink placeholder:text-faint transition-colors duration-150 hover:bg-surface-3 focus:border-accent focus:bg-surface focus:outline-none focus:ring-4 focus:ring-accent/15 aria-[invalid=true]:border-rose-ink/40 aria-[invalid=true]:bg-rose/40 disabled:opacity-60";
 
 const CHEVRON =
   "bg-[url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%2216%22 height=%2216%22 viewBox=%220 0 24 24%22 fill=%22none%22 stroke=%22%236b7280%22 stroke-width=%222%22 stroke-linecap=%22round%22 stroke-linejoin=%22round%22><path d=%22m6 9 6 6 6-6%22/></svg>')] bg-[position:right_0.9rem_center] bg-no-repeat";
@@ -25,14 +25,14 @@ export function Field({ label, htmlFor, error, hint, required, className, childr
       <label htmlFor={htmlFor} className="block text-[13px] font-medium text-ink-2">
         {label}
         {required ? (
-          <span className="ml-0.5 text-red-500" aria-hidden>
+          <span className="ml-0.5 text-rose-ink" aria-hidden>
             *
           </span>
         ) : null}
       </label>
       {children}
       {message ? (
-        <p id={`${htmlFor}-error`} role="alert" className="text-[13px] text-red-600">
+        <p id={`${htmlFor}-error`} role="alert" className="text-[13px] text-rose-ink">
           {message}
         </p>
       ) : hint ? (

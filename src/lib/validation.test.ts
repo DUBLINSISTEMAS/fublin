@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { formDataToObject, formError, formSuccess, IDLE } from "./result";
+import { actionError, formDataToObject, formError, formErrors, formSuccess, formValue, IDLE, OK } from "./result";
 import { idSchema, optionalString, parseForm } from "./validation";
 
 function fd(entries: Record<string, string>): FormData {
@@ -41,7 +41,23 @@ describe("form state helpers", () => {
     expect(IDLE).toEqual({ status: "idle" });
     expect(formError("x", { a: ["b"] }, { a: "1" })).toEqual({ status: "error", message: "x", fieldErrors: { a: ["b"] }, values: { a: "1" } });
     expect(formSuccess("ok")).toEqual({ status: "success", message: "ok" });
+    expect(OK).toEqual({ ok: true });
+    expect(actionError("falhou")).toEqual({ ok: false, error: "falhou" });
   });
+
+  it("reads field errors and typed values only from the error state", () => {
+    const error = formError("x", { name: ["curto"] }, { name: "A", phone: "" });
+    expect(formErrors(error)).toEqual({ name: ["curto"] });
+    expect(formErrors(IDLE)).toEqual({});
+    expect(formErrors(formSuccess())).toEqual({});
+    // O que o usuário digitou vence o valor inicial; chave ausente vira vazio.
+    expect(formValue(error, "name", "Ana do banco")).toBe("A");
+    expect(formValue(error, "phone", "119")).toBe("");
+    expect(formValue(error, "email", "x@y")).toBe("");
+    expect(formValue(IDLE, "name", "Ana do banco")).toBe("Ana do banco");
+    expect(formValue(IDLE, "name", null)).toBe("");
+  });
+
   it("converts FormData to a plain object (strings only)", () => {
     const data = fd({ a: "1", b: "2" });
     data.set("file", new Blob(["x"]));

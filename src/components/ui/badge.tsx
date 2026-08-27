@@ -1,12 +1,16 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/cn";
 import {
+  APPOINTMENT_KIND_LABELS,
   APPOINTMENT_STATUS_LABELS,
   APPOINTMENT_STATUS_TONE,
+  ATTACHMENT_KIND_LABELS,
   CLIENT_STATUS_LABELS,
   CLIENT_STATUS_TONE,
   INTEREST_LABELS,
+  type AppointmentKind,
   type AppointmentStatus,
+  type AttachmentKind,
   type ClientStatus,
   type Interest,
   type Tone,
@@ -31,9 +35,23 @@ const INTEREST_TONE: Record<Interest, string> = {
   outro: "bg-surface-3 text-ink-2",
 };
 
+const APPOINTMENT_KIND_TONE: Record<AppointmentKind, string> = {
+  visita: "bg-accent text-white",
+  reuniao: "bg-sky text-sky-ink",
+  ligacao: "bg-lime text-lime-ink",
+  retorno: "bg-sun text-sun-ink",
+};
+
+const ATTACHMENT_KIND_TONE: Record<AttachmentKind, string> = {
+  proposta: "bg-accent text-white",
+  documento: "bg-sky text-sky-ink",
+  comprovante: "bg-lime text-lime-ink",
+  outro: "bg-surface-3 text-ink-2",
+};
+
 type ChipProps = { children: ReactNode; className?: string };
 
-export function Chip({ className, children }: ChipProps & { className?: string }) {
+export function Chip({ className, children }: ChipProps) {
   return <span className={cn("inline-flex h-7 items-center rounded-chip px-2.5 text-[13px] font-medium whitespace-nowrap", className)}>{children}</span>;
 }
 
@@ -59,6 +77,14 @@ export function AppointmentStatusBadge({ status, className }: { status: Appointm
 
 export function InterestChip({ interest, className }: { interest: Interest; className?: string }) {
   return <Chip className={cn(INTEREST_TONE[interest], className)}>{INTEREST_LABELS[interest]}</Chip>;
+}
+
+export function AppointmentKindChip({ kind, className }: { kind: AppointmentKind; className?: string }) {
+  return <Chip className={cn(APPOINTMENT_KIND_TONE[kind], className)}>{APPOINTMENT_KIND_LABELS[kind]}</Chip>;
+}
+
+export function AttachmentKindChip({ kind, className }: { kind: AttachmentKind; className?: string }) {
+  return <Chip className={cn(ATTACHMENT_KIND_TONE[kind], className)}>{ATTACHMENT_KIND_LABELS[kind]}</Chip>;
 }
 
 /** Contador redondo escuro ao lado de títulos de coluna. */

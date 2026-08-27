@@ -4,13 +4,13 @@ import { useActionState, useEffect, useRef } from "react";
 import { Field, Input } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { IDLE } from "@/lib/result";
+import { formErrors, IDLE } from "@/lib/result";
 import { createLeaderAction } from "../actions";
 
 export function LeaderForm() {
   const [state, formAction] = useActionState(createLeaderAction, IDLE);
   const formRef = useRef<HTMLFormElement>(null);
-  const errors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
+  const errors = formErrors(state);
 
   useEffect(() => {
     if (state.status === "success") formRef.current?.reset();

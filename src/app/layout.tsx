@@ -10,12 +10,12 @@ const outfit = Outfit({
   display: "swap",
 });
 
+/* Manifest e ícone da Apple vêm das convenções de arquivo (`manifest.ts`, `apple-icon.tsx`). */
 export const metadata: Metadata = {
   title: { default: "Relacionador", template: "%s · Relacionador" },
   description: "Gestão de clientes e agendamentos para relacionadores de consórcio.",
-  manifest: "/manifest.webmanifest",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Relacionador" },
-  icons: { icon: "/icon.svg", apple: "/apple-icon.png" },
+  icons: { icon: "/icon.svg" },
 };
 
 export const viewport: Viewport = {

@@ -6,6 +6,7 @@ import { Badge, ClientStatusBadge, InterestChip } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
+import { StatCard } from "@/components/ui/stat-card";
 import { getDb } from "@/db/client";
 import { ApprovedFilters } from "@/features/clients/components/approved-filters";
 import { listApproved, type ApprovedItem } from "@/features/clients/queries";
@@ -13,6 +14,7 @@ import { listLeaders } from "@/features/leaders/service";
 import { formatDate, fromIso, isValidMonthKey, monthKey, monthRange } from "@/lib/dates";
 import { formatBRL, formatBRLCompact } from "@/lib/money";
 import { formatPhone } from "@/lib/phone";
+import { pickParam } from "@/lib/search-params";
 import { initials, plural } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
@@ -21,12 +23,11 @@ export const metadata = { title: "Aprovados" };
 
 export default async function ApprovedPage(props: PageProps<"/aprovados">) {
   const params = await props.searchParams;
-  const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
   const now = new Date();
   const currentMonth = monthKey(now);
-  const requested = pick(params.mes);
+  const requested = pickParam(params, "mes");
   const month = requested === "todos" ? "todos" : isValidMonthKey(requested) ? requested : currentMonth;
-  const leaderId = pick(params.lider) || undefined;
+  const leaderId = pickParam(params, "lider") || undefined;
   const range = month === "todos" ? undefined : monthRange(month);
 
   const db = await getDb();
@@ -60,10 +61,10 @@ export default async function ApprovedPage(props: PageProps<"/aprovados">) {
       </Suspense>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Kpi label="Aprovados" value={String(items.length)} />
-        <Kpi label="Fechados" value={String(closed.length)} hint={items.length ? `${Math.round((closed.length / items.length) * 100)}% dos aprovados` : undefined} />
-        <Kpi label="Adesão total" value={formatBRLCompact(adesaoTotal)} hint={ticket ? `ticket ${formatBRLCompact(ticket)}` : undefined} />
-        <Kpi label="Cartas aprovadas" value={formatBRLCompact(creditTotal)} />
+        <StatCard label="Aprovados" value={String(items.length)} />
+        <StatCard label="Fechados" value={String(closed.length)} hint={items.length ? `${Math.round((closed.length / items.length) * 100)}% dos aprovados` : undefined} />
+        <StatCard label="Adesão total" value={formatBRLCompact(adesaoTotal)} hint={ticket ? `ticket ${formatBRLCompact(ticket)}` : undefined} compact />
+        <StatCard label="Cartas aprovadas" value={formatBRLCompact(creditTotal)} compact />
       </div>
 
       {items.length === 0 ? (
@@ -144,16 +145,6 @@ export default async function ApprovedPage(props: PageProps<"/aprovados">) {
         </>
       )}
     </div>
-  );
-}
-
-function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
-  return (
-    <Card className="p-4">
-      <p className="text-[13px] text-ink-2">{label}</p>
-      <p className="mt-2 text-[28px] leading-none font-light tabular-nums tracking-tight text-ink">{value}</p>
-      {hint ? <p className="mt-1.5 text-[12px] text-muted">{hint}</p> : null}
-    </Card>
   );
 }
 

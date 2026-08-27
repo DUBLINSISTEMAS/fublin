@@ -16,25 +16,25 @@ type Props = {
   client: ClientListItem;
   now: Date;
   leaders: Pick<Leader, "id" | "name">[];
+  onMove: (status: ClientStatus) => void;
   highlight?: boolean;
   dragging?: boolean;
-  onMoved?: (status: ClientStatus) => void;
 };
 
+/** O que vem a seguir para este cliente (rodapé do card), do mais urgente ao mais antigo. */
+export function cardFooter(client: ClientListItem, now: Date): { label: string; title?: string } {
+  if (client.nextAppointment) return { label: formatRelativeDay(fromIso(client.nextAppointment.scheduledAt), now), title: "Próximo agendamento" };
+  if (client.status === "fechou" && client.closedAt) return { label: `Fechou ${formatDayShort(fromIso(client.closedAt))}`, title: "Fechamento" };
+  if (client.status === "aprovado" && client.approvedAt) return { label: `Aprovado ${formatDayShort(fromIso(client.approvedAt))}`, title: "Aprovação" };
+  if (client.firstVisitAt) return { label: `Atendido ${formatDayShort(fromIso(client.firstVisitAt))}`, title: "Primeiro atendimento" };
+  return { label: "Sem agendamento" };
+}
+
 /** Card do funil: chip de interesse, nome, carta, líder, atendimentos e o que vem a seguir. */
-export function ClientCard({ client, now, leaders, highlight = false, dragging = false, onMoved }: Props) {
-  const next = client.nextAppointment ? fromIso(client.nextAppointment.scheduledAt) : null;
+export function ClientCard({ client, now, leaders, onMove, highlight = false, dragging = false }: Props) {
   const description = client.interestNotes ?? client.notes;
   const AttendanceIcon = client.attendance === "online" ? Video : Store;
-  const footer = next
-    ? { label: formatRelativeDay(next, now), title: "Próximo agendamento" }
-    : client.status === "fechou" && client.closedAt
-      ? { label: `Fechou ${formatDayShort(fromIso(client.closedAt))}`, title: "Fechamento" }
-      : client.status === "aprovado" && client.approvedAt
-        ? { label: `Aprovado ${formatDayShort(fromIso(client.approvedAt))}`, title: "Aprovação" }
-        : client.firstVisitAt
-          ? { label: `Atendido ${formatDayShort(fromIso(client.firstVisitAt))}`, title: "Primeiro atendimento" }
-          : { label: "Sem agendamento", title: undefined };
+  const footer = cardFooter(client, now);
 
   return (
     <article
@@ -48,12 +48,15 @@ export function ClientCard({ client, now, leaders, highlight = false, dragging =
       <div className="flex items-start justify-between gap-2">
         <span className="flex flex-wrap items-center gap-1.5">
           <InterestChip interest={client.interest} />
-          <span className={cn("inline-flex h-7 items-center gap-1 rounded-chip px-2 text-[12px]", highlight ? "bg-white/60 text-ink-2" : "bg-surface-2 text-muted")} title={client.attendance === "online" ? "Atendimento online" : "Atendimento presencial"}>
+          <span
+            className={cn("inline-flex h-7 items-center gap-1 rounded-chip px-2 text-[12px]", highlight ? "bg-white/60 text-ink-2" : "bg-surface-2 text-muted")}
+            title={client.attendance === "online" ? "Atendimento online" : "Atendimento presencial"}
+          >
             <AttendanceIcon className="size-3.5" aria-hidden />
             {client.attendance === "online" ? "Online" : "Loja"}
           </span>
         </span>
-        <CardMenu clientId={client.id} status={client.status} leaderId={client.leaderId} leaders={leaders} onMoved={onMoved} tinted={highlight} />
+        <CardMenu clientId={client.id} status={client.status} leaderId={client.leaderId} leaders={leaders} onMove={onMove} tinted={highlight} />
       </div>
 
       <Link href={`/clientes/${client.id}`} className="mt-3 block text-[17px] font-medium leading-tight text-ink hover:underline" onPointerDown={(e) => e.stopPropagation()}>

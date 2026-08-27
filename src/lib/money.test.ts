@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { centsToInput, formatBRL, formatBRLCompact, parseBRL } from "./money";
+import { centsToCsv, centsToInput, formatBRL, formatBRLCompact, parseBRL } from "./money";
 
 describe("parseBRL", () => {
   it("parses pt-BR formats into cents", () => {
@@ -25,5 +25,7 @@ describe("formatting", () => {
     expect(formatBRLCompact(30000000).replace(/ /g, " ")).toBe("R$ 300 mil");
     expect(centsToInput(123456)).toBe("1.234,56");
     expect(centsToInput(null)).toBe("");
+    expect(centsToCsv(123456)).toBe("1234,56");
+    expect(centsToCsv(null)).toBe("");
   });
 });

@@ -41,7 +41,7 @@ export async function listUpcomingAppointments(db: Db, now: Date, hours = 24): P
 }
 
 /** Horário comercial; agendamentos fora dele caem na primeira/última linha. */
-export const HEATMAP_HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18] as const;
+const HEATMAP_HOURS = [9, 10, 11, 12, 13, 14, 15, 16, 17, 18] as const;
 
 export type ActivityHeatmap = {
   days: { day: DayKey; label: string }[];

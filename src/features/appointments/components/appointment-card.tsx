@@ -1,24 +1,16 @@
 import Link from "next/link";
-import { CalendarDays, Check, MessageCircle, MoreHorizontal, Phone, UserX } from "lucide-react";
-import { AppointmentStatusBadge, Chip } from "@/components/ui/badge";
+import { CalendarDays, MessageCircle, MoreHorizontal, Phone } from "lucide-react";
+import { AppointmentKindChip, AppointmentStatusBadge, Chip } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { formatCountdown, formatRelativeDay, formatTime, fromIso } from "@/lib/dates";
-import { APPOINTMENT_KIND_LABELS, type AppointmentKind } from "@/lib/domain";
+import { APPOINTMENT_KIND_LABELS } from "@/lib/domain";
 import { telUrl, whatsappUrl } from "@/lib/phone";
 import { initials } from "@/lib/text";
-import { setAppointmentStatusAction } from "../actions";
 import type { AppointmentWithClient } from "../queries";
+import { QuickStatus } from "./quick-status";
+import type { AppointmentVariant } from "./variant";
 
-export type CardVariant = "now" | "default" | "overdue" | "done";
-
-const KIND_CHIP: Record<AppointmentKind, string> = {
-  visita: "bg-accent text-white",
-  reuniao: "bg-sky text-sky-ink",
-  ligacao: "bg-lime text-lime-ink",
-  retorno: "bg-sun text-sun-ink",
-};
-
-type Props = { appointment: AppointmentWithClient; now: Date; variant?: CardVariant };
+type Props = { appointment: AppointmentWithClient; now: Date; variant?: AppointmentVariant };
 
 /**
  * Card de agendamento no estilo kanban: chip do tipo, nome, contexto,
@@ -34,10 +26,13 @@ export function AppointmentCard({ appointment, now, variant = "default" }: Props
   return (
     <article className={cn("rounded-card p-4 shadow-card", isNow ? "bg-sky" : "bg-surface", variant === "done" && "opacity-70")}>
       <div className="flex items-start justify-between gap-2">
-        {pending ? (
-          <Chip className={cn(KIND_CHIP[appointment.kind], isNow && appointment.kind === "visita" && "bg-dark")}>{APPOINTMENT_KIND_LABELS[appointment.kind]}</Chip>
-        ) : (
+        {!pending ? (
           <AppointmentStatusBadge status={appointment.status} />
+        ) : isNow && appointment.kind === "visita" ? (
+          // Sobre o fundo azul-claro do "Agora", o chip azul da visita vira escuro para não sumir.
+          <Chip className="bg-dark text-white">{APPOINTMENT_KIND_LABELS.visita}</Chip>
+        ) : (
+          <AppointmentKindChip kind={appointment.kind} />
         )}
         <Link href={`/agenda/${appointment.id}/editar`} className="icon-btn -mt-1 -mr-1 size-8" aria-label="Editar agendamento">
           <MoreHorizontal className="size-4" aria-hidden />
@@ -62,7 +57,7 @@ export function AppointmentCard({ appointment, now, variant = "default" }: Props
       <div className={cn("mt-3 flex items-center justify-between gap-2 border-t pt-3", isNow ? "border-ink/10" : "border-line")}>
         <span className="inline-flex items-center gap-1.5 text-[13px] tabular-nums text-ink-2">
           <CalendarDays className="size-4" aria-hidden />
-          {variant === "now" ? `${formatTime(when)} · ${formatCountdown(when, now)}` : `${formatRelativeDay(when, now)} ${formatTime(when)}`}
+          {isNow ? `${formatTime(when)} · ${formatCountdown(when, now)}` : `${formatRelativeDay(when, now)} ${formatTime(when)}`}
         </span>
         <span className="flex items-center gap-0.5">
           <a href={whatsappUrl(client.phone)} target="_blank" rel="noreferrer" className="icon-btn size-8" aria-label={`WhatsApp de ${client.name}`}>
@@ -74,19 +69,7 @@ export function AppointmentCard({ appointment, now, variant = "default" }: Props
         </span>
       </div>
 
-      {pending ? (
-        <form action={setAppointmentStatusAction} className="mt-3 grid grid-cols-2 gap-2">
-          <input type="hidden" name="id" value={appointment.id} />
-          <button type="submit" name="status" value="realizado" className={cn("quick-btn justify-center", isNow ? "bg-white text-ink hover:bg-white/80" : "quick-btn-ok")}>
-            <Check className="size-3.5" aria-hidden />
-            Realizado
-          </button>
-          <button type="submit" name="status" value="faltou" className={cn("quick-btn justify-center", isNow && "border-ink/10 bg-white/40")}>
-            <UserX className="size-3.5" aria-hidden />
-            Faltou
-          </button>
-        </form>
-      ) : null}
+      {pending ? <QuickStatus appointmentId={appointment.id} layout="card" tinted={isNow} /> : null}
     </article>
   );
 }

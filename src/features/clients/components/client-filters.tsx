@@ -1,32 +1,13 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback } from "react";
 import { Columns3, List } from "lucide-react";
 import { Select } from "@/components/ui/field";
+import { useUrlUpdate } from "@/components/ui/use-url-update";
 import { cn } from "@/lib/cn";
 import { INTEREST_LABELS, INTERESTS } from "@/lib/domain";
 import type { ClientFilters as Filters } from "../queries";
 
 type Props = { leaders: { id: string; name: string }[]; filters: Filters };
-
-function useUrlUpdate() {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-  return useCallback(
-    (patch: Record<string, string | undefined>) => {
-      const params = new URLSearchParams(searchParams.toString());
-      for (const [key, value] of Object.entries(patch)) {
-        if (value) params.set(key, value);
-        else params.delete(key);
-      }
-      const query = params.toString();
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    },
-    [router, pathname, searchParams],
-  );
-}
 
 /** Filtros por interesse e líder; vivem na URL. */
 export function ClientFilters({ leaders, filters }: Props) {

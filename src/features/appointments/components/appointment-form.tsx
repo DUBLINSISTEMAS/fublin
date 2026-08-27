@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { fromIso, toLocalInput } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS, APPOINTMENT_KINDS, DEFAULT_REMINDER_MINUTES, REMINDER_OPTIONS } from "@/lib/domain";
 import { formatPhone } from "@/lib/phone";
-import { IDLE, type FormState } from "@/lib/result";
+import { formErrors, formValue, IDLE, type FormState } from "@/lib/result";
 import type { ClientOption } from "@/features/clients/queries";
 
 type Props = {
@@ -29,9 +29,8 @@ export function AppointmentForm({ action, clients, lockedClient, initial, defaul
   const [state, formAction] = useActionState(action, IDLE);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstError(state, formRef);
-  const errors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
-  const value = (key: string, fallback: string | null | undefined) =>
-    state.status === "error" && state.values ? (state.values[key] ?? "") : (fallback ?? "");
+  const errors = formErrors(state);
+  const value = (key: string, fallback: string | null | undefined) => formValue(state, key, fallback);
 
   const initialLocal = initial ? toLocalInput(fromIso(initial.scheduledAt)) : undefined;
   const kind = value("kind", initial?.kind ?? "visita");
@@ -81,7 +80,7 @@ export function AppointmentForm({ action, clients, lockedClient, initial, defaul
           ))}
         </div>
         {errors.kind ? (
-          <p role="alert" className="text-[13px] text-red-600">
+          <p role="alert" className="text-[13px] text-rose-ink">
             {errors.kind[0]}
           </p>
         ) : null}

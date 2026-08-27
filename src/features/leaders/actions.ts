@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/db/client";
 import { errorMessage } from "@/lib/actions";
-import { formError, formSuccess, type FormState } from "@/lib/result";
+import { actionError, formError, formSuccess, OK, type ActionResult, type FormState } from "@/lib/result";
 import { idSchema, parseForm } from "@/lib/validation";
 import { leaderInputSchema } from "./schema";
 import { createLeader, setLeaderActive, updateLeader } from "./service";
@@ -42,14 +42,15 @@ export async function updateLeaderAction(id: string, _prev: FormState, formData:
 
 const toggleSchema = idSchema.extend({ active: z.enum(["true", "false"]) });
 
-export async function toggleLeaderAction(formData: FormData): Promise<void> {
+export async function toggleLeaderAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const parsed = parseForm(toggleSchema, formData);
-  if (!parsed.ok) return;
+  if (!parsed.ok) return actionError("Líder inválido.");
   try {
     const db = await getDb();
     await setLeaderActive(db, parsed.data.id, parsed.data.active === "true");
   } catch (error) {
-    errorMessage(error);
+    return actionError(errorMessage(error));
   }
   revalidateLeaders();
+  return OK;
 }

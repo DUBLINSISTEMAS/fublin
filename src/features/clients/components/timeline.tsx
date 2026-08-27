@@ -1,12 +1,15 @@
-import { CalendarDays, StickyNote, Tag, UserRound, type LucideIcon } from "lucide-react";
+import { Briefcase, CalendarDays, Paperclip, StickyNote, Tag, UserRound, type LucideIcon } from "lucide-react";
 import { formatDate, formatTime, fromIso } from "@/lib/dates";
+import type { ActivityType } from "@/lib/domain";
 import type { ActivityItem } from "../queries";
 
-const ICONS: Record<string, LucideIcon> = {
+const ICONS: Record<ActivityType, LucideIcon> = {
   nota: StickyNote,
   status: Tag,
   agendamento: CalendarDays,
   cliente: UserRound,
+  anexo: Paperclip,
+  lider: Briefcase,
 };
 
 export function Timeline({ items }: { items: ActivityItem[] }) {
@@ -14,7 +17,7 @@ export function Timeline({ items }: { items: ActivityItem[] }) {
   return (
     <ol className="relative space-y-4 border-l border-line pl-6">
       {items.map((item) => {
-        const Icon = ICONS[item.type] ?? StickyNote;
+        const Icon = ICONS[item.type];
         const at = fromIso(item.createdAt);
         return (
           <li key={item.id} className="relative">

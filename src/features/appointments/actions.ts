@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
 import { errorMessage } from "@/lib/actions";
 import { dayKey, fromIso } from "@/lib/dates";
-import { formError, type FormState } from "@/lib/result";
+import { actionError, formError, OK, type ActionResult, type FormState } from "@/lib/result";
 import { idSchema, parseForm } from "@/lib/validation";
 import { appointmentInputSchema, appointmentStatusSchema } from "./schema";
 import { createAppointment, deleteAppointment, getAppointment, setAppointmentStatus, updateAppointment } from "./service";
@@ -56,31 +56,32 @@ export async function updateAppointmentAction(id: string, _prev: FormState, form
   redirect(target);
 }
 
-/** Ações rápidas não lançam: registro sumido em outro aparelho só gera log + revalidação. */
-export async function setAppointmentStatusAction(formData: FormData): Promise<void> {
+/** Baixa rápida (Realizado / Faltou): o erro volta para o botão, sem página de erro. */
+export async function setAppointmentStatusAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const parsed = parseForm(appointmentStatusSchema, formData);
-  if (!parsed.ok) return;
-  let clientId: string | undefined;
+  if (!parsed.ok) return actionError("Status inválido.");
+  let clientId: string;
   try {
     const db = await getDb();
     clientId = (await setAppointmentStatus(db, parsed.data.id, parsed.data.status)).clientId;
   } catch (error) {
-    errorMessage(error);
+    return actionError(errorMessage(error));
   }
   revalidateAppointment(clientId);
+  return OK;
 }
 
-export async function deleteAppointmentAction(formData: FormData): Promise<void> {
+export async function deleteAppointmentAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
   const parsed = parseForm(idSchema, formData);
-  if (!parsed.ok) return;
-  let clientId: string | undefined;
+  if (!parsed.ok) return actionError("Agendamento inválido.");
+  let clientId: string;
   try {
     const db = await getDb();
     clientId = (await getAppointment(db, parsed.data.id)).clientId;
     await deleteAppointment(db, parsed.data.id);
   } catch (error) {
-    errorMessage(error);
+    return actionError(errorMessage(error));
   }
   revalidateAppointment(clientId);
-  redirect(clientId ? `/clientes/${clientId}` : "/agenda");
+  redirect(`/clientes/${clientId}`);
 }

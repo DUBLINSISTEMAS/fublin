@@ -25,7 +25,7 @@ export function NoteForm({ clientId }: { clientId: string }) {
       </label>
       <Textarea id="note" name="content" placeholder="Anote o que foi conversado, próximos passos…" invalid={Boolean(error)} className="min-h-20" />
       {error ? (
-        <p role="alert" className="text-[13px] text-red-600">
+        <p role="alert" className="text-[13px] text-rose-ink">
           {error}
         </p>
       ) : (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { capitalize, initials, plural } from "./text";
+import { capitalize, formatBytes, initials, plural } from "./text";
 
 describe("text helpers", () => {
   it("capitalizes only the first letter", () => {
@@ -15,5 +15,10 @@ describe("text helpers", () => {
     expect(plural(1, "agendamento")).toBe("1 agendamento");
     expect(plural(3, "agendamento")).toBe("3 agendamentos");
     expect(plural(0, "atrasado")).toBe("0 atrasados");
+  });
+  it("formats file sizes in pt-BR", () => {
+    expect(formatBytes(512)).toBe("512 B");
+    expect(formatBytes(1536)).toBe("2 KB");
+    expect(formatBytes(2.5 * 1024 * 1024)).toBe("2,5 MB");
   });
 });

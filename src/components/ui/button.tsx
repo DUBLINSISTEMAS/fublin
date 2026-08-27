@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { ComponentProps } from "react";
 import { cn } from "@/lib/cn";
 
-export type ButtonVariant = "primary" | "accent" | "secondary" | "ghost" | "danger" | "dark";
+export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "dark";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const BASE =
@@ -10,11 +10,10 @@ const BASE =
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-accent text-white hover:bg-accent-strong",
-  accent: "bg-accent text-white hover:bg-accent-strong",
   dark: "bg-dark text-white hover:bg-dark-2",
   secondary: "border border-line-strong bg-surface text-ink hover:bg-surface-2",
   ghost: "text-ink-2 hover:bg-surface-2 hover:text-ink",
-  danger: "bg-rose text-rose-ink hover:bg-red-200",
+  danger: "bg-rose text-rose-ink hover:bg-rose-strong",
 };
 
 const SIZES: Record<ButtonSize, string> = {

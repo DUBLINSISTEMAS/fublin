@@ -1,5 +1,6 @@
 import type { ActivityHeatmap } from "@/features/appointments/queries";
 import { cn } from "@/lib/cn";
+import { plural } from "@/lib/text";
 
 type Props = { data: ActivityHeatmap; currentDayIndex: number; currentHour: number };
 
@@ -24,7 +25,7 @@ export function Heatmap({ data, currentDayIndex, currentHour }: Props) {
               return (
                 <span
                   key={d.day}
-                  title={`${d.label} · ${hour}h · ${count} agendamento${count === 1 ? "" : "s"}`}
+                  title={`${d.label} · ${hour}h · ${plural(count, "agendamento")}`}
                   className={cn("aspect-square w-full min-w-0 rounded-[3px] sm:rounded-[4px]", isNow ? "bg-lime" : tone(count, data.max))}
                 />
               );

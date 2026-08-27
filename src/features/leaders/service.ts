@@ -7,8 +7,10 @@ import { DomainError } from "@/lib/result";
 import type { LeaderInput } from "./schema";
 
 export async function listLeaders(db: Db, options: { includeInactive?: boolean } = {}): Promise<Leader[]> {
-  const rows = await db.query.leaders.findMany({ orderBy: [asc(leaders.name)] });
-  return options.includeInactive ? rows : rows.filter((l) => l.active);
+  return db.query.leaders.findMany({
+    where: options.includeInactive ? undefined : eq(leaders.active, true),
+    orderBy: [asc(leaders.name)],
+  });
 }
 
 export async function createLeader(db: Db, input: LeaderInput, now: Date = new Date()): Promise<Leader> {

@@ -9,7 +9,6 @@ import {
   parse,
   parseISO,
   startOfDay,
-  startOfMonth,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -61,10 +60,6 @@ export function dayBounds(day: DayKey): { start: Date; end: Date } {
 
 export function shiftDayKey(day: DayKey, days: number): DayKey {
   return dayKey(addDays(parse(day, "yyyy-MM-dd", REF), days));
-}
-
-export function monthStart(now: Date): Date {
-  return startOfMonth(now);
 }
 
 /** Chave de mês: "2026-08". */
@@ -135,7 +130,7 @@ export function formatWhen(date: Date, now: Date = new Date()): string {
   return `${formatRelativeDay(date, now)} às ${formatTime(date)}`;
 }
 
-export function minutesUntil(target: Date, now: Date): number {
+function minutesUntil(target: Date, now: Date): number {
   return differenceInMinutes(target, now);
 }
 

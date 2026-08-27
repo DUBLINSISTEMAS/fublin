@@ -13,8 +13,14 @@ function describe(kind: Appointment["kind"], when: Date): string {
   return `${APPOINTMENT_KIND_LABELS[kind]} em ${formatDate(when)} às ${formatTime(when)}`;
 }
 
+/** Agendamento por id, ou `null` (páginas usam para responder 404). */
+export async function findAppointment(db: Db, id: string): Promise<Appointment | null> {
+  return (await db.query.appointments.findFirst({ where: eq(appointments.id, id) })) ?? null;
+}
+
+/** Como `findAppointment`, mas lança erro de domínio (serviços e ações). */
 export async function getAppointment(db: Db, id: string): Promise<Appointment> {
-  const row = await db.query.appointments.findFirst({ where: eq(appointments.id, id) });
+  const row = await findAppointment(db, id);
   if (!row) throw new DomainError("Agendamento não encontrado.");
   return row;
 }

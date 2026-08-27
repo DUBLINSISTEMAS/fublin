@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Db } from "@/db/client";
 import { createTestDb } from "@/db/test-db";
-import { IDLE } from "@/lib/result";
+import { createLeader } from "@/features/leaders/service";
+import { IDLE, OK } from "@/lib/result";
 import { getClientDetail, listClients } from "./queries";
 
 /* Infra do Next substituída por espiões: redirect vira um erro sentinela, revalidatePath só registra. */
@@ -18,7 +19,7 @@ vi.mock("next/navigation", () => ({
 }));
 
 import { revalidatePath } from "next/cache";
-import { addClientNoteAction, createClientAction, deleteClientAction, setClientStatusAction, updateClientAction } from "./actions";
+import { addClientNoteAction, assignLeaderAction, createClientAction, deleteClientAction, moveClientAction, setClientStatusAction, updateClientAction } from "./actions";
 
 function fd(entries: Record<string, string>): FormData {
   const data = new FormData();
@@ -62,8 +63,8 @@ describe("update / status / note / delete", () => {
     const [client] = await listClients(db);
 
     await expect(updateClientAction(client.id, IDLE, fd({ ...valid, name: "Ana Paula", status: "negociando" }))).rejects.toThrow(`REDIRECT:/clientes/${client.id}`);
-    await setClientStatusAction(fd({ id: client.id, status: "fechou" }));
-    await setClientStatusAction(fd({ id: client.id, status: "invalido" })); // ignorado
+    expect(await setClientStatusAction(OK, fd({ id: client.id, status: "fechou" }))).toEqual(OK);
+    expect(await setClientStatusAction(OK, fd({ id: client.id, status: "invalido" }))).toMatchObject({ ok: false });
     const note = await addClientNoteAction(IDLE, fd({ id: client.id, content: "Fechou com carta de 300 mil" }));
     expect(note.status).toBe("success");
     const empty = await addClientNoteAction(IDLE, fd({ id: client.id, content: "   " }));
@@ -74,15 +75,31 @@ describe("update / status / note / delete", () => {
     expect(detail?.status).toBe("fechou");
     expect(detail?.activities.map((a) => a.type)).toEqual(["nota", "status", "status", "cliente"]);
 
-    await expect(deleteClientAction(fd({ id: client.id }))).rejects.toThrow("REDIRECT:/clientes");
+    await expect(deleteClientAction(OK, fd({ id: client.id }))).rejects.toThrow("REDIRECT:/clientes");
     expect(await getClientDetail(db, client.id)).toBeNull();
-    await deleteClientAction(fd({ id: "" })); // no-op
   });
 
-  it("maps domain errors to a form error instead of throwing", async () => {
+  it("moves through the kanban and assigns the leader, reporting errors instead of throwing", async () => {
+    const leader = await createLeader(db, { name: "Bia", phone: undefined });
+    await createClientAction(IDLE, fd(valid)).catch(() => undefined);
+    const [client] = await listClients(db);
+
+    expect(await moveClientAction(client.id, "analise")).toEqual(OK);
+    expect(await moveClientAction(client.id, "nope")).toEqual({ ok: false, error: "Status inválido." });
+    expect(await moveClientAction("missing", "analise")).toEqual({ ok: false, error: "Cliente não encontrado." });
+
+    expect(await assignLeaderAction(OK, fd({ id: client.id, leaderId: leader.id }))).toEqual(OK);
+    expect(await assignLeaderAction(OK, fd({ id: client.id, leaderId: "ghost" }))).toEqual({ ok: false, error: "Líder não encontrado." });
+    expect((await getClientDetail(db, client.id))?.leader?.name).toBe("Bia");
+  });
+
+  it("maps domain errors to a visible result instead of throwing", async () => {
     const result = await updateClientAction("nope", IDLE, fd(valid));
     expect(result).toMatchObject({ status: "error", message: "Cliente não encontrado." });
     const note = await addClientNoteAction(IDLE, fd({ id: "nope", content: "x" }));
     expect(note).toMatchObject({ status: "error", message: "Cliente não encontrado." });
+    expect(await deleteClientAction(OK, fd({ id: "nope" }))).toEqual({ ok: false, error: "Cliente não encontrado." });
+    expect(await deleteClientAction(OK, fd({ id: "" }))).toMatchObject({ ok: false });
+    expect(await setClientStatusAction(OK, fd({ id: "nope", status: "fechou" }))).toEqual({ ok: false, error: "Cliente não encontrado." });
   });
 });

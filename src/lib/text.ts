@@ -15,3 +15,13 @@ export function capitalize(text: string): string {
 export function plural(count: number, singular: string, pluralForm = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : pluralForm}`;
 }
+
+const KB = 1024;
+const MB = KB * 1024;
+
+/** 1536 -> "2 KB"; 2.5 MB -> "2,5 MB". */
+export function formatBytes(bytes: number): string {
+  if (bytes < KB) return `${bytes} B`;
+  if (bytes < MB) return `${Math.round(bytes / KB)} KB`;
+  return `${(bytes / MB).toFixed(1).replace(".", ",")} MB`;
+}

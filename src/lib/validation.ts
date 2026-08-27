@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FieldErrors } from "./result";
+import { formDataToObject, type FieldErrors } from "./result";
 
 /** Campo opcional de formulário: string vazia vira `undefined`. */
 export function optionalString<T extends z.ZodTypeAny>(schema: T) {
@@ -15,10 +15,7 @@ export type ParseResult<T> =
 
 /** Valida um FormData contra um schema, devolvendo erros por campo prontos para a UI. */
 export function parseForm<T extends z.ZodTypeAny>(schema: T, formData: FormData): ParseResult<z.output<T>> {
-  const values: Record<string, string> = {};
-  for (const [key, value] of formData.entries()) {
-    if (typeof value === "string") values[key] = value;
-  }
+  const values = formDataToObject(formData);
   const result = schema.safeParse(values);
   if (result.success) return { ok: true, data: result.data, values };
   const { fieldErrors } = z.flattenError(result.error);

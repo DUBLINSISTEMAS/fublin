@@ -68,7 +68,7 @@ export async function createClient(db: Db, input: ClientInput, now: Date = new D
     closedAt: null,
     lostAt: null,
     lostReason: null,
-  } satisfies Omit<Client, never>;
+  } satisfies Client;
   const stamped = { ...row, ...statusStamps(row, input.status, now) };
   await db.insert(clients).values(stamped);
   await logActivity(db, stamped.id, "cliente", "Cliente cadastrado", now);

@@ -1,32 +1,23 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useRef, useState, type DragEvent } from "react";
+import { useActionState, useRef, useState, type DragEvent } from "react";
 import { Camera, Download, ExternalLink, FileText, Paperclip, Trash2, Upload } from "lucide-react";
-import { Chip } from "@/components/ui/badge";
+import { ActionError } from "@/components/ui/action-error";
+import { AttachmentKindChip } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/field";
+import { SubmitButton } from "@/components/ui/submit-button";
 import type { Attachment } from "@/db/schema";
 import { cn } from "@/lib/cn";
 import { formatDate, fromIso } from "@/lib/dates";
 import { ATTACHMENT_KIND_LABELS, ATTACHMENT_KINDS, type AttachmentKind } from "@/lib/domain";
+import { OK } from "@/lib/result";
+import { formatBytes } from "@/lib/text";
 import { deleteAttachmentAction } from "../actions";
 import { MAX_ATTACHMENT_BYTES } from "../schema";
 
 type Props = { clientId: string; attachments: Attachment[] };
-
-const KIND_CHIP: Record<AttachmentKind, string> = {
-  proposta: "bg-accent text-white",
-  documento: "bg-sky text-sky-ink",
-  comprovante: "bg-lime text-lime-ink",
-  outro: "bg-surface-3 text-ink-2",
-};
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 /**
  * Propostas e documentos do cliente: envie foto/PDF (arrastando, escolhendo ou pela
@@ -122,7 +113,7 @@ export function AttachmentsPanel({ clientId, attachments }: Props) {
         <input ref={fileInput} type="file" accept="image/*,application/pdf" multiple className="sr-only" onChange={(e) => e.target.files && void upload(e.target.files)} />
         <input ref={cameraInput} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => e.target.files && void upload(e.target.files)} />
         {error ? (
-          <p role="alert" className="mt-3 text-[13px] text-red-600">
+          <p role="alert" className="mt-3 text-[13px] text-rose-ink">
             {error}
           </p>
         ) : null}
@@ -133,45 +124,65 @@ export function AttachmentsPanel({ clientId, attachments }: Props) {
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {attachments.map((a) => (
-            <li key={a.id} className="overflow-hidden rounded-card bg-surface-2">
-              <a href={`/api/anexos/${a.id}`} target="_blank" rel="noreferrer" className="block aspect-[4/3] bg-surface-3" aria-label={`Abrir ${a.title}`}>
-                {a.mimeType.startsWith("image/") ? (
-                  // eslint-disable-next-line @next/next/no-img-element -- arquivo local servido pela API, sem otimização
-                  <img src={`/api/anexos/${a.id}`} alt={a.title} className="size-full object-cover" loading="lazy" />
-                ) : (
-                  <span className="grid size-full place-items-center text-muted">
-                    <FileText className="size-10" aria-hidden />
-                  </span>
-                )}
-              </a>
-              <div className="space-y-2 p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <Chip className={cn(KIND_CHIP[a.kind], "h-6 text-[12px]")}>{ATTACHMENT_KIND_LABELS[a.kind]}</Chip>
-                  <span className="text-[11px] tabular-nums text-muted">{formatDate(fromIso(a.createdAt))}</span>
-                </div>
-                <p className="truncate text-[14px] font-medium text-ink" title={a.fileName}>
-                  {a.title}
-                </p>
-                <div className="flex items-center gap-1">
-                  <a href={`/api/anexos/${a.id}`} target="_blank" rel="noreferrer" className="icon-btn size-8" aria-label="Abrir">
-                    <ExternalLink className="size-4" aria-hidden />
-                  </a>
-                  <a href={`/api/anexos/${a.id}?download=1`} className="icon-btn size-8" aria-label="Baixar">
-                    <Download className="size-4" aria-hidden />
-                  </a>
-                  <span className="ml-auto text-[11px] text-muted">{formatSize(a.sizeBytes)}</span>
-                  <form action={deleteAttachmentAction} onSubmit={(e) => (window.confirm(`Remover "${a.title}"?`) ? undefined : e.preventDefault())}>
-                    <input type="hidden" name="id" value={a.id} />
-                    <button type="submit" className="icon-btn size-8 text-rose-ink hover:bg-rose" aria-label={`Remover ${a.title}`}>
-                      <Trash2 className="size-4" aria-hidden />
-                    </button>
-                  </form>
-                </div>
-              </div>
-            </li>
+            <AttachmentItem key={a.id} attachment={a} />
           ))}
         </ul>
       )}
     </div>
+  );
+}
+
+function AttachmentItem({ attachment: a }: { attachment: Attachment }) {
+  const [confirming, setConfirming] = useState(false);
+  const [state, formAction] = useActionState(deleteAttachmentAction, OK);
+  const url = `/api/anexos/${a.id}`;
+  return (
+    <li className="overflow-hidden rounded-card bg-surface-2">
+      <a href={url} target="_blank" rel="noreferrer" className="block aspect-[4/3] bg-surface-3" aria-label={`Abrir ${a.title}`}>
+        {a.mimeType.startsWith("image/") ? (
+          // eslint-disable-next-line @next/next/no-img-element -- arquivo local servido pela API, sem otimização
+          <img src={url} alt={a.title} className="size-full object-cover" loading="lazy" />
+        ) : (
+          <span className="grid size-full place-items-center text-muted">
+            <FileText className="size-10" aria-hidden />
+          </span>
+        )}
+      </a>
+      <div className="space-y-2 p-3">
+        <div className="flex items-start justify-between gap-2">
+          <AttachmentKindChip kind={a.kind} className="h-6 text-[12px]" />
+          <span className="text-[11px] tabular-nums text-muted">{formatDate(fromIso(a.createdAt))}</span>
+        </div>
+        <p className="truncate text-[14px] font-medium text-ink" title={a.fileName}>
+          {a.title}
+        </p>
+        {confirming ? (
+          <form action={formAction} className="flex flex-wrap items-center gap-1.5 text-[12px]">
+            <input type="hidden" name="id" value={a.id} />
+            <span className="text-muted">Remover?</span>
+            <SubmitButton size="sm" variant="danger" className="h-8 px-3 text-[12px]" pendingLabel="Removendo…">
+              Sim, remover
+            </SubmitButton>
+            <Button size="sm" variant="ghost" className="h-8 px-3 text-[12px]" onClick={() => setConfirming(false)}>
+              Não
+            </Button>
+            <ActionError state={state} className="basis-full text-[12px]" />
+          </form>
+        ) : (
+          <div className="flex items-center gap-1">
+            <a href={url} target="_blank" rel="noreferrer" className="icon-btn size-8" aria-label="Abrir">
+              <ExternalLink className="size-4" aria-hidden />
+            </a>
+            <a href={`${url}?download=1`} className="icon-btn size-8" aria-label="Baixar">
+              <Download className="size-4" aria-hidden />
+            </a>
+            <span className="ml-auto text-[11px] text-muted">{formatBytes(a.sizeBytes)}</span>
+            <button type="button" onClick={() => setConfirming(true)} className="icon-btn size-8 text-rose-ink hover:bg-rose" aria-label={`Remover ${a.title}`}>
+              <Trash2 className="size-4" aria-hidden />
+            </button>
+          </div>
+        )}
+      </div>
+    </li>
   );
 }

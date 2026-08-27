@@ -5,12 +5,11 @@ import { useRouter } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
-import { dayKey, isValidDayKey, shiftDayKey, type DayKey } from "@/lib/dates";
+import { isValidDayKey, shiftDayKey, type DayKey } from "@/lib/dates";
 
-/** Navegação por dia: anterior · hoje · próximo + seletor de data. */
-export function DayNav({ day }: { day: DayKey }) {
+/** Navegação por dia: anterior · hoje · próximo + seletor de data. `today` vem do servidor para não divergir na hidratação. */
+export function DayNav({ day, today }: { day: DayKey; today: DayKey }) {
   const router = useRouter();
-  const today = dayKey(new Date());
   const isToday = day === today;
   return (
     <div className="flex items-center gap-1.5">

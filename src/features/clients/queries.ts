@@ -3,8 +3,9 @@ import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { Db } from "@/db/client";
 import { appointments, attachments, clients, leaders, type Appointment, type Attachment, type Client, type Leader } from "@/db/schema";
 import { dayBounds, dayKey, formatWeekdayShort, fromIso, shiftDayKey, toIso, type DayKey } from "@/lib/dates";
-import { ATTENDANCE_KINDS, CLIENT_STATUSES, INTERESTS, OPEN_CLIENT_STATUSES, STATUS_RANK, type ClientStatus, type Interest } from "@/lib/domain";
+import { ATTENDANCE_KINDS, CLIENT_STATUSES, INTERESTS, OPEN_CLIENT_STATUSES, STATUS_RANK, type ActivityType, type ClientStatus, type Interest } from "@/lib/domain";
 import { digitsOnly } from "@/lib/phone";
+import { pickParam, type SearchParams } from "@/lib/search-params";
 
 export type ClientFilters = {
   q?: string;
@@ -22,22 +23,16 @@ export type ClientListItem = Client & {
   meetingsCount: number;
 };
 
-type SearchParams = Record<string, string | string[] | undefined>;
-
 /** Normaliza filtros vindos da URL (descarta valores inválidos). */
 export function parseClientFilters(params: SearchParams): ClientFilters {
-  const pick = (key: string) => {
-    const v = params[key];
-    return Array.isArray(v) ? v[0] : v;
-  };
-  const status = pick("status");
-  const interest = pick("interesse");
+  const status = pickParam(params, "status");
+  const interest = pickParam(params, "interesse");
   const validStatus = status === "abertos" || (CLIENT_STATUSES as readonly string[]).includes(status ?? "");
   return {
-    q: pick("q")?.trim() || undefined,
+    q: pickParam(params, "q")?.trim() || undefined,
     status: validStatus ? (status as ClientFilters["status"]) : undefined,
     interest: (INTERESTS as readonly string[]).includes(interest ?? "") ? (interest as Interest) : undefined,
-    leaderId: pick("lider") || undefined,
+    leaderId: pickParam(params, "lider") || undefined,
   };
 }
 
@@ -45,15 +40,26 @@ function isAttendanceDone(a: Pick<Appointment, "kind" | "status">): boolean {
   return a.status === "realizado" && (ATTENDANCE_KINDS as readonly string[]).includes(a.kind);
 }
 
+/** `%` e `_` são curingas do LIKE; quem busca "50%" quer o texto literal. */
+function likeContains(text: string): string {
+  return `%${text.replace(/[\\%_]/g, "\\$&")}%`;
+}
+const LIKE_ESCAPE = "\\";
+
 /** Só o necessário para "próximo agendamento" e "atendimentos realizados". */
 const LIGHT_APPOINTMENT_COLUMNS = { id: true, scheduledAt: true, kind: true, status: true } as const;
+
+/** Cliente por id, ou `null` (páginas usam para responder 404 sem carregar o detalhe inteiro). */
+export async function findClient(db: Db, id: string): Promise<Client | null> {
+  return (await db.query.clients.findFirst({ where: eq(clients.id, id) })) ?? null;
+}
 
 export async function listClients(db: Db, filters: ClientFilters = {}, now: Date = new Date()): Promise<ClientListItem[]> {
   const conditions = [];
   if (filters.q) {
-    const term = `%${filters.q}%`;
+    const byName = sql`${clients.name} LIKE ${likeContains(filters.q)} ESCAPE ${LIKE_ESCAPE}`;
     const digits = digitsOnly(filters.q);
-    conditions.push(digits.length >= 3 ? or(like(clients.name, term), like(clients.phone, `%${digits}%`)) : like(clients.name, term));
+    conditions.push(digits.length >= 3 ? or(byName, like(clients.phone, `%${digits}%`)) : byName);
   }
   if (filters.status === "abertos") conditions.push(or(...OPEN_CLIENT_STATUSES.map((s) => eq(clients.status, s))));
   else if (filters.status) conditions.push(eq(clients.status, filters.status));
@@ -73,7 +79,7 @@ export async function listClients(db: Db, filters: ClientFilters = {}, now: Date
   }));
 }
 
-export type ActivityItem = { id: string; type: string; content: string; createdAt: string };
+export type ActivityItem = { id: string; type: ActivityType; content: string; createdAt: string };
 export type ClientDetail = Client & { leader: Leader | null; appointments: Appointment[]; activities: ActivityItem[]; attachments: Attachment[]; meetingsCount: number };
 
 export async function getClientDetail(db: Db, id: string): Promise<ClientDetail | null> {
@@ -111,13 +117,15 @@ export async function getMonthStats(db: Db, periodStart: Date, periodEnd?: Date)
   const start = toIso(periodStart);
   const end = periodEnd ? toIso(periodEnd) : undefined;
   const within = (column: AnySQLiteColumn) => (end ? and(gte(column, start), lt(column, end)) : gte(column, start));
-  const [{ newClients }] = await db.select({ newClients: count() }).from(clients).where(within(clients.createdAt));
-  const [{ visits }] = await db
-    .select({ visits: count() })
-    .from(appointments)
-    .where(and(inArray(appointments.kind, [...ATTENDANCE_KINDS]), eq(appointments.status, "realizado"), within(appointments.scheduledAt)));
-  const [{ approved }] = await db.select({ approved: count() }).from(clients).where(within(clients.approvedAt));
-  const closedRows = await db.select({ adesao: clients.adesaoCents }).from(clients).where(within(clients.closedAt));
+  const [[{ newClients }], [{ visits }], [{ approved }], closedRows] = await Promise.all([
+    db.select({ newClients: count() }).from(clients).where(within(clients.createdAt)),
+    db
+      .select({ visits: count() })
+      .from(appointments)
+      .where(and(inArray(appointments.kind, [...ATTENDANCE_KINDS]), eq(appointments.status, "realizado"), within(appointments.scheduledAt))),
+    db.select({ approved: count() }).from(clients).where(within(clients.approvedAt)),
+    db.select({ adesao: clients.adesaoCents }).from(clients).where(within(clients.closedAt)),
+  ]);
   const adesaoCents = closedRows.reduce((sum, r) => sum + (r.adesao ?? 0), 0);
   return { newClients, visits, approved, closed: closedRows.length, adesaoCents };
 }

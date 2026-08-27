@@ -7,6 +7,7 @@ import { Pipeline } from "@/features/clients/components/pipeline";
 import { StatusChips } from "@/features/clients/components/status-chips";
 import { countClientsByStatus, listClients, parseClientFilters } from "@/features/clients/queries";
 import { listLeaders } from "@/features/leaders/service";
+import { pickParam } from "@/lib/search-params";
 import { plural } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export const metadata = { title: "Clientes" };
 export default async function ClientsPage(props: PageProps<"/clientes">) {
   const params = await props.searchParams;
   const filters = parseClientFilters(params);
-  const requestedView = Array.isArray(params.view) ? params.view[0] : params.view;
+  const requestedView = pickParam(params, "view");
   const db = await getDb();
   const now = new Date();
   const [items, leaders, counts] = await Promise.all([

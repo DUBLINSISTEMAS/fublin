@@ -4,6 +4,7 @@ import { createAppointmentAction } from "@/features/appointments/actions";
 import { AppointmentForm } from "@/features/appointments/components/appointment-form";
 import { listClientOptions } from "@/features/clients/queries";
 import { dayKey, isValidDayKey } from "@/lib/dates";
+import { pickParam } from "@/lib/search-params";
 
 export const dynamic = "force-dynamic";
 
@@ -11,9 +12,8 @@ export const metadata = { title: "Novo agendamento" };
 
 export default async function NewAppointmentPage(props: PageProps<"/agenda/novo">) {
   const params = await props.searchParams;
-  const pick = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
-  const requestedDay = pick(params.d);
-  const clientId = pick(params.cliente);
+  const requestedDay = pickParam(params, "d");
+  const clientId = pickParam(params, "cliente");
   const day = isValidDayKey(requestedDay) ? requestedDay : dayKey(new Date());
 
   const db = await getDb();

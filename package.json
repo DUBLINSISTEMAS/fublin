@@ -13,7 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "db:generate": "drizzle-kit generate",
     "db:seed": "tsx src/db/seed.ts",
-    "db:reset": "node -e \"require('fs').rmSync('data/app.db',{force:true});console.log('Banco apagado.')\"",
+    "db:reset": "node -e \"const fs=require('fs');fs.rmSync('data/app.db',{force:true});fs.rmSync('data/uploads',{recursive:true,force:true});console.log('Banco e anexos apagados.')\"",
     "check": "npm run typecheck && npm run lint && npm run test"
   },
   "dependencies": {

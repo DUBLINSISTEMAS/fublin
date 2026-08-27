@@ -8,7 +8,7 @@ import { useFocusFirstError } from "@/components/ui/use-focus-first-error";
 import type { Client } from "@/db/schema";
 import { fromIso, toLocalInput } from "@/lib/dates";
 import { centsToInput } from "@/lib/money";
-import { IDLE } from "@/lib/result";
+import { formErrors, formValue, IDLE } from "@/lib/result";
 import { updateApprovalAction } from "../actions";
 
 /** Valores e datas da aprovação/fechamento — o que vai para a aba Aprovados. */
@@ -16,8 +16,8 @@ export function ApprovalForm({ client }: { client: Client }) {
   const [state, formAction] = useActionState(updateApprovalAction, IDLE);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstError(state, formRef);
-  const errors = state.status === "error" ? (state.fieldErrors ?? {}) : {};
-  const value = (key: string, fallback: string) => (state.status === "error" && state.values ? (state.values[key] ?? "") : fallback);
+  const errors = formErrors(state);
+  const value = (key: string, fallback: string) => formValue(state, key, fallback);
   const day = (iso: string | null) => (iso ? toLocalInput(fromIso(iso)).day : "");
 
   return (

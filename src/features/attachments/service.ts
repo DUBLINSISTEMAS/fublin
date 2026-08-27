@@ -1,4 +1,4 @@
-import { desc, eq, sum } from "drizzle-orm";
+import { eq, sum } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { attachments, type Attachment } from "@/db/schema";
 import { toIso } from "@/lib/dates";
@@ -41,10 +41,6 @@ export async function addAttachment(db: Db, storage: Storage, input: NewAttachme
   await db.insert(attachments).values(row);
   await logActivity(db, input.clientId, "anexo", `Anexou ${ATTACHMENT_KIND_LABELS[row.kind].toLowerCase()}: ${row.title}`, now);
   return row;
-}
-
-export async function listAttachments(db: Db, clientId: string): Promise<Attachment[]> {
-  return db.query.attachments.findMany({ where: eq(attachments.clientId, clientId), orderBy: [desc(attachments.createdAt)] });
 }
 
 export async function getAttachment(db: Db, id: string): Promise<Attachment> {

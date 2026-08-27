@@ -1,23 +1,31 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useActionState, useState, type ReactNode } from "react";
+import { OK, type ActionResult } from "@/lib/result";
+import { ActionError } from "./action-error";
 import { Button } from "./button";
 import { SubmitButton } from "./submit-button";
 
-type Props = { action: (formData: FormData) => void | Promise<void>; hidden: Record<string, string>; label: ReactNode; confirmLabel: string };
+type Props = {
+  action: (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
+  hidden: Record<string, string>;
+  label: ReactNode;
+  confirmLabel: string;
+};
 
-/** Exclusão em dois passos, sem `window.confirm`: clique, confirme inline. */
+/** Exclusão em dois passos, sem `window.confirm`: clique, confirme inline. Erros do servidor aparecem ao lado. */
 export function ConfirmButton({ action, hidden, label, confirmLabel }: Props) {
   const [arming, setArming] = useState(false);
+  const [state, formAction] = useActionState(action, OK);
   if (!arming) {
     return (
-      <Button variant="ghost" size="sm" className="text-rose-700 hover:bg-rose-50 hover:text-rose-800" onClick={() => setArming(true)}>
+      <Button variant="ghost" size="sm" className="text-rose-ink hover:bg-rose" onClick={() => setArming(true)}>
         {label}
       </Button>
     );
   }
   return (
-    <form action={action} className="flex flex-wrap items-center gap-2">
+    <form action={formAction} className="flex flex-wrap items-center gap-2">
       {Object.entries(hidden).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
@@ -28,6 +36,7 @@ export function ConfirmButton({ action, hidden, label, confirmLabel }: Props) {
       <Button variant="ghost" size="sm" onClick={() => setArming(false)}>
         Cancelar
       </Button>
+      <ActionError state={state} className="basis-full" />
     </form>
   );
 }

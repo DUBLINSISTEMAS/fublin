@@ -57,12 +57,12 @@ export function NotificationSettings() {
             Com o app aberto (mesmo em outra aba), você recebe um aviso do sistema antes de cada agendamento, conforme o lembrete escolhido. No celular, adicione o
             app à tela inicial para funcionar melhor.
           </p>
-          {permission === "denied" ? <p className="mt-2 text-sm text-rose-700">Para liberar, abra as permissões do site nas configurações do navegador.</p> : null}
+          {permission === "denied" ? <p className="mt-2 text-sm text-rose-ink">Para liberar, abra as permissões do site nas configurações do navegador.</p> : null}
         </div>
       </div>
       <div className="flex flex-wrap gap-2 sm:pl-13">
         {permission === "default" ? (
-          <Button onClick={request} variant="accent">
+          <Button onClick={request}>
             Ativar notificações
           </Button>
         ) : null}

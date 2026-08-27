@@ -43,7 +43,7 @@ export function Pipeline({ items, leaders, now }: Props) {
     // Dados novos do servidor substituem o estado otimista (padrão "derivar durante o render"),
     // exceto os cards cujo movimento ainda não foi confirmado.
     setSeenItems(items);
-    setClients(items.map((c) => (pending.has(c.id) ? { ...c, status: pending.get(c.id)! } : c)));
+    setClients(items.map((c) => ({ ...c, status: pending.get(c.id) ?? c.status })));
   }
   const [activeId, setActiveId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,12 +107,14 @@ export function Pipeline({ items, leaders, now }: Props) {
             {clients
               .filter((c) => c.status === status)
               .map((c) => (
-                <DraggableCard key={c.id} client={c} now={now} leaders={leaders} highlight={soon.has(c.id)} onMoved={(s) => applyMove(c.id, s)} />
+                <DraggableCard key={c.id} client={c} now={now} leaders={leaders} highlight={soon.has(c.id)} onMove={(s) => applyMove(c.id, s)} />
               ))}
           </Column>
         ))}
       </div>
-      <DragOverlay dropAnimation={null}>{active ? <ClientCard client={active} now={now} leaders={leaders} highlight={soon.has(active.id)} dragging /> : null}</DragOverlay>
+      <DragOverlay dropAnimation={null}>
+        {active ? <ClientCard client={active} now={now} leaders={leaders} highlight={soon.has(active.id)} onMove={(s) => applyMove(active.id, s)} dragging /> : null}
+      </DragOverlay>
     </DndContext>
   );
 }
@@ -146,7 +148,7 @@ function Column({ status, count, dragging, children }: { status: ClientStatus; c
   );
 }
 
-function DraggableCard(props: { client: ClientListItem; now: Date; leaders: Pick<Leader, "id" | "name">[]; highlight: boolean; onMoved: (s: ClientStatus) => void }) {
+function DraggableCard(props: { client: ClientListItem; now: Date; leaders: Pick<Leader, "id" | "name">[]; highlight: boolean; onMove: (s: ClientStatus) => void }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: props.client.id, data: { status: props.client.status } });
   return (
     <div
@@ -156,7 +158,7 @@ function DraggableCard(props: { client: ClientListItem; now: Date; leaders: Pick
       {...listeners}
       {...attributes}
     >
-      <ClientCard client={props.client} now={props.now} leaders={props.leaders} highlight={props.highlight} onMoved={props.onMoved} />
+      <ClientCard client={props.client} now={props.now} leaders={props.leaders} highlight={props.highlight} onMove={props.onMove} />
     </div>
   );
 }

@@ -1,31 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { CalendarPlus, MoreHorizontal, Pencil, UserRound } from "lucide-react";
+import { ActionError } from "@/components/ui/action-error";
+import type { Leader } from "@/db/schema";
 import { cn } from "@/lib/cn";
 import { CLIENT_STATUS_LABELS, CLIENT_STATUSES, type ClientStatus } from "@/lib/domain";
-import type { Leader } from "@/db/schema";
-import { assignLeaderAction, moveClientAction } from "../actions";
+import { OK } from "@/lib/result";
+import { assignLeaderAction } from "../actions";
 
 type Props = {
   clientId: string;
   status: ClientStatus;
   leaderId: string | null;
   leaders: Pick<Leader, "id" | "name">[];
-  onMoved?: (status: ClientStatus) => void;
+  /** Quem contém o card decide como mover (o kanban aplica otimista e chama o servidor). */
+  onMove: (status: ClientStatus) => void;
   tinted?: boolean;
 };
+
+const SELECT = "h-9 w-full rounded-[8px] bg-surface-2 px-2 text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-accent/30";
+const LABEL = "block px-2 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted";
 
 /**
  * Menu "…" do card: mover de etapa (alternativa acessível ao arrastar),
  * trocar o líder de vendas e atalhos. Fecha com Esc ou clique fora.
  */
-export function CardMenu({ clientId, status, leaderId, leaders, onMoved, tinted = false }: Props) {
+export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted = false }: Props) {
   const [open, setOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [leaderState, assignLeader] = useActionState(assignLeaderAction, OK);
   const root = useRef<HTMLDivElement>(null);
+  const id = useId();
 
   useEffect(() => {
     if (!open) return;
@@ -41,25 +47,12 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMoved, tinted 
     };
   }, [open]);
 
-  function move(next: ClientStatus) {
-    if (next === status) return;
-    setError(null);
-    startTransition(async () => {
-      const result = await moveClientAction(clientId, next);
-      if (!result.ok) setError(result.error);
-      else {
-        onMoved?.(next);
-        setOpen(false);
-      }
-    });
-  }
-
   return (
     <div ref={root} className="relative" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
       <button
         type="button"
         aria-label="Opções do cliente"
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => setOpen((v) => !v)}
         className={cn("icon-btn -mt-1 -mr-1 size-8", tinted && "hover:bg-white/60")}
@@ -67,14 +60,18 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMoved, tinted 
         <MoreHorizontal className="size-4" aria-hidden />
       </button>
       {open ? (
-        <div role="menu" className="panel absolute top-9 right-0 z-30 w-60 p-2 text-[13px] shadow-float">
-          <label className="block px-2 pt-1 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted">Mover para</label>
+        <div role="dialog" aria-label="Opções do cliente" className="panel absolute top-9 right-0 z-30 w-60 p-2 text-[13px] shadow-float">
+          <label htmlFor={`${id}-status`} className={cn(LABEL, "pt-1")}>
+            Mover para
+          </label>
           <select
-            aria-label="Mover para etapa"
+            id={`${id}-status`}
             value={status}
-            disabled={pending}
-            onChange={(e) => move(e.target.value as ClientStatus)}
-            className="h-9 w-full rounded-[8px] bg-surface-2 px-2 text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
+            onChange={(e) => {
+              onMove(e.target.value as ClientStatus);
+              setOpen(false);
+            }}
+            className={SELECT}
           >
             {CLIENT_STATUSES.map((s) => (
               <option key={s} value={s}>
@@ -83,16 +80,13 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMoved, tinted 
             ))}
           </select>
 
-          <label className="block px-2 pt-3 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted">Líder de vendas</label>
-          <form action={assignLeaderAction}>
+          <label htmlFor={`${id}-leader`} className={cn(LABEL, "pt-3")}>
+            Líder de vendas
+          </label>
+          <form action={assignLeader}>
             <input type="hidden" name="id" value={clientId} />
-            <select
-              name="leaderId"
-              aria-label="Líder de vendas"
-              defaultValue={leaderId ?? ""}
-              onChange={(e) => e.currentTarget.form?.requestSubmit()}
-              className="h-9 w-full rounded-[8px] bg-surface-2 px-2 text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-accent/30"
-            >
+            {/* `key` remonta o select quando o servidor devolve outro líder (select não controlado). */}
+            <select id={`${id}-leader`} key={leaderId ?? ""} name="leaderId" defaultValue={leaderId ?? ""} onChange={(e) => e.currentTarget.form?.requestSubmit()} className={SELECT}>
               <option value="">Sem líder</option>
               {leaders.map((l) => (
                 <option key={l.id} value={l.id}>
@@ -100,13 +94,8 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMoved, tinted 
                 </option>
               ))}
             </select>
+            <ActionError state={leaderState} className="px-2 pt-2 text-[12px]" />
           </form>
-
-          {error ? (
-            <p role="alert" className="px-2 pt-2 text-[12px] text-red-600">
-              {error}
-            </p>
-          ) : null}
 
           <div className="mt-2 border-t border-line pt-2">
             <MenuLink href={`/clientes/${clientId}`} icon={<UserRound className="size-4" aria-hidden />} label="Abrir cliente" />
@@ -121,7 +110,7 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMoved, tinted 
 
 function MenuLink({ href, icon, label }: { href: string; icon: React.ReactNode; label: string }) {
   return (
-    <Link href={href} role="menuitem" className="flex h-9 items-center gap-2 rounded-[8px] px-2 text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink">
+    <Link href={href} className="flex h-9 items-center gap-2 rounded-[8px] px-2 text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink">
       {icon}
       {label}
     </Link>

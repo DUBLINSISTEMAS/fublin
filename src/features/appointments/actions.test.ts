@@ -4,7 +4,7 @@ import { createTestDb } from "@/db/test-db";
 import { clientInputSchema } from "@/features/clients/schema";
 import { getClientDetail } from "@/features/clients/queries";
 import { createClient } from "@/features/clients/service";
-import { IDLE } from "@/lib/result";
+import { IDLE, OK } from "@/lib/result";
 import { listAppointmentsForDay } from "./queries";
 
 const state = vi.hoisted(() => ({ db: null as unknown }));
@@ -53,18 +53,20 @@ describe("appointment actions", () => {
     await expect(updateAppointmentAction(appointment.id, IDLE, fd({ clientId, day: "2026-08-30", time: "09:00", kind: "retorno", returnTo: "cliente" }))).rejects.toThrow(`REDIRECT:/clientes/${clientId}`);
     expect(await listAppointmentsForDay(db, "2026-08-30")).toHaveLength(1);
 
-    await setAppointmentStatusAction(fd({ id: appointment.id, status: "realizado" }));
-    await setAppointmentStatusAction(fd({ id: appointment.id, status: "nope" })); // ignorado
+    expect(await setAppointmentStatusAction(OK, fd({ id: appointment.id, status: "realizado" }))).toEqual(OK);
+    expect(await setAppointmentStatusAction(OK, fd({ id: appointment.id, status: "nope" }))).toEqual({ ok: false, error: "Status inválido." });
     const [updated] = await listAppointmentsForDay(db, "2026-08-30");
     expect(updated.status).toBe("realizado");
 
-    await expect(deleteAppointmentAction(fd({ id: appointment.id }))).rejects.toThrow(`REDIRECT:/clientes/${clientId}`);
+    await expect(deleteAppointmentAction(OK, fd({ id: appointment.id }))).rejects.toThrow(`REDIRECT:/clientes/${clientId}`);
     expect(await listAppointmentsForDay(db, "2026-08-30")).toHaveLength(0);
-    await deleteAppointmentAction(fd({})); // no-op
+    expect(await deleteAppointmentAction(OK, fd({ id: appointment.id }))).toEqual({ ok: false, error: "Agendamento não encontrado." });
+    expect(await deleteAppointmentAction(OK, fd({}))).toMatchObject({ ok: false });
   });
 
   it("turns a missing client into a form error", async () => {
     const result = await createAppointmentAction(IDLE, fd({ clientId: "nope", day: "2026-08-28", time: "10:00", kind: "visita" }));
     expect(result).toMatchObject({ status: "error", message: "Cliente não encontrado." });
+    expect(await setAppointmentStatusAction(OK, fd({ id: "nope", status: "realizado" }))).toEqual({ ok: false, error: "Agendamento não encontrado." });
   });
 });

@@ -1,29 +1,16 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { buttonClasses } from "@/components/ui/button";
 import { Select } from "@/components/ui/field";
+import { useUrlUpdate } from "@/components/ui/use-url-update";
 import { formatMonthLong, monthRange, shiftMonthKey, type MonthKey } from "@/lib/dates";
 
 type Props = { month: MonthKey | "todos"; leaders: { id: string; name: string }[]; leaderId?: string; currentMonth: MonthKey };
 
 /** Mês (← →), "todos os meses" e líder — tudo na URL. */
 export function ApprovedFilters({ month, leaders, leaderId, currentMonth }: Props) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  function update(patch: Record<string, string | undefined>) {
-    const params = new URLSearchParams(searchParams.toString());
-    for (const [key, value] of Object.entries(patch)) {
-      if (value) params.set(key, value);
-      else params.delete(key);
-    }
-    const query = params.toString();
-    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }
-
+  const update = useUrlUpdate();
   const isAll = month === "todos";
   const label = isAll ? "Todos os meses" : formatMonthLong(monthRange(month).start);
 

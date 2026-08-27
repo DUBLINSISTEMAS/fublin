@@ -6,7 +6,9 @@ import { getClientDetail } from "@/features/clients/queries";
 import { createClient, deleteClient } from "@/features/clients/service";
 import { assertStorageKey, createMemoryStorage } from "@/lib/storage";
 import { sniffMimeType } from "./schema";
-import { addAttachment, deleteAttachment, getAttachment, listAttachments } from "./service";
+import { addAttachment, deleteAttachment, getAttachment } from "./service";
+
+const listAttachments = async (db: Db, clientId: string) => (await getClientDetail(db, clientId))?.attachments ?? [];
 
 const now = new Date(2026, 7, 27, 14, 0);
 const pdf = new TextEncoder().encode("%PDF-1.4 fake");

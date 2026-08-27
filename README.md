@@ -1,8 +1,8 @@
 # Relacionador
 
-Sistema pessoal de organização para **relacionadores** de consórcio/crédito: cadastre os clientes que você traz para a loja, registre quem é o líder de vendas, o interesse (imóvel, automóvel…), o dia em que o cliente veio, e **agende visitas, ligações e retornos com lembrete**.
+Sistema pessoal de organização para **relacionadores** de consórcio/crédito: cadastre os clientes que você traz para a loja, registre quem é o líder de vendas, o interesse (imóvel, automóvel…), acompanhe o funil até a aprovação e a adesão, guarde as propostas e **agende visitas, reuniões, ligações e retornos com lembrete**.
 
-Roda no seu computador e é acessado também pelo celular (mesma rede Wi-Fi). Visual claro, minimalista, responsivo.
+Roda no seu computador e é acessado também pelo celular (mesma rede Wi-Fi). Visual claro, responsivo, estilo dashboard SaaS.
 
 ## Como rodar
 
@@ -19,7 +19,7 @@ Quer ver o app com dados de exemplo?
 
 ```bash
 npm run db:seed    # cria líderes, clientes e agendamentos fictícios
-npm run db:reset   # apaga tudo (o banco é recriado vazio no próximo `npm run dev`)
+npm run db:reset   # apaga banco e anexos (recriados vazios no próximo `npm run dev`)
 ```
 
 ### No celular
@@ -49,23 +49,24 @@ Mova o cliente **arrastando o card** no kanban (mouse, toque com pressão longa 
 - agendar para um cliente **Novo** o marca como **Agendado**;
 - marcar uma **visita** ou **reunião online** como **Realizado** registra o 1º atendimento e avança para **Atendido**.
 
-Tudo fica na linha do tempo do cliente: status, líder, notas, agendamentos e anexos.
+Tudo fica na linha do tempo do cliente: status, líder, notas, agendamentos e anexos. Se alguma ação rápida falhar (por exemplo, o registro foi apagado em outro aparelho), a mensagem aparece ao lado do botão — nada falha em silêncio.
 
 ### Líderes, Aprovados e propostas
 
 - **Líderes**: você atribui o líder no card ("…" → Líder de vendas) ou no cadastro; a aba mostra, por líder, clientes recebidos, atendidos, aprovados, fechados, conversão e adesão somada.
 - **Aprovados**: aba com quem passou na análise — líder, carta, adesão, datas, anexos — por mês ou geral, com exportação CSV.
 - **Propostas e documentos**: na página do cliente, anexe fotos ou PDFs (arrastando, escolhendo ou pela câmera do celular). Os arquivos ficam em `data/uploads/` — faça backup da pasta `data/` inteira.
+- **Exportar clientes** (Config ou Mais): CSV para o Excel com todas as colunas do funil (etapa, carta, adesão, datas, líder, motivo da perda…).
 
 ## Visual
 
 Direção inspirada em dashboards SaaS de CRM (referências: *B2B SaaS Web CRM Dashboard* e *Customer Journey CRM Dashboard*, Dribbble): canvas cinza-azulado claro, painéis brancos flutuantes com raio grande, azul como cor principal, chips pastel (azul, limão, amarelo), contadores pretos redondos, tipografia geométrica leve (Outfit).
 
-- **Hoje**: gráfico de área (novos clientes × visitas, 7 dias), heatmap de atividade (hora × dia, 14 dias), KPIs e a agenda em colunas (Agora · Hoje · Atrasados · Amanhã).
+- **Hoje**: gráfico de área (novos clientes × atendimentos, 7 dias), heatmap de atividade (hora × dia, 14 dias), KPIs e a agenda em colunas (Agora · Hoje · Atrasados · Amanhã).
 - **Clientes**: kanban do funil por status com arrastar-e-soltar (`@dnd-kit`), ou lista; busca global na barra superior.
 - Sidebar com os líderes de vendas e um card escuro com o próximo agendamento.
 
-Tokens de cor, raio e sombra ficam em `src/app/globals.css` (`@theme`).
+Tokens de cor, raio e sombra ficam em `src/app/globals.css` (`@theme`). Todo componente usa só esses tokens.
 
 ## Stack
 
@@ -75,17 +76,20 @@ Tokens de cor, raio e sombra ficam em `src/app/globals.css` (`@theme`).
 | Dados | SQLite via `@libsql/client` + Drizzle ORM (migrações em `drizzle/`) |
 | Validação | Zod (no servidor, em todas as entradas) |
 | UI | Tailwind CSS 4, Outfit (Google Fonts via `next/font`), ícones Lucide, gráficos em SVG puro |
-| Testes | Vitest (unitários + integração com SQLite em memória) |
+| Testes | Vitest: unitários + integração com SQLite em memória + componentes com Testing Library (jsdom) |
 
 ```
 src/
-  app/          rotas (Hoje, Clientes, Agenda, Líderes, Config, API)
-  components/   primitivos de UI e layout (sidebar, tabs mobile, lembretes)
-  features/     clients · appointments · leaders · activities
+  app/          rotas (Hoje, Clientes, Agenda, Aprovados, Líderes, Config, Mais, API), manifest e ícones
+  components/   ui/ (primitivos) · layout/ (shell, sidebar, tabs, lembretes) · charts/ (SVG)
+  features/     clients · appointments · leaders · attachments · activities
                  └ schema.ts (Zod) · service.ts · queries.ts · actions.ts · components/
-  db/           schema Drizzle, conexão, seed
-  lib/          datas, domínio (rótulos), csv, telefone, validação
+  db/           schema Drizzle, conexão, seed, banco de teste
+  lib/          domínio (rótulos), datas, dinheiro, csv, telefone, validação, resultado de ações
+  test/         setup do Vitest e fixtures
 ```
+
+Convenções detalhadas para quem for alterar o código: `CLAUDE.md`.
 
 ## Scripts
 
@@ -99,7 +103,7 @@ npm run db:generate    # gera migração após alterar src/db/schema.ts
 
 ## Limites desta versão
 
-- Um usuário, sem login. Os dados ficam só neste computador (`data/app.db`) — faça backup da pasta `data/`.
+- Um usuário, sem login. Os dados ficam só neste computador (`data/app.db` + `data/uploads/`) — faça backup da pasta `data/`.
 - Notificação com o app **fechado** (push) e deploy na nuvem ficam para uma próxima versão; a arquitetura já está pronta para isso (basta trocar o SQLite local por Turso/libSQL remoto e adicionar autenticação).
 
 Decisões de design: `docs/superpowers/specs/2026-08-27-relacionador-crm-design.md`.

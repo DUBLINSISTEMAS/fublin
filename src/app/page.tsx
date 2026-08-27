@@ -7,18 +7,21 @@ import { Heatmap } from "@/components/charts/heatmap";
 import { Badge, CountBadge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { StatCard } from "@/components/ui/stat-card";
 import { getDb } from "@/db/client";
-import { AppointmentCard, type CardVariant } from "@/features/appointments/components/appointment-card";
-import { getActivityHeatmap, listAppointmentsForDay, listOverdueAppointments } from "@/features/appointments/queries";
+import { AppointmentCard } from "@/features/appointments/components/appointment-card";
+import type { AppointmentVariant } from "@/features/appointments/components/variant";
+import { getActivityHeatmap, listAppointmentsForDay, listOverdueAppointments, type AppointmentWithClient } from "@/features/appointments/queries";
 import { countClientsByStatus, getDailySeries, getMonthStats } from "@/features/clients/queries";
-import { capitalize, plural } from "@/lib/text";
 import { dayKey, formatDayLong, fromIso, REMINDER_GRACE_MINUTES, shiftDayKey } from "@/lib/dates";
 import { formatBRLCompact } from "@/lib/money";
-import type { AppointmentWithClient } from "@/features/appointments/queries";
+import { capitalize, plural } from "@/lib/text";
 
 export const dynamic = "force-dynamic";
 
 const NOW_WINDOW_HOURS = 2;
+
+type Column = { title: string; items: AppointmentWithClient[]; variant: (a: AppointmentWithClient) => AppointmentVariant; empty: string };
 
 export default async function TodayPage() {
   const db = await getDb();
@@ -46,7 +49,7 @@ export default async function TodayPage() {
   const pendingTomorrow = tomorrowItems.filter((a) => a.status === "agendado");
   const todayPending = todayItems.filter((a) => a.status === "agendado").length;
 
-  const columns: { title: string; items: AppointmentWithClient[]; variant: (a: AppointmentWithClient) => CardVariant; empty: string }[] = [
+  const columns: Column[] = [
     { title: "Agora", items: nowItems, variant: () => "now", empty: "Nada nas próximas 2 h." },
     { title: "Hoje", items: restToday, variant: (a) => (a.status === "agendado" ? "default" : "done"), empty: "Dia livre." },
     { title: "Atrasados", items: overdue, variant: () => "overdue", empty: "Tudo com baixa." },
@@ -93,10 +96,10 @@ export default async function TodayPage() {
         </Card>
 
         <div className="grid grid-cols-2 gap-4 md:col-span-2 md:grid-cols-4 xl:col-span-1 xl:grid-cols-1">
-          <Stat label="Agendados hoje" value={String(todayPending)} hint={overdue.length ? plural(overdue.length, "atrasado") : undefined} hintTone="warning" />
-          <Stat label="Em análise" value={String(counts.analise)} hint={counts.aprovado ? `${counts.aprovado} aprovado${counts.aprovado === 1 ? "" : "s"} aguardando fechamento` : undefined} hintTone="success" />
-          <Stat label="Fechados no mês" value={String(stats.closed)} hint={delta(stats.closed, previous.closed)} hintTone="success" />
-          <Stat label="Adesão no mês" value={formatBRLCompact(stats.adesaoCents)} hint={delta(stats.adesaoCents, previous.adesaoCents)} hintTone="success" compact />
+          <StatCard label="Agendados hoje" value={String(todayPending)} hint={overdue.length ? <Hint tone="warning">{plural(overdue.length, "atrasado")}</Hint> : undefined} />
+          <StatCard label="Em análise" value={String(counts.analise)} hint={counts.aprovado ? <Hint tone="success">{plural(counts.aprovado, "aprovado")} aguardando fechamento</Hint> : undefined} />
+          <StatCard label="Fechados no mês" value={String(stats.closed)} hint={<Delta current={stats.closed} previous={previous.closed} />} />
+          <StatCard label="Adesão no mês" value={formatBRLCompact(stats.adesaoCents)} hint={<Delta current={stats.adesaoCents} previous={previous.adesaoCents} />} compact />
         </div>
       </div>
 
@@ -137,30 +140,17 @@ export default async function TodayPage() {
   );
 }
 
-function delta(current: number, previous: number): string | undefined {
-  if (previous === 0) return current > 0 ? "novo este mês" : undefined;
-  const pct = Math.round(((current - previous) / previous) * 100);
-  return `${pct >= 0 ? "+" : ""}${pct}% vs. mês anterior`;
-}
-
-function Stat({ label, value, hint, hintTone, compact = false }: { label: string; value: string; hint?: string; hintTone: "success" | "warning"; compact?: boolean }) {
+function Hint({ tone, children }: { tone: "success" | "warning"; children: React.ReactNode }) {
   return (
-    <Card className="flex flex-col justify-between p-4 xl:p-5">
-      <p className="text-[14px] text-ink-2">{label}</p>
-      <div className="mt-3 flex flex-wrap items-end justify-between gap-2">
-        <p className={cnValue(compact)}>{value}</p>
-        {hint ? (
-          <Badge tone={hintTone} className="h-6 text-[11px]">
-            {hint}
-          </Badge>
-        ) : null}
-      </div>
-    </Card>
+    <Badge tone={tone} className="h-6 text-[11px]">
+      {children}
+    </Badge>
   );
 }
 
-function cnValue(compact: boolean): string {
-  return compact
-    ? "min-w-0 break-words text-[22px] leading-tight font-light tabular-nums tracking-tight text-ink xl:text-[26px]"
-    : "text-[36px] leading-none font-light tabular-nums tracking-tight text-ink";
+/** Variação em relação ao mês anterior; sem base de comparação, só sinaliza "novo". */
+function Delta({ current, previous }: { current: number; previous: number }) {
+  if (previous === 0) return current > 0 ? <Hint tone="success">novo este mês</Hint> : null;
+  const pct = Math.round(((current - previous) / previous) * 100);
+  return <Hint tone="success">{`${pct >= 0 ? "+" : ""}${pct}% vs. mês anterior`}</Hint>;
 }

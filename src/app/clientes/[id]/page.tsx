@@ -7,13 +7,14 @@ import { Card, Section } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
 import { getDb } from "@/db/client";
 import { AppointmentRow } from "@/features/appointments/components/appointment-row";
+import { variantFor } from "@/features/appointments/components/variant";
 import { AttachmentsPanel } from "@/features/attachments/components/attachments-panel";
 import { deleteClientAction } from "@/features/clients/actions";
 import { ApprovalForm } from "@/features/clients/components/approval-form";
 import { NoteForm } from "@/features/clients/components/note-form";
 import { StatusPicker } from "@/features/clients/components/status-picker";
 import { Timeline } from "@/features/clients/components/timeline";
-import { getClientDetail } from "@/features/clients/queries";
+import { findClient, getClientDetail } from "@/features/clients/queries";
 import { formatDate, fromIso } from "@/lib/dates";
 import { ATTENDANCE_LABELS, labelOf, SOURCE_LABELS } from "@/lib/domain";
 import { formatBRL } from "@/lib/money";
@@ -24,8 +25,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata(props: PageProps<"/clientes/[id]">) {
   const { id } = await props.params;
-  const db = await getDb();
-  const client = await getClientDetail(db, id);
+  const client = await findClient(await getDb(), id);
   return { title: client?.name ?? "Cliente" };
 }
 
@@ -111,16 +111,13 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
           <Section title="Agendamentos" count={withClient.length} action={<Link href={`/agenda/novo?cliente=${client.id}`} className="text-[13px] font-medium text-accent hover:underline">Novo</Link>}>
-            {pending.length === 0 && past.length === 0 ? (
+            {withClient.length === 0 ? (
               <Card className="px-5 py-6 text-[14px] text-muted">Nenhum agendamento ainda. Marque uma visita, reunião online, ligação ou retorno.</Card>
             ) : (
               <Card>
                 <ul className="divide-y divide-line">
-                  {pending.map((a) => (
-                    <AppointmentRow key={a.id} appointment={a} now={now} showDay hideClient variant={fromIso(a.scheduledAt) < now ? "overdue" : "default"} />
-                  ))}
-                  {past.map((a) => (
-                    <AppointmentRow key={a.id} appointment={a} now={now} showDay hideClient variant="done" />
+                  {[...pending, ...past].map((a) => (
+                    <AppointmentRow key={a.id} appointment={a} now={now} showDay hideClient variant={variantFor(a.status, fromIso(a.scheduledAt), now)} />
                   ))}
                 </ul>
               </Card>
@@ -153,13 +150,15 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
             </Card>
           </Section>
           <Section title="Dados">
-            <Card className="divide-y divide-line">
-              {facts.map(([label, value]) => (
-                <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-2.5 text-[14px]">
-                  <dt className="shrink-0 text-muted">{label}</dt>
-                  <dd className="truncate text-right font-medium text-ink">{value}</dd>
-                </div>
-              ))}
+            <Card>
+              <dl className="divide-y divide-line">
+                {facts.map(([label, value]) => (
+                  <div key={label} className="flex items-baseline justify-between gap-4 px-4 py-2.5 text-[14px]">
+                    <dt className="shrink-0 text-muted">{label}</dt>
+                    <dd className="truncate text-right font-medium text-ink">{value}</dd>
+                  </div>
+                ))}
+              </dl>
             </Card>
           </Section>
           {client.notes ? (
