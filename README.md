@@ -77,9 +77,11 @@ Tudo fica na linha do tempo do cliente: status, líder, notas, agendamentos e an
 ### Líderes, Aprovados e propostas
 
 - **Líderes**: você atribui o líder no card ("…" → Líder de vendas) ou no cadastro; a aba mostra, por líder e por período (quinzena, mês ou tudo), clientes recebidos, atendidos, aprovados, fechados, conversão, cartas fechadas e adesão.
-- **Aprovados**: aba com quem passou na análise — líder, carta, adesão, datas, anexos — por quinzena, mês ou geral, com exportação CSV.
-- **Propostas e documentos**: na página do cliente, anexe fotos ou PDFs (arrastando, escolhendo ou pela câmera do celular). Os arquivos ficam em `data/uploads/` — faça backup da pasta `data/` inteira.
-- **Exportar clientes** (Config ou Mais): CSV para o Excel com todas as colunas do funil (etapa, carta, adesão, datas, líder, motivo da perda…).
+- **Aprovados**: aba com quem passou na análise — líder, carta, adesão, datas, anexos — por quinzena, mês ou geral, com exportação em Excel (.xlsx).
+- **Propostas e documentos**: na página do cliente, anexe fotos ou PDFs (arrastando, escolhendo ou pela câmera do celular). Os arquivos ficam em `data/uploads/` e entram no backup diário automático (`data/backups/`).
+- **Planilhas Excel** (Config ou Mais): clientes, aprovados e recebimentos em `.xlsx` nativo, com moeda e datas formatadas.
+- **Backup**: todo dia à meia-noite (e às 00:05 pela tarefa do Windows, mesmo com o app fechado) o banco e os anexos vão para `data/backups/`; em Config você cria um backup agora, baixa o .zip, importa e restaura por data.
+- **Metas e recebimentos**: metas por quinzena (1ª e 2ª podem ter valores diferentes), meta de agendamentos por semana com gráfico e tendência, comissão por quinzena, e uma arte pronta para mandar no grupo.
 
 ## Visual
 
@@ -109,7 +111,7 @@ src/
   features/     clients · appointments (+ calendar/) · leaders · attachments · activities · goals · settings · photos
                  └ schema.ts (Zod) · service.ts · queries.ts · actions.ts · components/
   db/           schema Drizzle, conexão, seed, banco de teste
-  lib/          domínio (rótulos), datas, quinzenas, períodos, dinheiro, csv, telefone, validação, resultado de ações
+  lib/          domínio (rótulos), datas, quinzenas, períodos, dinheiro, xlsx, telefone, validação, resultado de ações
   test/         setup do Vitest e fixtures
 ```
 
@@ -127,7 +129,11 @@ npm run db:generate    # gera migração após alterar src/db/schema.ts
 
 ## Limites desta versão
 
-- Um usuário, sem login. Os dados ficam só neste computador (`data/app.db` + `data/uploads/`) — faça backup da pasta `data/`.
+- Um usuário, sem login. Os dados ficam só neste computador (`data/app.db` + `data/uploads/`), com backup diário em `data/backups/`.
 - Notificação com o app **fechado** (push) e deploy na nuvem ficam para uma próxima versão; a arquitetura já está pronta para isso (basta trocar o SQLite local por Turso/libSQL remoto e adicionar autenticação).
 
 Decisões de design: `docs/superpowers/specs/2026-08-27-relacionador-crm-design.md`.
+
+## Instalar no Windows
+
+Para usar o Relacionador como um programa de verdade — ícone na Área de Trabalho e no Menu Iniciar, servidor subindo sozinho quando você entra no Windows, backup diário às 00:05 e porta 3000 liberada para o celular — dê duplo clique em [`installer/Instalar.bat`](installer/Instalar.bat). Para atualizar, rode-o de novo; para remover, [`installer/Desinstalar.bat`](installer/Desinstalar.bat) (seus dados em `data/` ficam). Detalhes e solução de problemas em [`installer/README.md`](installer/README.md).

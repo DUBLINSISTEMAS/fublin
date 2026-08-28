@@ -1,7 +1,7 @@
 /**
- * Sons de alerta gerados na hora com WebAudio — sem arquivo de áudio, funciona
- * offline. O navegador só toca depois de um gesto do usuário: `unlockAudio()` é
- * chamado no primeiro clique/tecla da sessão.
+ * Sons gerados na hora com WebAudio — sem arquivo de áudio, funciona offline.
+ * O navegador só toca depois de um gesto do usuário: `unlockAudio()` é chamado no
+ * primeiro clique/tecla da sessão (e dentro de cliques que tocam algo).
  * (Sem "use client": as constantes também são lidas no servidor pelo schema das configurações.)
  */
 export const SOUND_OPTIONS = [
@@ -15,6 +15,9 @@ export type SoundId = (typeof SOUND_OPTIONS)[number]["id"];
 export const SOUND_IDS = SOUND_OPTIONS.map((o) => o.id) as [SoundId, ...SoundId[]];
 export const DEFAULT_SOUND: SoundId = "suave";
 
+/** Efeitos curtos de interface (não configuráveis por nome). */
+export type EffectId = "pop";
+
 let context: AudioContext | null = null;
 
 function getContext(): AudioContext | null {
@@ -23,9 +26,11 @@ function getContext(): AudioContext | null {
   return context;
 }
 
-export function unlockAudio(): void {
+/** Libera o áudio (precisa acontecer dentro de um gesto do usuário). */
+export function unlockAudio(): Promise<void> {
   const ctx = getContext();
-  if (ctx && ctx.state === "suspended") void ctx.resume();
+  if (ctx && ctx.state === "suspended") return ctx.resume().catch(() => undefined);
+  return Promise.resolve();
 }
 
 type Note = { frequency: number; at: number; duration: number; type?: OscillatorType; volume?: number };
@@ -47,7 +52,7 @@ function play(ctx: AudioContext, notes: Note[]) {
   }
 }
 
-const PRESETS: Record<Exclude<SoundId, "off">, Note[]> = {
+const PRESETS: Record<Exclude<SoundId, "off"> | EffectId, Note[]> = {
   suave: [
     { frequency: 880, at: 0, duration: 0.16 },
     { frequency: 1320, at: 0.2, duration: 0.22 },
@@ -68,12 +73,31 @@ const PRESETS: Record<Exclude<SoundId, "off">, Note[]> = {
     { frequency: 1568, at: 0.11, duration: 0.09, type: "square", volume: 0.12 },
     { frequency: 2093, at: 0.22, duration: 0.14, type: "square", volume: 0.12 },
   ],
+  /* "pop" curtinho ao soltar um card no funil. */
+  pop: [
+    { frequency: 520, at: 0, duration: 0.07, type: "triangle", volume: 0.18 },
+    { frequency: 780, at: 0.05, duration: 0.09, type: "triangle", volume: 0.14 },
+  ],
 };
 
-/** Toca o som escolhido; silencioso se for "off" ou se o áudio ainda não foi liberado. */
+function playPreset(id: Exclude<SoundId, "off"> | EffectId) {
+  const ctx = getContext();
+  if (!ctx) return;
+  if (ctx.state === "suspended") {
+    // Dentro de um clique o resume() funciona; fora dele fica em silêncio até o próximo gesto.
+    void ctx.resume().then(() => play(ctx, PRESETS[id])).catch(() => undefined);
+    return;
+  }
+  play(ctx, PRESETS[id]);
+}
+
+/** Toca o som de alerta escolhido; silencioso se for "off". */
 export function playSound(id: SoundId): void {
   if (id === "off") return;
-  const ctx = getContext();
-  if (!ctx || ctx.state !== "running") return;
-  play(ctx, PRESETS[id]);
+  playPreset(id);
+}
+
+/** Toca um efeito de interface. */
+export function playEffect(id: EffectId): void {
+  playPreset(id);
 }

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, useTransition } from "react";
+import { createPortal } from "react-dom";
 import {
   defaultDropAnimationSideEffects,
   DndContext,
@@ -14,6 +15,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragOverEvent,
   type DragStartEvent,
   type DropAnimation,
 } from "@dnd-kit/core";
@@ -23,10 +25,12 @@ import { CountBadge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toast";
 import { useDragScroll } from "@/components/ui/use-drag-scroll";
 import { useFlip } from "@/components/ui/use-flip";
+import { readZoom } from "@/components/ui/zoom";
 import type { Leader } from "@/db/schema";
 import { cn } from "@/lib/cn";
 import { dayKey, fromIso } from "@/lib/dates";
 import { CLIENT_STATUS_HINTS, CLIENT_STATUS_LABELS, PIPELINE_STATUSES, type ClientStatus } from "@/lib/domain";
+import { playEffect } from "@/lib/sounds";
 import { moveClientAction } from "../actions";
 import type { ClientListItem } from "../queries";
 import { ClientCard } from "./client-card";
@@ -36,6 +40,29 @@ const COLUMNS: ClientStatus[] = [...PIPELINE_STATUSES, "perdido"];
 const COLUMN_STEP_PX = 272 + 16;
 const SETTLE_MS = 1400;
 
+/** Cada etapa tem sua cor de fundo (os cards continuam brancos), como num quadro de verdade. */
+const COLUMN_TINT: Record<ClientStatus, string> = {
+  novo: "bg-surface-3/60",
+  agendado: "bg-sky/45",
+  atendido: "bg-accent-soft/70",
+  negociando: "bg-sun/40",
+  analise: "bg-lime-soft/80",
+  aprovado: "bg-lime/45",
+  fechou: "bg-accent/15",
+  perdido: "bg-rose/40",
+};
+/** Cor da borda do card enquanto ele é arrastado: acompanha a coluna sobre a qual está. */
+const COLUMN_RING: Record<ClientStatus, string> = {
+  novo: "ring-line-strong",
+  agendado: "ring-sky-ink",
+  atendido: "ring-accent",
+  negociando: "ring-sun-strong",
+  analise: "ring-lime-strong",
+  aprovado: "ring-lime-strong",
+  fechou: "ring-accent-strong",
+  perdido: "ring-rose-ink",
+};
+
 /** O card "pousa" na coluna nova: o fantasma desliza até o lugar final em vez de sumir. */
 const DROP_ANIMATION: DropAnimation = {
   duration: 280,
@@ -43,14 +70,18 @@ const DROP_ANIMATION: DropAnimation = {
   sideEffects: defaultDropAnimationSideEffects({ styles: { active: { opacity: "0" } } }),
 };
 
-type Props = { items: ClientListItem[]; leaders: Pick<Leader, "id" | "name" | "photoKey">[]; now: Date };
+const noop = () => () => {};
+/** true só depois de montar no navegador (o portal precisa do document). */
+const useMounted = () => useSyncExternalStore(noop, () => true, () => false);
+
+type Props = { items: ClientListItem[]; leaders: Pick<Leader, "id" | "name" | "photoKey">[]; now: Date; /** Sonzinho ao soltar um card noutra etapa. */ moveSound?: boolean };
 
 /**
  * Kanban do funil. Arraste o card para outra coluna (mouse, toque com pressão longa
  * ou teclado) ou use o menu "…"; a mudança é otimista e desfeita se o servidor recusar.
  * No desktop, arrastar o fundo rola o quadro; as setas nas bordas fazem o mesmo.
  */
-export function Pipeline({ items, leaders, now }: Props) {
+export function Pipeline({ items, leaders, now, moveSound = true }: Props) {
   const [clients, setClients] = useState(items);
   const [seenItems, setSeenItems] = useState(items);
   /** Movimentos ainda em voo: o refresh de outra ação não pode "puxar de volta" estes cards. */
@@ -62,6 +93,8 @@ export function Pipeline({ items, leaders, now }: Props) {
     setClients(items.map((c) => ({ ...c, status: pending.get(c.id) ?? c.status })));
   }
   const [activeId, setActiveId] = useState<string | null>(null);
+  /** Coluna sob o card arrastado: a borda do fantasma ganha a cor dela. */
+  const [overStatus, setOverStatus] = useState<ClientStatus | null>(null);
   /** Card que acabou de chegar numa coluna: ganha um brilho por alguns segundos. */
   const [settledId, setSettledId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +102,7 @@ export function Pipeline({ items, leaders, now }: Props) {
   const board = useRef<HTMLDivElement>(null);
   const scroll = useDragScroll(board);
   useFlip(board);
+  const mounted = useMounted();
 
   useEffect(() => {
     if (!settledId) return;
@@ -94,6 +128,7 @@ export function Pipeline({ items, leaders, now }: Props) {
     setPending((map) => new Map(map).set(id, status));
     setClients((list) => list.map((c) => (c.id === id ? { ...c, status } : c)));
     setSettledId(id);
+    if (moveSound) playEffect("pop");
     startTransition(async () => {
       const result = await moveClientAction(id, status);
       setPending((map) => {
@@ -113,10 +148,17 @@ export function Pipeline({ items, leaders, now }: Props) {
 
   function onDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
+    setOverStatus(null);
+  }
+
+  function onDragOver(event: DragOverEvent) {
+    const target = event.over?.id;
+    setOverStatus(target && (COLUMNS as string[]).includes(String(target)) ? (target as ClientStatus) : null);
   }
 
   function onDragEnd(event: DragEndEvent) {
     setActiveId(null);
+    setOverStatus(null);
     const target = event.over?.id;
     if (!target || !(COLUMNS as string[]).includes(String(target))) return;
     applyMove(String(event.active.id), target as ClientStatus);
@@ -124,7 +166,18 @@ export function Pipeline({ items, leaders, now }: Props) {
 
   // `id` fixo: os ids de acessibilidade do dnd-kit ficam iguais no servidor e no cliente (sem hydration mismatch).
   return (
-    <DndContext id="funil" sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragEnd={onDragEnd} onDragCancel={() => setActiveId(null)}>
+    <DndContext
+      id="funil"
+      sensors={sensors}
+      collisionDetection={closestCorners}
+      onDragStart={onDragStart}
+      onDragOver={onDragOver}
+      onDragEnd={onDragEnd}
+      onDragCancel={() => {
+        setActiveId(null);
+        setOverStatus(null);
+      }}
+    >
       {error ? (
         <p role="alert" className="mb-3 flex items-center gap-2 rounded-card bg-rose px-4 py-3 text-[13px] text-rose-ink">
           <CircleAlert className="size-4" aria-hidden />
@@ -155,9 +208,20 @@ export function Pipeline({ items, leaders, now }: Props) {
         <EdgeArrow side="left" visible={scroll.canScrollLeft} onClick={() => scroll.scrollBy(-COLUMN_STEP_PX)} />
         <EdgeArrow side="right" visible={scroll.canScrollRight} onClick={() => scroll.scrollBy(COLUMN_STEP_PX)} />
       </div>
-      <DragOverlay dropAnimation={DROP_ANIMATION}>
-        {active ? <ClientCard client={active} now={now} leaders={leaders} highlight={soon.has(active.id)} onMove={(s) => applyMove(active.id, s)} dragging /> : null}
-      </DragOverlay>
+      {/* O overlay vai para o <body>, fora do zoom da interface: assim as coordenadas do ponteiro
+          e as do card batem; o conteúdo recebe o mesmo zoom para ficar do tamanho do card original. */}
+      {mounted
+        ? createPortal(
+            <DragOverlay dropAnimation={DROP_ANIMATION}>
+              {active ? (
+                <div style={{ zoom: readZoom() }}>
+                  <ClientCard client={active} now={now} leaders={leaders} highlight={soon.has(active.id)} onMove={(s) => applyMove(active.id, s)} dragging ringClass={COLUMN_RING[overStatus ?? active.status]} />
+                </div>
+              ) : null}
+            </DragOverlay>,
+            document.body,
+          )
+        : null}
     </DndContext>
   );
 }
@@ -190,17 +254,18 @@ function Column({ status, count, dragging, children }: { status: ClientStatus; c
       ref={setNodeRef}
       aria-label={`Coluna ${CLIENT_STATUS_LABELS[status]}`}
       className={cn(
-        "flex w-[82vw] shrink-0 snap-start flex-col rounded-[28px] p-1.5 transition-colors duration-200 sm:w-[60vw] md:w-[272px]",
-        isOver ? (lost ? "bg-rose/60" : "bg-accent-soft/70") : dragging ? "bg-surface-3/60" : "",
+        "flex w-[82vw] shrink-0 snap-start flex-col rounded-[28px] p-1.5 transition-[background-color,box-shadow] duration-200 sm:w-[60vw] md:w-[272px]",
+        COLUMN_TINT[status],
+        isOver ? cn("ring-2 ring-inset", COLUMN_RING[status]) : dragging ? "opacity-90" : "",
       )}
     >
       <h2 className="flex items-center gap-2.5 px-2.5 pt-2 pb-3 text-[19px] font-normal text-ink" title={CLIENT_STATUS_HINTS[status]}>
         {CLIENT_STATUS_LABELS[status]}
-        <CountBadge value={count} className={cn(lost && "bg-rose-ink")} />
+        <CountBadge value={count} />
       </h2>
       <div className="flex min-h-24 flex-1 flex-col gap-3">
         {count === 0 ? (
-          <p className={cn("rounded-card border border-dashed px-4 py-6 text-center text-[13px]", isOver ? "border-accent text-accent-ink" : "border-line-strong text-muted")}>
+          <p className={cn("rounded-card border border-dashed px-4 py-6 text-center text-[13px]", isOver ? "border-current text-ink" : "border-ink/15 text-ink-2/70")}>
             {isOver ? "Solte aqui" : lost ? "Arraste aqui quem desistiu." : "Ninguém aqui."}
           </p>
         ) : (

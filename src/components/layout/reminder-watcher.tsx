@@ -16,6 +16,8 @@ const POLL_MS = 30_000;
 const SNOOZE_MS = 5 * 60_000;
 const STORAGE_KEY = "relacionador:alerts";
 const KEEP_MS = 2 * 24 * 60 * 60 * 1000;
+/** Disparado pelo botão "Testar alerta" em Config: mostra um alerta de mentira com som e notificação. */
+export const TEST_ALERT_EVENT = "relacionador:test-alert";
 
 type Memory = { dismissed: Record<string, number>; snoozed: Record<string, number> };
 type AlertPrefs = { repeatMinutes: number; sound: SoundId };
@@ -48,12 +50,16 @@ function describe(item: ReminderItem): { title: string; body: string } {
 function notify(item: ReminderItem, onOpen: () => void) {
   if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
   const { title, body } = describe(item);
-  const n = new Notification(title, { body, tag: item.id, icon: "/icon.svg", requireInteraction: true });
-  n.onclick = () => {
-    window.focus();
-    onOpen();
-    n.close();
-  };
+  try {
+    const n = new Notification(title, { body, tag: item.id, icon: "/icons/192", requireInteraction: true });
+    n.onclick = () => {
+      window.focus();
+      onOpen();
+      n.close();
+    };
+  } catch {
+    /* alguns navegadores móveis só notificam via service worker; o aviso na tela cobre */
+  }
 }
 
 /**
@@ -105,16 +111,24 @@ export function ReminderWatcher() {
     const onVisible = () => document.visibilityState === "visible" && void check();
     document.addEventListener("visibilitychange", onVisible);
     // O som só pode tocar depois de um gesto: o primeiro clique/tecla libera o áudio.
-    const unlock = () => unlockAudio();
+    const unlock = () => void unlockAudio();
     window.addEventListener("pointerdown", unlock, { once: true });
     window.addEventListener("keydown", unlock, { once: true });
+    // "Testar alerta" (Config): um alerta de exemplo daqui a 30 min, com som e notificação.
+    const onTest = () => {
+      const item: ReminderItem = { id: `teste-${Date.now()}`, clientId: "", clientName: "Cliente de teste", scheduledAt: new Date(Date.now() + 30 * 60_000).toISOString(), kind: "visita", reminderMinutes: 30, due: true };
+      setAlerts((prev) => [...prev, item]);
+      fire(item);
+    };
+    window.addEventListener(TEST_ALERT_EVENT, onTest);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
+      window.removeEventListener(TEST_ALERT_EVENT, onTest);
     };
-  }, [check]);
+  }, [check, fire]);
 
   // Título da aba mostra quantos alertas estão esperando.
   useEffect(() => {
@@ -199,13 +213,19 @@ function AlertCard({ item, now, onDismiss, onSnooze, onDone }: AlertCardProps) {
         </button>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Link href={`/clientes/${item.clientId}`} className="inline-flex h-9 items-center rounded-control bg-white px-3.5 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2">
-          Ver cliente
-        </Link>
-        <button type="button" onClick={markDone} disabled={pending} className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-control bg-white/10 px-3 text-[13px] font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-50">
-          <Check className="size-4" aria-hidden />
-          Realizado
-        </button>
+        {item.clientId ? (
+          <Link href={`/clientes/${item.clientId}`} className="inline-flex h-9 items-center rounded-control bg-white px-3.5 text-[13px] font-medium text-ink transition-colors hover:bg-surface-2">
+            Ver cliente
+          </Link>
+        ) : (
+          <span className="inline-flex h-9 items-center rounded-control bg-white/10 px-3.5 text-[13px] text-white/80">Alerta de teste</span>
+        )}
+        {item.clientId ? (
+          <button type="button" onClick={markDone} disabled={pending} className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-control bg-white/10 px-3 text-[13px] font-medium text-white transition-colors hover:bg-white/20 disabled:opacity-50">
+            <Check className="size-4" aria-hidden />
+            Realizado
+          </button>
+        ) : null}
         <button type="button" onClick={onSnooze} className="inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-control px-3 text-[13px] font-medium text-white/80 transition-colors hover:bg-white/10 hover:text-white">
           <AlarmClock className="size-4" aria-hidden />
           Soneca 5 min

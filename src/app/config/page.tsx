@@ -2,9 +2,11 @@ import os from "node:os";
 import { Download, Smartphone } from "lucide-react";
 import { NotificationSettings } from "@/components/layout/notification-settings";
 import { PageHeader } from "@/components/layout/page-header";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { DensityToggle, ThemeToggle } from "@/components/layout/theme-toggle";
 import { Card, Section } from "@/components/ui/card";
 import { getDb } from "@/db/client";
+import { BackupPanel } from "@/features/backup/components/backup-panel";
+import { listBackups, resolveBackupDir } from "@/features/backup/service";
 import { AlertsForm, CommissionForm, GoalDefaultsForm, PeriodForm, ProfileForm } from "@/features/settings/components/settings-forms";
 import { getSettings } from "@/features/settings/service";
 
@@ -23,10 +25,17 @@ function lanAddresses(): string[] {
   return out;
 }
 
+const EXPORTS = [
+  { href: "/api/export/clientes", title: "Clientes", description: "Todos os clientes: etapa, carta, adesão, líder, telefone e datas." },
+  { href: "/api/export/aprovados?periodo=todos", title: "Aprovados", description: "Quem passou na análise, com valores e datas de aprovação e fechamento." },
+  { href: "/api/export/recebimentos", title: "Recebimentos", description: "Produção e comissão de cada quinzena (a atual e as 11 anteriores)." },
+];
+
 export default async function ConfigPage() {
   const port = process.env.PORT ?? "3000";
   const addresses = lanAddresses();
-  const settings = await getSettings(await getDb());
+  const backupDir = resolveBackupDir();
+  const [settings, backups] = await Promise.all([getSettings(await getDb()), listBackups(backupDir)]);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -38,7 +47,7 @@ export default async function ConfigPage() {
           </Card>
         </Section>
 
-        <Section title="Quinzenas, meta e comissão" className="scroll-mt-24">
+        <Section title="Quinzenas, metas e comissão" className="scroll-mt-24">
           <div id="quinzenas" className="grid gap-4 md:grid-cols-2">
             <Card className="p-4 sm:p-5 md:row-span-2">
               <PeriodForm period={settings.period} />
@@ -53,16 +62,25 @@ export default async function ConfigPage() {
         </Section>
 
         <Section title="Aparência">
-          <Card className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
-            <div>
-              <p className="text-[15px] font-medium text-ink">Tema</p>
-              <p className="mt-0.5 text-sm text-muted">Escuro é azul-marinho, não preto. Automático segue o celular ou o computador.</p>
+          <Card className="divide-y divide-line">
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+              <div>
+                <p className="text-[15px] font-medium text-ink">Tema</p>
+                <p className="mt-0.5 text-sm text-muted">Escuro é azul-marinho, não preto. Automático segue o celular ou o computador.</p>
+              </div>
+              <ThemeToggle />
             </div>
-            <ThemeToggle />
+            <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+              <div>
+                <p className="text-[15px] font-medium text-ink">Tamanho no computador</p>
+                <p className="mt-0.5 text-sm text-muted">Compacto mostra mais coisa na tela, como um zoom de 85%. No celular e no tablet não muda nada.</p>
+              </div>
+              <DensityToggle />
+            </div>
           </Card>
         </Section>
 
-        <Section title="Alertas de agendamento">
+        <Section title="Alertas e sons">
           <Card className="p-4 sm:p-5">
             <AlertsForm alerts={settings.alerts} />
             <div className="mt-5 border-t border-line pt-5">
@@ -79,7 +97,7 @@ export default async function ConfigPage() {
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-[15px] font-medium text-ink">Mesma rede Wi-Fi</p>
-                <p className="mt-1 text-sm text-muted">Com o app rodando neste computador, abra um destes endereços no navegador do celular. Depois use “Adicionar à tela inicial”.</p>
+                <p className="mt-1 text-sm text-muted">Com o app rodando neste computador, abra um destes endereços no navegador do celular. Depois use “Adicionar à tela inicial”: ele abre como aplicativo, sem a barra do navegador.</p>
                 {addresses.length > 0 ? (
                   <ul className="mt-3 flex flex-wrap gap-2">
                     {addresses.map((ip) => (
@@ -98,22 +116,35 @@ export default async function ConfigPage() {
           </Card>
         </Section>
 
-        <Section title="Seus dados">
-          <Card className="p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[15px] font-medium text-ink">Exportar clientes</p>
-                <p className="mt-0.5 text-sm text-muted">Planilha CSV (abre no Excel) com todos os clientes, etapa, carta, adesão, líder e telefone.</p>
-              </div>
-              <a href="/api/export/clientes" className="inline-flex h-11 items-center gap-2 rounded-control border border-line-strong bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-surface-2">
-                <Download className="size-4" aria-hidden />
-                Baixar CSV
-              </a>
-            </div>
-            <p className="mt-4 border-t border-line pt-4 text-[13px] text-muted">
-              Os dados ficam só neste computador, na pasta <code className="rounded bg-surface-2 px-1">data/</code> (banco, fotos e anexos). Faça backup dela de tempos em tempos.
-            </p>
+        <Section title="Planilhas (Excel)">
+          <Card>
+            <ul className="divide-y divide-line">
+              {EXPORTS.map((item) => (
+                <li key={item.href} className="flex flex-wrap items-center justify-between gap-3 p-4 sm:px-5">
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-medium text-ink">{item.title}</p>
+                    <p className="mt-0.5 text-sm text-muted">{item.description}</p>
+                  </div>
+                  <a href={item.href} className="inline-flex h-10 items-center gap-2 rounded-control border border-line-strong bg-surface px-4 text-sm font-medium text-ink transition-colors hover:bg-surface-2">
+                    <Download className="size-4" aria-hidden />
+                    Baixar Excel
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <p className="border-t border-line px-4 py-3 text-[13px] text-muted sm:px-5">Arquivos .xlsx nativos: abrem direto no Excel, com moeda e datas já formatadas.</p>
           </Card>
+        </Section>
+
+        <Section title="Backup dos seus dados" className="scroll-mt-24">
+          <div id="backup">
+            <Card className="p-4 sm:p-5">
+              <BackupPanel backups={backups} backupDir={backupDir} />
+              <p className="mt-5 border-t border-line pt-4 text-[13px] text-muted">
+                Os dados ficam só neste computador, na pasta <code className="rounded bg-surface-2 px-1">data/</code> (banco, fotos e anexos). Com o instalador do Windows, o backup das 00:05 roda mesmo com o sistema fechado.
+              </p>
+            </Card>
+          </div>
         </Section>
       </div>
     </div>

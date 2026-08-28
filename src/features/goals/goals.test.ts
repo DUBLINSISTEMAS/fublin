@@ -6,7 +6,7 @@ import { clientInputSchema } from "@/features/clients/schema";
 import { createClient, setClientStatus } from "@/features/clients/service";
 import { periodClock, periodRange } from "@/lib/quinzena";
 import { motivationFor } from "./motivation";
-import { getCurrentPeriodProgress, getPeriodProgress, getProductionProgress, listPeriodHistory, summarize, type PeriodProgress } from "./queries";
+import { getCurrentPeriodProgress, getPeriodProgress, getProductionProgress, getWeeklyAppointments, listPeriodHistory, summarize, type PeriodProgress } from "./queries";
 
 const cuts = { firstCutDay: 5, secondCutDay: 20 };
 const now = new Date(2026, 8, 12, 10, 0); // 12/09/2026 → 1ª quinzena de setembro (5–19)
@@ -61,6 +61,32 @@ describe("period progress", () => {
     const history = await listPeriodHistory(db, cuts, now, null, 3);
     expect(history.map((h) => h.period.key)).toEqual(["2026-08-2", "2026-08-1", "2026-07-2"]);
     expect(history[0].clock.isPast).toBe(true);
+  });
+
+  it("uses a different default target for each half", async () => {
+    const defaults = { defaultFirstCents: 70000000, defaultSecondCents: 50000000 };
+    expect((await getPeriodProgress(db, "2026-09-1", cuts, now, defaults)).targetCents).toBe(70000000);
+    expect((await getPeriodProgress(db, "2026-09-2", cuts, now, defaults)).targetCents).toBe(50000000);
+    expect((await getProductionProgress(db, "2026-09-1", cuts, now, defaults)).targetCents).toBe(120000000);
+  });
+
+  it("counts appointments created and attended per week", async () => {
+    const { appointments } = await import("@/db/schema");
+    const client = await createClient(db, clientInputSchema.parse({ name: "Semana", phone: "11987654321", interest: "imovel" }), now);
+    const row = (id: string, createdAt: Date, scheduledAt: Date, status: "agendado" | "realizado", kind: "visita" | "ligacao" = "visita") => ({
+      id, clientId: client.id, scheduledAt: scheduledAt.toISOString(), durationMinutes: 60, kind, status, notes: null, reminderMinutes: 30, createdAt: createdAt.toISOString(), updatedAt: createdAt.toISOString(),
+    });
+    await db.insert(appointments).values([
+      row("w1", new Date(2026, 8, 7, 9), new Date(2026, 8, 8, 10), "realizado"), // semana de 7/set
+      row("w2", new Date(2026, 8, 8, 9), new Date(2026, 8, 9, 10), "agendado"),
+      row("w3", new Date(2026, 8, 1, 9), new Date(2026, 8, 2, 10), "realizado", "ligacao"), // semana anterior; ligação não conta como atendimento
+      row("w0", new Date(2026, 6, 1, 9), new Date(2026, 6, 2, 10), "realizado"), // fora da janela
+    ]);
+    const weeks = await getWeeklyAppointments(db, new Date(2026, 8, 12), 3);
+    expect(weeks.map((w) => w.weekStart)).toEqual(["2026-08-24", "2026-08-31", "2026-09-07"]);
+    expect(weeks.map((w) => w.created)).toEqual([0, 1, 2]);
+    expect(weeks.map((w) => w.done)).toEqual([0, 0, 1]);
+    expect(weeks[2].label).toBe("7 set");
   });
 });
 

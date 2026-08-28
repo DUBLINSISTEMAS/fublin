@@ -45,7 +45,7 @@ export function TopBar() {
   }
 
   return (
-    <header className="panel sticky top-0 z-20 flex items-center gap-2 p-2 max-md:rounded-none max-md:shadow-none md:static md:gap-3">
+    <header className="panel sticky top-0 z-20 flex items-center gap-2 p-2 max-md:rounded-none max-md:shadow-none md:static md:gap-3 print:hidden">
       <form onSubmit={submit} className="relative min-w-0 flex-1">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2 text-ink-2" aria-hidden />
         <input

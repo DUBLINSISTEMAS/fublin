@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Outfit } from "next/font/google";
 import { AppShell } from "@/components/layout/app-shell";
-import { THEME_STORAGE_KEY } from "@/lib/theme";
+import { APPEARANCE_SCRIPT } from "@/lib/theme";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -29,14 +29,12 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
-/** Roda antes da hidratação: aplica o tema salvo (ou o do sistema) sem piscar em branco. */
-const THEME_SCRIPT = `(function(){try{var t=localStorage.getItem(${JSON.stringify(THEME_STORAGE_KEY)});var d=t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.dataset.theme=d?"dark":"light"}catch(e){}})()`;
-
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="pt-BR" className={`${outfit.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+        {/* Tema e densidade salvos entram antes da hidratação, sem piscar em branco. */}
+        <script dangerouslySetInnerHTML={{ __html: APPEARANCE_SCRIPT }} />
       </head>
       <body className="min-h-full">
         <AppShell>{children}</AppShell>

@@ -78,14 +78,14 @@ export default async function AgendaPage(props: PageProps<"/agenda">) {
         <CalendarHeader view={view} day={day} title={title} subtitle={subtitle} previousDay={step(view, day, -1)} nextDay={step(view, day, 1)} isToday={day === today} />
       </Suspense>
 
-      <div className="mb-3 md:hidden">
+      <div className="mb-3 lg:hidden">
         <Suspense>
           <KindFilter selected={kinds} hideDone={hideDone} layout="chips" />
         </Suspense>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-[232px_minmax(0,1fr)]">
-        <aside className="hidden md:block">
+      <div className="grid gap-4 lg:grid-cols-[232px_minmax(0,1fr)]">
+        <aside className="hidden lg:block">
           <div className="panel sticky top-4 space-y-5 p-4">
             <MiniCalendar month={day} selected={day} today={today} counts={counts} hrefFor={(d) => hrefFor({ d })} />
             <Suspense>

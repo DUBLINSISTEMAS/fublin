@@ -2,8 +2,8 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import { getDb } from "@/db/client";
 import { listUpcomingAppointments } from "@/features/appointments/queries";
-import { GoalSidebarCard } from "@/features/goals/components/goal-card";
-import { getCurrentPeriodProgress } from "@/features/goals/queries";
+import { AppointmentsGoalCard, GoalSidebarCard } from "@/features/goals/components/goal-card";
+import { getCurrentPeriodProgress, getWeeklyAppointments } from "@/features/goals/queries";
 import { listLeaders } from "@/features/leaders/service";
 import { DEFAULT_SETTINGS } from "@/features/settings/schema";
 import { getSettings } from "@/features/settings/service";
@@ -18,13 +18,14 @@ import { ThemeToggle } from "./theme-toggle";
 export async function Sidebar() {
   const db = await getDb();
   const now = new Date();
-  const [settings, leaders, upcoming] = await Promise.all([getSettings(db), listLeaders(db), listUpcomingAppointments(db, now, 48)]);
-  const progress = await getCurrentPeriodProgress(db, settings.period, now, settings.goals.defaultTargetCents);
+  const [settings, leaders, upcoming, weeks] = await Promise.all([getSettings(db), listLeaders(db), listUpcomingAppointments(db, now, 48), getWeeklyAppointments(db, now, 2)]);
+  const progress = await getCurrentPeriodProgress(db, settings.period, now, settings.goals);
+  const [lastWeek, thisWeek] = weeks;
   const next = upcoming[0];
   const { profile } = settings;
 
   return (
-    <aside className="panel fixed top-4 bottom-4 left-4 z-30 hidden w-60 flex-col overflow-hidden md:flex">
+    <aside className="panel fixed top-4 bottom-4 left-4 z-30 hidden w-60 flex-col overflow-hidden md:flex print:hidden">
       <div className="px-4 pt-5 pb-4">
         <Link href="/config" className="flex items-center gap-3 rounded-card p-1 transition-colors hover:bg-surface-2" title="Seu perfil">
           <Avatar name={profile.name} photoKey={profile.photoKey} size={40} />
@@ -41,6 +42,7 @@ export async function Sidebar() {
 
       <div className="mt-4 flex-1 space-y-5 overflow-y-auto px-4 pb-2">
         <GoalSidebarCard progress={progress} />
+        <AppointmentsGoalCard created={thisWeek.created} previous={lastWeek.created} goal={settings.goals.appointmentsPerWeek} />
         <div>
           <h2 className="text-[15px] font-medium text-ink">Líderes</h2>
           {leaders.length === 0 ? (

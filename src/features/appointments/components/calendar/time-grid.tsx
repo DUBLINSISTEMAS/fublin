@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Plus } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
 import { toast } from "@/components/ui/toast";
+import { readZoom } from "@/components/ui/zoom";
 import { cn } from "@/lib/cn";
 import { dayBounds, dayKey, formatRelativeDay, formatTime, formatWeekdayShort, fromIso, type DayKey } from "@/lib/dates";
 import { addMinutes } from "date-fns";
@@ -24,6 +25,8 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const GUTTER_PX = 56;
 /** Menos que isso é clique, não arrasto. */
 const DRAG_THRESHOLD_PX = 5;
+/** No toque, segurar este tempo parado começa o arrasto (antes disso o dedo rola a tela). */
+const LONG_PRESS_MS = 350;
 /** Deslocamento de cada card numa pilha (clientes no mesmo horário). */
 const STACK_OFFSET_PX = 10;
 
@@ -39,7 +42,11 @@ type Drag = {
   dayIndex: number;
   minutes: number;
   columns: { left: number; right: number; top: number }[];
+  /** Pixels da tela por pixel do layout (a interface pode estar em 85%). */
+  scale: number;
 };
+
+type TouchPending = { timer: number; x: number; y: number; el: HTMLElement; onTouchMove: (ev: TouchEvent) => void; activated: boolean };
 
 /** Instante correspondente a um dia da grade + minutos desde o início dela. */
 function gridDate(day: DayKey, minutes: number): Date {
@@ -48,9 +55,9 @@ function gridDate(day: DayKey, minutes: number): Date {
 
 /**
  * Grade de horas × dias (estilo Google Agenda): blocos por duração, linha vermelha do
- * "agora", clique num horário vazio abre o cadastro já com dia e hora, arrastar com o
- * mouse remarca (encaixe de 15 min), clientes no mesmo horário viram uma pilha com escolha.
- * No celular, as colunas rolam de lado com encaixe — a semana vira um "dia de cada vez".
+ * "agora", clique num horário vazio abre o cadastro já com dia e hora, arrastar remarca
+ * (mouse direto; no toque, segure o bloco), clientes no mesmo horário viram uma pilha
+ * com escolha. No celular as colunas rolam de lado com encaixe — um dia de cada vez.
  */
 export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }: Props) {
   const [now, setNow] = useState(() => new Date(nowIso));
@@ -60,6 +67,7 @@ export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }
   const [, startTransition] = useTransition();
   const scroller = useRef<HTMLDivElement>(null);
   const dragRef = useRef<Drag | null>(null);
+  const touchRef = useRef<TouchPending | null>(null);
 
   // Estado otimista: o bloco já aparece no horário novo antes do servidor confirmar.
   const [events, setEvents] = useState(serverEvents);
@@ -75,12 +83,16 @@ export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }
     return () => window.clearInterval(timer);
   }, []);
 
-  // No celular (colunas maiores que a tela), abre já no dia escolhido em vez de segunda-feira.
+  // Em telas estreitas (colunas maiores que a área), abre já no dia escolhido em vez de segunda-feira.
   useEffect(() => {
     const el = scroller.current;
     if (!el || el.scrollWidth <= el.clientWidth) return;
     const column = el.querySelector<HTMLElement>(`[data-day="${focusDay}"]`);
-    if (column) el.scrollLeft = column.offsetLeft - GUTTER_PX;
+    if (!column) return;
+    // Posição relativa ao scroller (não ao offsetParent), em pixels do layout.
+    const zoom = readZoom();
+    const left = (column.getBoundingClientRect().left - el.getBoundingClientRect().left) / zoom + el.scrollLeft - GUTTER_PX;
+    el.scrollTo({ left: Math.max(0, left) });
   }, [focusDay, days]);
 
   const byDay = new Map<DayKey, Timed[]>();
@@ -97,32 +109,75 @@ export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }
     else setSelected(event);
   }
 
-  function beginDrag(e: React.PointerEvent<HTMLButtonElement>, p: Positioned<Timed>) {
-    if (e.pointerType !== "mouse" || e.button !== 0) return;
-    const el = scroller.current;
-    if (!el) return;
+  /** Mede as colunas e arma o arrasto (chamado na hora, no mouse, ou depois da pressão longa, no toque). */
+  function startDrag(el: HTMLElement, p: Positioned<Timed>, clientX: number, clientY: number) {
+    const root = scroller.current;
+    if (!root) return;
     const columns = days.map((day) => {
-      const rect = el.querySelector<HTMLElement>(`[data-day="${day}"] [data-grid]`)!.getBoundingClientRect();
-      return { left: rect.left, right: rect.right, top: rect.top };
+      const rect = root.querySelector<HTMLElement>(`[data-day="${day}"] [data-grid]`)!.getBoundingClientRect();
+      return { left: rect.left, right: rect.right, top: rect.top, height: rect.height };
     });
-    const blockTop = e.currentTarget.getBoundingClientRect().top;
-    const next: Drag = {
+    const scale = columns[0] ? columns[0].height / GRID_HEIGHT_PX : 1;
+    const blockTop = el.getBoundingClientRect().top;
+    dragRef.current = {
       id: p.item.event.id,
       durationMinutes: p.item.durationMinutes,
-      grabMinutes: (e.clientY - blockTop) / PX_PER_MINUTE,
-      startX: e.clientX,
-      startY: e.clientY,
+      grabMinutes: (clientY - blockTop) / scale / PX_PER_MINUTE,
+      startX: clientX,
+      startY: clientY,
       moved: false,
       dayIndex: days.indexOf(dayKey(p.item.start)),
       minutes: minutesFromGridStart(p.item.start),
       columns,
+      scale,
     };
-    dragRef.current = next;
+  }
+
+  function clearTouch() {
+    const t = touchRef.current;
+    if (!t) return;
+    window.clearTimeout(t.timer);
+    t.el.removeEventListener("touchmove", t.onTouchMove);
+    touchRef.current = null;
+  }
+
+  function beginDrag(e: React.PointerEvent<HTMLButtonElement>, p: Positioned<Timed>) {
+    if (e.button !== 0) return;
+    const el = e.currentTarget;
     try {
-      e.currentTarget.setPointerCapture(e.pointerId);
+      el.setPointerCapture(e.pointerId);
     } catch {
       /* eventos sintéticos (testes/automação) não têm ponteiro ativo para capturar */
     }
+    if (e.pointerType === "mouse") {
+      startDrag(el, p, e.clientX, e.clientY);
+      return;
+    }
+    // Toque: só vira arrasto se o dedo ficar parado; mexer antes disso é rolagem normal.
+    clearTouch();
+    const pending: TouchPending = {
+      x: e.clientX,
+      y: e.clientY,
+      el,
+      activated: false,
+      timer: window.setTimeout(() => {
+        pending.activated = true;
+        startDrag(el, p, pending.x, pending.y);
+        if (dragRef.current) dragRef.current.moved = true;
+        setDrag(dragRef.current);
+        navigator.vibrate?.(30);
+      }, LONG_PRESS_MS),
+      onTouchMove: (ev: TouchEvent) => {
+        if (pending.activated) {
+          ev.preventDefault(); // o navegador não pode rolar enquanto o bloco anda com o dedo
+          return;
+        }
+        const t = ev.touches[0];
+        if (t && Math.hypot(t.clientX - pending.x, t.clientY - pending.y) > 8) clearTouch();
+      },
+    };
+    el.addEventListener("touchmove", pending.onTouchMove, { passive: false });
+    touchRef.current = pending;
   }
 
   function moveDrag(e: React.PointerEvent<HTMLButtonElement>) {
@@ -131,17 +186,24 @@ export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }
     if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_THRESHOLD_PX) return;
     let dayIndex = d.columns.findIndex((c) => e.clientX >= c.left && e.clientX <= c.right);
     if (dayIndex === -1) dayIndex = e.clientX < d.columns[0].left ? 0 : d.columns.length - 1;
-    const minutes = snapMinutes((e.clientY - d.columns[dayIndex].top) / PX_PER_MINUTE - d.grabMinutes, d.durationMinutes);
+    const minutes = snapMinutes((e.clientY - d.columns[dayIndex].top) / d.scale / PX_PER_MINUTE - d.grabMinutes, d.durationMinutes);
     const next = { ...d, moved: true, dayIndex, minutes };
     dragRef.current = next;
     setDrag(next);
   }
 
   function endDrag(p: Positioned<Timed>, group: CalendarEvent[]) {
+    const touch = touchRef.current;
+    const wasTouchPending = Boolean(touch && !touch.activated);
+    clearTouch();
     const d = dragRef.current;
     dragRef.current = null;
     setDrag(null);
-    if (!d) return;
+    if (wasTouchPending || !d) {
+      // Toque curto (sem pressão longa) ou clique: abre.
+      if (wasTouchPending || !d) open(p.item.event, group);
+      return;
+    }
     if (!d.moved) {
       open(p.item.event, group);
       return;
@@ -162,10 +224,16 @@ export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }
     });
   }
 
+  function cancelDrag() {
+    clearTouch();
+    dragRef.current = null;
+    setDrag(null);
+  }
+
   return (
     <div className="rounded-panel bg-surface shadow-panel">
-      <div ref={scroller} className="overflow-x-auto snap-x snap-mandatory scroll-pl-14 rounded-panel no-scrollbar md:snap-none">
-        <div className="flex min-w-max md:min-w-0">
+      <div ref={scroller} className="overflow-x-auto snap-x snap-mandatory scroll-pl-14 rounded-panel no-scrollbar lg:snap-none">
+        <div className="flex min-w-max lg:min-w-0">
           {/* Régua das horas */}
           <div className="sticky left-0 z-20 w-14 shrink-0 bg-surface">
             <div className="h-[72px] border-b border-line" />
@@ -191,7 +259,7 @@ export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }
             for (const p of positioned) groups.set(p.group, [...(groups.get(p.group) ?? []), p.item.event]);
             const ghost = drag?.moved && drag.dayIndex === dayIndex ? drag : null;
             return (
-              <div key={day} data-day={day} className={cn("shrink-0 snap-start border-l border-line", single ? "w-[calc(100vw-4.5rem)] md:w-auto md:flex-1" : "w-[76vw] md:w-auto md:flex-1", "md:min-w-0")}>
+              <div key={day} data-day={day} className={cn("shrink-0 snap-start border-l border-line", single ? "w-[calc(100vw-4.5rem)] md:w-auto md:flex-1" : "w-[76vw] md:w-[176px] lg:w-auto lg:flex-1", "lg:min-w-0")}>
                 <div className={cn("flex h-[72px] items-center gap-2 border-b border-line px-3", single && "gap-3")}>
                   <span className={cn("text-[11px] font-medium uppercase tracking-wide", isToday ? "text-accent" : "text-muted")}>{formatWeekdayShort(date)}</span>
                   <span className={cn("grid size-9 place-items-center rounded-full text-[20px] font-medium tabular-nums", isToday ? "bg-accent text-white" : "text-ink")}>{date.getDate()}</span>
@@ -220,10 +288,7 @@ export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }
                       onPointerDown={(e) => beginDrag(e, p)}
                       onPointerMove={moveDrag}
                       onPointerUp={() => endDrag(p, groups.get(p.group) ?? [p.item.event])}
-                      onPointerCancel={() => {
-                        dragRef.current = null;
-                        setDrag(null);
-                      }}
+                      onPointerCancel={cancelDrag}
                     />
                   ))}
                   {ghost ? <GhostBlock day={day} minutes={ghost.minutes} durationMinutes={ghost.durationMinutes} /> : null}
@@ -290,10 +355,11 @@ function EventBlock({ positioned: p, dragging, ...handlers }: BlockProps) {
     <button
       type="button"
       {...handlers}
+      onContextMenu={(e) => e.preventDefault()}
       aria-label={`${event.clientName}, ${formatTime(p.item.start)} até ${formatTime(end)}${stacked ? `, ${p.groupSize} no mesmo horário` : ""}`}
-      title={stacked ? "Mais de um cliente neste horário: clique para escolher" : "Clique para abrir, arraste para remarcar"}
+      title={stacked ? "Mais de um cliente neste horário: clique para escolher" : "Clique para abrir, arraste para remarcar (no toque, segure)"}
       className={cn(
-        "absolute cursor-grab overflow-hidden rounded-[10px] border border-line border-l-4 bg-surface p-1.5 text-left shadow-card transition-shadow hover:shadow-float active:cursor-grabbing",
+        "absolute cursor-grab overflow-hidden rounded-[10px] border border-line border-l-4 bg-surface p-1.5 text-left shadow-card transition-shadow select-none hover:shadow-float active:cursor-grabbing",
         missed ? "border-l-rose-ink" : cancelled ? "border-l-line-strong" : KIND_BORDER[event.kind],
         (done || cancelled) && "opacity-60",
         cancelled && "line-through",

@@ -22,6 +22,10 @@ describe("settings", () => {
     expect(all.period).toEqual({ firstCutDay: 1, secondCutDay: 16 });
     expect(all.profile).toEqual({ name: "Anderson", photoKey: null });
     expect(all.alerts).toEqual(DEFAULT_SETTINGS.alerts);
+    // Formato antigo gravado antes das metas por quinzena continua valendo.
+    await db.insert(settings).values({ key: "goals", value: JSON.stringify({ defaultTargetCents: 5000 }), updatedAt: "x" });
+    expect((await getSettings(db)).goals).toEqual({ defaultFirstCents: 5000, defaultSecondCents: 5000, appointmentsPerWeek: null });
+    await resetSetting(db, "goals");
 
     await patchSetting(db, "profile", { photoKey: "perfil/avatar-abc.jpg" });
     expect(await getSetting(db, "profile")).toEqual({ name: "Anderson", photoKey: "perfil/avatar-abc.jpg" });

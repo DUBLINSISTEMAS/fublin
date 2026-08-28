@@ -2,16 +2,18 @@ import { addDays, addMonths, differenceInCalendarDays, format, getDaysInMonth, p
 import { ptBR } from "date-fns/locale";
 
 /**
- * Quinzenas: a loja fecha a produção em dois períodos por mês, "virando" em dois
- * dias de corte (ex.: 5 e 20). A 1ª quinzena vai do 1º corte até a véspera do 2º;
- * a 2ª vai do 2º corte até a véspera do 1º corte do mês seguinte. Duas quinzenas
- * seguidas (1ª + 2ª do mesmo mês de referência) formam uma "produção".
+ * Quinzenas: a loja fecha a produção em dois períodos por mês. A **1ª quinzena**
+ * começa no 1º corte e vai até a véspera do 2º corte; a **2ª** começa no 2º corte
+ * e vai até a véspera do 1º corte seguinte. Os cortes podem estar em qualquer ordem
+ * dentro do mês: (5, 20) dá 5→19 e 20→4; (20, 5) dá 20→4 e 5→19 — o dono escolhe
+ * qual delas chama de 1ª. Duas quinzenas seguidas (1ª + 2ª do mesmo mês de
+ * referência) formam uma "produção".
  */
 export type PeriodCuts = { firstCutDay: number; secondCutDay: number };
 
 export const DEFAULT_CUTS: PeriodCuts = { firstCutDay: 5, secondCutDay: 20 };
 
-/** "2026-09-1" = 1ª quinzena com referência em setembro/2026; "2026-09-2" = a 2ª. */
+/** "2026-09-1" = 1ª quinzena que começa em setembro/2026; "2026-09-2" = a 2ª que vem logo depois. */
 export type PeriodKey = string;
 
 const KEY_RE = /^(\d{4})-(\d{2})-([12])$/;
@@ -24,9 +26,8 @@ export function isValidPeriodKey(value: string | null | undefined): value is Per
 }
 
 /** Dia de corte dentro do mês (meses curtos usam o último dia). */
-function cutDate(year: number, monthIndex: number, day: number): Date {
-  const first = new Date(year, monthIndex, 1);
-  return new Date(year, monthIndex, Math.min(day, getDaysInMonth(first)));
+function cutDate(monthStart: Date, day: number): Date {
+  return new Date(monthStart.getFullYear(), monthStart.getMonth(), Math.min(day, getDaysInMonth(monthStart)));
 }
 
 export type Period = { key: PeriodKey; half: 1 | 2; start: Date; end: Date; refMonth: Date };
@@ -35,15 +36,14 @@ export type Period = { key: PeriodKey; half: 1 | 2; start: Date; end: Date; refM
 export function periodRange(key: PeriodKey, cuts: PeriodCuts = DEFAULT_CUTS): Period {
   const match = KEY_RE.exec(key);
   if (!match) throw new Error(`Chave de quinzena inválida: ${key}`);
-  const year = Number(match[1]);
-  const monthIndex = Number(match[2]) - 1;
+  const refMonth = new Date(Number(match[1]), Number(match[2]) - 1, 1);
   const half = Number(match[3]) as 1 | 2;
-  const refMonth = new Date(year, monthIndex, 1);
-  if (half === 1) {
-    return { key, half, start: cutDate(year, monthIndex, cuts.firstCutDay), end: cutDate(year, monthIndex, cuts.secondCutDay), refMonth };
-  }
-  const next = addMonths(refMonth, 1);
-  return { key, half, start: cutDate(year, monthIndex, cuts.secondCutDay), end: cutDate(next.getFullYear(), next.getMonth(), cuts.firstCutDay), refMonth };
+  const nextMonth = addMonths(refMonth, 1);
+  const firstStart = cutDate(refMonth, cuts.firstCutDay);
+  // O 2º corte cai no mesmo mês se vier depois do 1º; senão, no mês seguinte (ex.: 20 → 5).
+  const secondStart = cuts.secondCutDay > cuts.firstCutDay ? cutDate(refMonth, cuts.secondCutDay) : cutDate(nextMonth, cuts.secondCutDay);
+  const nextFirstStart = cutDate(nextMonth, cuts.firstCutDay);
+  return half === 1 ? { key, half, start: firstStart, end: secondStart, refMonth } : { key, half, start: secondStart, end: nextFirstStart, refMonth };
 }
 
 export function periodKey(refMonth: Date, half: 1 | 2): PeriodKey {
@@ -54,13 +54,15 @@ export function periodKey(refMonth: Date, half: 1 | 2): PeriodKey {
 export function periodFor(date: Date, cuts: PeriodCuts = DEFAULT_CUTS): Period {
   const day = startOfDay(date);
   const thisMonth = new Date(day.getFullYear(), day.getMonth(), 1);
-  // Candidatas: 2ª do mês anterior, 1ª e 2ª deste mês — uma delas contém o dia.
-  const candidates = [periodKey(addMonths(thisMonth, -1), 2), periodKey(thisMonth, 1), periodKey(thisMonth, 2)];
-  for (const key of candidates) {
-    const p = periodRange(key, cuts);
-    if (day >= p.start && day < p.end) return p;
+  // Uma quinzena pode começar até dois meses antes do dia (ex.: cortes 20 e 5 no fim do mês anterior).
+  for (const months of [-2, -1, 0]) {
+    const refMonth = addMonths(thisMonth, months);
+    for (const half of [1, 2] as const) {
+      const p = periodRange(periodKey(refMonth, half), cuts);
+      if (day >= p.start && day < p.end) return p;
+    }
   }
-  // Só acontece com cortes degenerados (iguais); cai na 1ª do mês.
+  // Só acontece com cortes iguais (quinzena vazia); cai na 1ª do mês.
   return periodRange(periodKey(thisMonth, 1), cuts);
 }
 
@@ -89,6 +91,11 @@ export function periodDatesLabel(period: Period): string {
   const sameMonth = period.start.getMonth() === last.getMonth();
   const month = (d: Date) => format(d, "MMM", { locale: ptBR }).replace(".", "");
   return sameMonth ? `${period.start.getDate()} a ${last.getDate()} de ${month(last)}` : `${period.start.getDate()} ${month(period.start)} a ${last.getDate()} ${month(last)}`;
+}
+
+/** Rótulo curto para gráficos: "2ª ago" (mês em que a quinzena começa). */
+export function periodShortLabel(period: Period): string {
+  return `${period.half}ª ${format(period.start, "MMM", { locale: ptBR }).replace(".", "")}`;
 }
 
 /** "Produção de setembro" */

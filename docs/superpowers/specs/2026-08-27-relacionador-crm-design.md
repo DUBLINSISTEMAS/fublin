@@ -178,3 +178,23 @@ Decisões:
 - **Próximo** na sidebar: `NextUpCard` amarelo com contagem regressiva e botão de recolher (lembrado no navegador); tema Claro/Escuro/Automático na sidebar e em Config.
 - **Fotos**: `PhotoCropper` (arrastar para enquadrar, zoom, recorte circular 512px) antes do upload; HEIC não decodificável sobe como veio.
 - **Modo escuro**: tokens redefinidos em `[data-theme="dark"]` (azul-marinho #0d1526 / #141d33, nunca preto); script inline no `<head>` aplica o tema salvo antes da hidratação; `ThemeToggle` com `localStorage` + `prefers-color-scheme`.
+
+## Adendo 5 (2026-08-28, madrugada) — pendências fechadas: quinzena livre, Excel, backup, instalador, app-like
+
+Pedido: "faça as pendências" + erros vistos em uso. Entregue nesta rodada:
+
+- **Quinzena em qualquer ordem.** A 1ª pode ir do dia 20 ao dia 5 (vira o mês); a 2ª é sempre o resto. `periodRange` decide sozinho se o segundo corte cai no mês seguinte. Metas padrão **separadas por metade** (`goals.defaultFirstCents` / `defaultSecondCents`) e meta própria por quinzena continua valendo; a produção soma as duas.
+- **Meta de agendamentos por semana** (`goals.appointmentsPerWeek`): card na sidebar (semana atual × meta, delta vs. semana anterior) e seção em Metas com gráfico de 8 semanas (marcados × realizados, linha da meta) e a frase "Evoluindo / Estável / Regredindo" (`goals/trend.ts`, média das 3 últimas semanas fechadas contra as 3 anteriores).
+- **Recebimentos** na tela de Metas: comissão por quinzena em gráfico + lista (em andamento / fechada / futura) e planilha Excel.
+- **Compartilhar**: arte 1080×1080 gerada só com os números (SVG → PNG), "Enviar no grupo" (Web Share no celular; no computador baixa o PNG), "Baixar imagem" e "Imprimir" (chrome do app escondido na impressão).
+- **Excel nativo**: todos os downloads viram `.xlsx` (`lib/xlsx.ts`, `write-excel-file`): clientes, aprovados (mesmos filtros da tela) e recebimentos. CSV removido.
+- **Backup**: pasta `data/backups/AAAA-MM-DD_HHMM/` com o banco e os uploads + manifesto; automático diário (agendador em `instrumentation.ts` enquanto o servidor roda; tarefa do Windows às 00:05 pelo instalador mesmo com o app fechado); em Config: criar agora, baixar .zip, importar .zip, restaurar por data (sempre guardando uma cópia de segurança do estado atual antes). Mantém os 30 mais recentes.
+- **Instalador Windows** (`installer/Instalar.bat`): checa Node, builda, registra o servidor para subir no logon, cria o atalho na Área de Trabalho e no Menu Iniciar com o ícone do troféu, libera a porta no firewall e agenda o backup. `Desinstalar.bat` desfaz tudo sem tocar em `data/`.
+- **Logo**: troféu branco com taça limão em quadrado azul (`lib/brand.tsx`); ícones PNG em `/icons/[size]` para o manifest (PWA "Adicionar à tela inicial" abre em tela cheia) e para o `.ico` do instalador.
+- **Funil**: colunas com fundo tingido por etapa (referência Anota AI), cards brancos; o card arrastado ganha a borda na cor da coluna sob ele, com transição; sonzinho "pop" ao soltar (desligável em Config). Tinta de cada coluna: novo cinza, agendado azul-claro, atendido azul-tinta, negociando amarelo, análise limão-claro, aprovado limão, fechou azul, perdido rosa.
+- **Densidade compacta** (padrão no computador): `zoom: 0.85` na raiz do app em telas ≥ 1024px, alternável em Config › Aparência. Toda conta com coordenadas do ponteiro divide pelo zoom (`readZoom`); o overlay de arrasto do funil vive fora da raiz para não desalinhar.
+- **Tema** com transição suave (350 ms nas cores) ao trocar claro/escuro.
+- **Agenda no toque**: segurar o bloco 350 ms inicia o arrasto (vibra), rolagem travada enquanto arrasta; toque curto abre. Em tablet (768–1023px) a agenda usa colunas de 176px roláveis e esconde o mini-calendário; chips de tipo aparecem até `lg`.
+- **Teste de alerta** em Config: "Testar alerta agora" dispara um alerta de verdade (card + som + notificação, se permitida) depois de destravar o áudio no clique; botão "Ativar notificações" quando ainda não foi pedido.
+
+Fora desta rodada (continua): push com o app fechado; deploy na internet.

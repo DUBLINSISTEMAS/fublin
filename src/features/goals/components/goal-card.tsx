@@ -40,6 +40,27 @@ export function GoalSidebarCard({ progress }: { progress: PeriodProgress }) {
   );
 }
 
+type AppointmentsGoalProps = { created: number; previous: number; goal: number | null };
+
+/** Sidebar: agendamentos marcados nesta semana contra a meta semanal, com a tendência vs. semana passada. */
+export function AppointmentsGoalCard({ created, previous, goal }: AppointmentsGoalProps) {
+  const percent = goal ? Math.round((created / goal) * 100) : 0;
+  const delta = created - previous;
+  return (
+    <Link href="/metas#agendamentos" className="block rounded-card bg-surface-2 p-3.5 transition-colors hover:bg-surface-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted">Agendamentos · semana</span>
+        <span className={cn("text-[11px] tabular-nums", delta > 0 ? "text-lime-ink" : delta < 0 ? "text-rose-ink" : "text-muted")}>{delta > 0 ? `+${delta}` : delta === 0 ? "=" : delta} vs. anterior</span>
+      </div>
+      <div className="mt-1.5 flex items-baseline justify-between gap-2">
+        <span className="text-[22px] leading-none font-light tabular-nums tracking-tight text-ink">{created}</span>
+        <span className="text-[12px] tabular-nums text-muted">{goal ? `de ${goal}` : "defina a meta"}</span>
+      </div>
+      <GoalBar percent={goal ? percent : 0} className="mt-2 h-1.5" />
+    </Link>
+  );
+}
+
 type HeroProps = { progress: PeriodProgress; ratePercent?: number; children?: React.ReactNode };
 
 /** Versão grande (Hoje e Metas): números, barra, frase, o que falta e a comissão prevista. */

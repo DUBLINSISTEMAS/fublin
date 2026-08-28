@@ -83,6 +83,7 @@ export function EventPanel({ event, onClose }: Props) {
             <div>
               <p className="mb-2 text-[12px] font-medium uppercase tracking-wide text-muted">Dar baixa</p>
               <QuickStatus appointmentId={event.id} layout="card" onDone={onClose} />
+              <p className="mt-3 text-[12px] text-muted md:hidden">Para remarcar pelo celular, segure o bloco na grade e arraste, ou use Editar.</p>
             </div>
           ) : null}
         </div>

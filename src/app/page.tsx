@@ -63,8 +63,8 @@ export default async function TodayPage(props: PageProps<"/">) {
     getPeriodStats(db, period.range?.start ?? new Date(0), period.range?.end),
     getDailySeries(db, seriesFirstDay, seriesDays),
     countClientsByStatus(db),
-    getCurrentPeriodProgress(db, settings.period, now, settings.goals.defaultTargetCents),
-    getPeriodProgress(db, previousKey, settings.period, now, settings.goals.defaultTargetCents),
+    getCurrentPeriodProgress(db, settings.period, now, settings.goals),
+    getPeriodProgress(db, previousKey, settings.period, now, settings.goals),
     listClientsNeedingAction(db, now),
   ]);
 

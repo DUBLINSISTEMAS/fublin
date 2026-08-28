@@ -1,19 +1,33 @@
 import { getDb } from "@/db/client";
-import { listApproved } from "@/features/clients/queries";
+import { listApproved, type ApprovedItem } from "@/features/clients/queries";
 import { getSettings } from "@/features/settings/service";
-import { toCsv } from "@/lib/csv";
-import { formatDate, fromIso } from "@/lib/dates";
 import { ATTENDANCE_LABELS, CLIENT_STATUS_LABELS, INTEREST_LABELS } from "@/lib/domain";
-import { centsToCsv } from "@/lib/money";
 import { resolvePeriodFilter } from "@/lib/period-filter";
 import { formatPhone } from "@/lib/phone";
 import type { SearchParams } from "@/lib/search-params";
+import { buildWorkbook, xlsxResponse, type XlsxColumn } from "@/lib/xlsx";
 
 export const dynamic = "force-dynamic";
 
-const day = (iso: string | null) => (iso ? formatDate(fromIso(iso)) : "");
+const COLUMNS: XlsxColumn<ApprovedItem>[] = [
+  { label: "Cliente", type: "text", width: 28, get: (r) => r.name },
+  { label: "Telefone", type: "text", width: 16, get: (r) => formatPhone(r.phone) },
+  { label: "Líder de vendas", type: "text", width: 22, get: (r) => r.leader?.name },
+  { label: "Interesse", type: "text", width: 12, get: (r) => INTEREST_LABELS[r.interest] },
+  { label: "Detalhe", type: "text", width: 28, get: (r) => r.interestNotes },
+  { label: "Atendimento", type: "text", width: 14, get: (r) => ATTENDANCE_LABELS[r.attendance] },
+  { label: "Carta (R$)", type: "money", get: (r) => r.creditCents },
+  { label: "Adesão (R$)", type: "money", get: (r) => r.adesaoCents },
+  { label: "Situação", type: "text", width: 14, get: (r) => CLIENT_STATUS_LABELS[r.status] },
+  { label: "1º atendimento", type: "date", width: 14, get: (r) => r.firstVisitAt },
+  { label: "Em análise desde", type: "date", width: 16, get: (r) => r.analysisStartedAt },
+  { label: "Aprovado em", type: "date", get: (r) => r.approvedAt },
+  { label: "Fechou em", type: "date", get: (r) => r.closedAt },
+  { label: "Atendimentos", type: "integer", width: 13, get: (r) => r.meetingsCount },
+  { label: "Anexos", type: "integer", get: (r) => r.attachmentsCount },
+];
 
-/** Exporta os aprovados com os mesmos filtros da tela (`periodo`, `q`/`mes`, `lider`). */
+/** Exporta os aprovados em Excel com os mesmos filtros da tela (`periodo`, `q`/`mes`, `lider`). */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const params: SearchParams = Object.fromEntries(url.searchParams.entries());
@@ -23,29 +37,7 @@ export async function GET(request: Request) {
   const period = resolvePeriodFilter(params, settings.period, new Date());
 
   const rows = await listApproved(db, { periodStart: period.range?.start, periodEnd: period.range?.end, leaderId });
-  const csv = toCsv(rows, [
-    { key: "name", label: "Cliente" },
-    { key: "phone", label: "Telefone", get: (r) => formatPhone(r.phone) },
-    { key: "leader", label: "Líder de vendas", get: (r) => r.leader?.name ?? "" },
-    { key: "interest", label: "Interesse", get: (r) => INTEREST_LABELS[r.interest] },
-    { key: "interestNotes", label: "Detalhe" },
-    { key: "attendance", label: "Atendimento", get: (r) => ATTENDANCE_LABELS[r.attendance] },
-    { key: "creditCents", label: "Carta (R$)", get: (r) => centsToCsv(r.creditCents) },
-    { key: "adesaoCents", label: "Adesão (R$)", get: (r) => centsToCsv(r.adesaoCents) },
-    { key: "status", label: "Situação", get: (r) => CLIENT_STATUS_LABELS[r.status] },
-    { key: "firstVisitAt", label: "1º atendimento", get: (r) => day(r.firstVisitAt) },
-    { key: "analysisStartedAt", label: "Em análise desde", get: (r) => day(r.analysisStartedAt) },
-    { key: "approvedAt", label: "Aprovado em", get: (r) => day(r.approvedAt) },
-    { key: "closedAt", label: "Fechou em", get: (r) => day(r.closedAt) },
-    { key: "meetingsCount", label: "Atendimentos" },
-    { key: "attachmentsCount", label: "Anexos" },
-  ]);
+  const buffer = await buildWorkbook({ sheetName: "Aprovados", columns: COLUMNS, rows });
   const suffix = period.mode === "todos" ? "todos" : (period.key ?? "periodo");
-  return new Response(csv, {
-    headers: {
-      "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="aprovados-${suffix}.csv"`,
-      "Cache-Control": "no-store",
-    },
-  });
+  return xlsxResponse(buffer, `aprovados-${suffix}.xlsx`);
 }

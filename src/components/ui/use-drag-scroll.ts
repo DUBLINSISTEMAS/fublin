@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { readZoom } from "./zoom";
 
 /** Elementos que não devem iniciar a rolagem por arrasto (cards, botões, links, campos). */
 const INTERACTIVE = "[data-no-pan], a, button, input, select, textarea, label";
@@ -64,9 +65,10 @@ export function useDragScroll(ref: RefObject<HTMLElement | null>): DragScroll {
       start.current = { x: e.clientX, scrollLeft: el.scrollLeft, pointerId: e.pointerId };
       setPanning(true);
       el.setPointerCapture(e.pointerId);
+      const zoom = readZoom();
       const onMove = (ev: PointerEvent) => {
         if (!start.current || ev.pointerId !== start.current.pointerId) return;
-        el.scrollLeft = start.current.scrollLeft - (ev.clientX - start.current.x);
+        el.scrollLeft = start.current.scrollLeft - (ev.clientX - start.current.x) / zoom;
       };
       const stop = () => {
         start.current = null;

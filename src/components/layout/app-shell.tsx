@@ -12,13 +12,13 @@ import { TopBar } from "./top-bar";
  */
 export function AppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-dvh md:p-4">
+    <div data-zoom-root className="min-h-dvh md:p-4 print:p-0">
       <Sidebar />
-      <div className="min-h-dvh md:min-h-[calc(100dvh-2rem)] md:pl-[calc(15rem+1rem)]">
+      <div className="min-h-dvh md:min-h-[calc(100dvh-2rem)] md:pl-[calc(15rem+1rem)] print:pl-0">
         <Suspense fallback={<div className="panel h-16 max-md:rounded-none" />}>
           <TopBar />
         </Suspense>
-        <main className="px-4 pt-4 pb-28 sm:px-5 md:px-0 md:pt-4 md:pb-8">{children}</main>
+        <main className="px-4 pt-4 pb-28 sm:px-5 md:px-0 md:pt-4 md:pb-8 print:p-0">{children}</main>
       </div>
       <BottomTabs />
       <ReminderWatcher />

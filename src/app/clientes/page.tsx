@@ -7,6 +7,7 @@ import { Pipeline } from "@/features/clients/components/pipeline";
 import { StatusChips } from "@/features/clients/components/status-chips";
 import { countClientsByStatus, listClients, parseClientFilters } from "@/features/clients/queries";
 import { listLeaders } from "@/features/leaders/service";
+import { getSetting } from "@/features/settings/service";
 import { pickParam } from "@/lib/search-params";
 import { plural } from "@/lib/text";
 
@@ -20,10 +21,11 @@ export default async function ClientsPage(props: PageProps<"/clientes">) {
   const requestedView = pickParam(params, "view");
   const db = await getDb();
   const now = new Date();
-  const [items, leaders, counts] = await Promise.all([
+  const [items, leaders, counts, alerts] = await Promise.all([
     listClients(db, filters, now),
     listLeaders(db, { includeInactive: true }),
     countClientsByStatus(db),
+    getSetting(db, "alerts"),
   ]);
   const hasFilters = Boolean(filters.q || filters.status || filters.interest || filters.leaderId);
   // Busca ou filtro de status pedem lista; sem eles, o funil em colunas conta a história.
@@ -49,7 +51,7 @@ export default async function ClientsPage(props: PageProps<"/clientes">) {
           <ClientFilters leaders={leaders} filters={filters} />
         </Suspense>
       </div>
-      {view === "funil" ? <Pipeline items={items} leaders={leaders.filter((l) => l.active)} now={now} /> : <ClientList items={items} now={now} hasFilters={hasFilters} />}
+      {view === "funil" ? <Pipeline items={items} leaders={leaders.filter((l) => l.active)} now={now} moveSound={alerts.kanbanSound} /> : <ClientList items={items} now={now} hasFilters={hasFilters} />}
       <Fab href="/clientes/novo" label="Novo cliente" />
     </div>
   );

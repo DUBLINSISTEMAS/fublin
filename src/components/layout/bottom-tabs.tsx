@@ -8,7 +8,7 @@ import { isNavActive, MOBILE_TABS } from "./nav";
 export function BottomTabs() {
   const pathname = usePathname();
   return (
-    <nav aria-label="Principal" className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur md:hidden">
+    <nav aria-label="Principal" className="safe-bottom fixed inset-x-0 bottom-0 z-30 border-t border-line bg-surface/95 backdrop-blur md:hidden print:hidden">
       <ul className="grid grid-cols-5">
         {MOBILE_TABS.map((item) => {
           const { href, label, icon: Icon } = item;

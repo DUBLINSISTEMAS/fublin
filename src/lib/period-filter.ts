@@ -17,7 +17,7 @@ export type ResolvedPeriod = {
   previousKey?: string;
   nextKey?: string;
   isCurrent: boolean;
-  /** Parâmetros que reproduzem este filtro em outra URL (ex.: exportar CSV). */
+  /** Parâmetros que reproduzem este filtro em outra URL (ex.: exportar Excel). */
   query: Record<string, string>;
 };
 

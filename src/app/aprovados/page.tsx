@@ -51,7 +51,7 @@ export default async function ApprovedPage(props: PageProps<"/aprovados">) {
         actions={
           <ButtonLink href={exportHref} variant="secondary" size="sm">
             <Download className="size-4" aria-hidden />
-            Exportar CSV
+            Exportar Excel
           </ButtonLink>
         }
       />

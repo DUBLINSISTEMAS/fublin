@@ -9,7 +9,7 @@ const ITEMS = [
   { href: "/aprovados", label: "Aprovados", description: "Quem passou na análise: valores, líder, datas e propostas.", icon: BadgeCheck },
   { href: "/lideres", label: "Líderes de vendas", description: "Quem atende na loja e como cada um está convertendo.", icon: Briefcase },
   { href: "/config", label: "Configurações", description: "Perfil, quinzenas, alertas, acesso pelo celular e seus dados.", icon: Settings },
-  { href: "/api/export/clientes", label: "Exportar clientes (CSV)", description: "Planilha com todos os clientes para o Excel.", icon: Download },
+  { href: "/api/export/clientes", label: "Exportar clientes (Excel)", description: "Planilha .xlsx pronta para o Excel.", icon: Download },
 ];
 
 /** Atalhos que não cabem na tab bar do celular. */

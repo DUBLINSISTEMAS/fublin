@@ -44,12 +44,6 @@ export function parseBRL(input: string | null | undefined): number | null {
   return negative ? -total : total;
 }
 
-/** Célula numérica para o Excel pt-BR (sem milhar, vírgula decimal): 123456 -> "1234,56"; null -> "". */
-export function centsToCsv(cents: number | null | undefined): string {
-  if (cents === null || cents === undefined) return "";
-  return (cents / 100).toFixed(2).replace(".", ",");
-}
-
 /** Valor para preencher um input a partir dos centavos: 30000000 -> "300.000,00". */
 export function centsToInput(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) return "";

@@ -100,6 +100,26 @@
   html[data-theme="dark"] {
     color-scheme: dark;
   }
+  /* Densidade compacta no computador: tudo 15% menor, como um zoom de 85% do navegador.
+     Fica na raiz do app (não no <body>) para o overlay de arrasto do funil poder viver fora do zoom. */
+  @media (min-width: 1024px) {
+    html[data-density="compact"] [data-zoom-root] {
+      zoom: 0.85;
+    }
+  }
+  /* Troca de tema suave: a classe fica no <html> só durante a transição. */
+  html.theme-transition,
+  html.theme-transition *,
+  html.theme-transition *::before,
+  html.theme-transition *::after {
+    transition:
+      background-color 350ms ease,
+      color 350ms ease,
+      border-color 350ms ease,
+      fill 350ms ease,
+      stroke 350ms ease,
+      box-shadow 350ms ease !important;
+  }
   body {
     background: var(--color-canvas);
     color: var(--color-ink);

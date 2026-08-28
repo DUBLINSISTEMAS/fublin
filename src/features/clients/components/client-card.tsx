@@ -19,6 +19,8 @@ type Props = {
   onMove: (status: ClientStatus) => void;
   highlight?: boolean;
   dragging?: boolean;
+  /** Cor da borda enquanto arrasta (a da coluna sob o card). */
+  ringClass?: string;
 };
 
 /** O que vem a seguir para este cliente (rodapé do card), do mais urgente ao mais antigo. */
@@ -31,7 +33,7 @@ export function cardFooter(client: ClientListItem, now: Date): { label: string; 
 }
 
 /** Card do funil: chip de interesse, nome, carta, líder, atendimentos e o que vem a seguir. */
-export function ClientCard({ client, now, leaders, onMove, highlight = false, dragging = false }: Props) {
+export function ClientCard({ client, now, leaders, onMove, highlight = false, dragging = false, ringClass = "ring-accent" }: Props) {
   const description = client.interestNotes ?? client.notes;
   const AttendanceIcon = client.attendance === "online" ? Video : Store;
   const footer = cardFooter(client, now);
@@ -39,9 +41,9 @@ export function ClientCard({ client, now, leaders, onMove, highlight = false, dr
   return (
     <article
       className={cn(
-        "rounded-card p-4 shadow-card transition-shadow",
+        "rounded-card p-4 shadow-card transition-[box-shadow,--tw-ring-color] duration-200",
         highlight ? "bg-sky" : "bg-surface",
-        dragging ? "rotate-2 shadow-float ring-2 ring-accent/40" : "hover:shadow-float",
+        dragging ? cn("rotate-2 shadow-float ring-[3px]", ringClass) : "hover:shadow-float",
       )}
       aria-label={`${client.name}, ${CLIENT_STATUS_LABELS[client.status]}`}
     >

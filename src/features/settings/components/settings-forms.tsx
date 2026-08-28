@@ -48,10 +48,18 @@ export function ProfileForm({ profile }: { profile: AppSettings["profile"] }) {
   );
 }
 
-const clampDay = (v: string, min: number, max: number) => {
+const clampDay = (v: string) => {
   const n = Number(v);
-  return Number.isFinite(n) && v !== "" ? Math.min(Math.max(Math.trunc(n), min), max) : null;
+  return Number.isFinite(n) && v !== "" ? Math.min(Math.max(Math.trunc(n), 1), 31) : null;
 };
+
+function DayInput({ id, name, value, onChange, invalid, label }: { id: string; name: string; value: string; onChange: (v: string) => void; invalid: boolean; label: string }) {
+  return (
+    <span className="inline-block w-20 shrink-0">
+      <Input id={id} name={name} type="number" inputMode="numeric" min={1} max={31} value={value} onChange={(e) => onChange(e.target.value)} invalid={invalid} aria-label={label} className="h-10 px-3 text-center" />
+    </span>
+  );
+}
 
 export function PeriodForm({ period }: { period: AppSettings["period"] }) {
   const [state, formAction] = useActionState(savePeriodAction, IDLE);
@@ -61,11 +69,14 @@ export function PeriodForm({ period }: { period: AppSettings["period"] }) {
   const [firstStart, setFirstStart] = useState(formValue(state, "firstStart", String(initial.firstStart)));
   const [firstEnd, setFirstEnd] = useState(formValue(state, "firstEnd", String(initial.firstEnd)));
 
-  // Prévia ao vivo: a 2ª quinzena é o complemento da 1ª, e mostramos em qual estamos hoje.
-  const start = clampDay(firstStart, 1, 27);
-  const end = clampDay(firstEnd, 2, 27);
-  const valid = start !== null && end !== null && start < end;
-  const preview = valid ? periodFor(new Date(), cutsFromRange(start, end)) : null;
+  // Prévia ao vivo: a 2ª quinzena é o resto (pode virar o mês), e mostramos em qual estamos hoje.
+  const start = clampDay(firstStart);
+  const end = clampDay(firstEnd);
+  const cuts = start !== null && end !== null && start !== end ? cutsFromRange(start, end) : null;
+  const valid = cuts !== null && cuts.secondCutDay !== cuts.firstCutDay;
+  const preview = valid ? periodFor(new Date(), cuts) : null;
+  const secondStart = cuts?.secondCutDay ?? null;
+  const secondEnd = start !== null ? (start === 1 ? "último dia" : String(start - 1)) : null;
 
   return (
     <form action={formAction} noValidate className="space-y-4">
@@ -74,14 +85,11 @@ export function PeriodForm({ period }: { period: AppSettings["period"] }) {
         <p className="text-[12px] font-medium uppercase tracking-wide text-muted">1ª quinzena</p>
         <div className="mt-2 flex flex-wrap items-center gap-2 text-[15px] text-ink">
           do dia
-          <span className="inline-block w-20 shrink-0">
-            <Input id="firstStart" name="firstStart" type="number" inputMode="numeric" min={1} max={27} value={firstStart} onChange={(e) => setFirstStart(e.target.value)} invalid={Boolean(errors.firstStart)} aria-label="1ª quinzena começa no dia" className="h-10 px-3 text-center" />
-          </span>
+          <DayInput id="firstStart" name="firstStart" value={firstStart} onChange={setFirstStart} invalid={Boolean(errors.firstStart)} label="1ª quinzena começa no dia" />
           ao dia
-          <span className="inline-block w-20 shrink-0">
-            <Input id="firstEnd" name="firstEnd" type="number" inputMode="numeric" min={2} max={27} value={firstEnd} onChange={(e) => setFirstEnd(e.target.value)} invalid={Boolean(errors.firstEnd)} aria-label="1ª quinzena termina no dia" className="h-10 px-3 text-center" />
-          </span>
+          <DayInput id="firstEnd" name="firstEnd" value={firstEnd} onChange={setFirstEnd} invalid={Boolean(errors.firstEnd)} label="1ª quinzena termina no dia" />
         </div>
+        <p className="mt-1.5 text-[12px] text-muted">Qualquer ordem: 5 ao 19, 20 ao 4, 1 ao 15… Se terminar depois do mês virar, ele entende sozinho.</p>
         {errors.firstStart || errors.firstEnd ? (
           <p role="alert" className="mt-2 text-[13px] text-rose-ink">
             {errors.firstStart?.[0] ?? errors.firstEnd?.[0]}
@@ -93,13 +101,13 @@ export function PeriodForm({ period }: { period: AppSettings["period"] }) {
         <p className="mt-2 text-[15px] text-ink">
           {valid ? (
             <>
-              do dia <span className="font-medium">{end + 1}</span> ao dia <span className="font-medium">{start - 1 === 0 ? "último" : start - 1}</span> do mês seguinte
+              do dia <span className="font-medium">{secondStart}</span> ao dia <span className="font-medium">{secondEnd}</span>
             </>
           ) : (
             <span className="text-muted">Preencha a 1ª quinzena.</span>
           )}
         </p>
-        <p className="mt-1 text-[13px] text-muted">Calculada sozinha: é o resto do mês. As duas juntas formam a produção do mês.</p>
+        <p className="mt-1 text-[13px] text-muted">Calculada sozinha: é o resto do mês. As duas juntas formam a produção.</p>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px] text-muted">
@@ -124,12 +132,21 @@ export function GoalDefaultsForm({ goals }: { goals: AppSettings["goals"] }) {
   return (
     <form action={formAction} noValidate className="space-y-3">
       <FormAlert state={state} />
-      <Field label="Meta padrão por quinzena" htmlFor="defaultTarget" error={errors.defaultTarget} hint="Usada nas quinzenas sem meta própria. Você ajusta cada quinzena na aba Metas.">
-        <MoneyInput id="defaultTarget" name="defaultTarget" defaultValue={formValue(state, "defaultTarget", centsToInput(goals.defaultTargetCents))} invalid={Boolean(errors.defaultTarget)} placeholder="700.000,00" />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Meta da 1ª quinzena" htmlFor="defaultFirst" error={errors.defaultFirst}>
+          <MoneyInput id="defaultFirst" name="defaultFirst" defaultValue={formValue(state, "defaultFirst", centsToInput(goals.defaultFirstCents))} invalid={Boolean(errors.defaultFirst)} placeholder="700.000,00" />
+        </Field>
+        <Field label="Meta da 2ª quinzena" htmlFor="defaultSecond" error={errors.defaultSecond}>
+          <MoneyInput id="defaultSecond" name="defaultSecond" defaultValue={formValue(state, "defaultSecond", centsToInput(goals.defaultSecondCents))} invalid={Boolean(errors.defaultSecond)} placeholder="300.000,00" />
+        </Field>
+      </div>
+      <p className="text-[13px] text-muted">Valem para toda quinzena sem meta própria; na aba Metas você ajusta uma quinzena específica.</p>
+      <Field label="Meta de agendamentos por semana" htmlFor="appointmentsPerWeek" error={errors.appointmentsPerWeek} hint="Quantos agendamentos você quer marcar por semana (segunda a domingo).">
+        <Input id="appointmentsPerWeek" name="appointmentsPerWeek" type="number" inputMode="numeric" min={0} max={500} defaultValue={formValue(state, "appointmentsPerWeek", goals.appointmentsPerWeek === null ? "" : String(goals.appointmentsPerWeek))} invalid={Boolean(errors.appointmentsPerWeek)} placeholder="Ex.: 10" className="w-40" />
       </Field>
       <div className="flex justify-end">
         <SubmitButton size="sm" variant="secondary">
-          Salvar meta padrão
+          Salvar metas padrão
         </SubmitButton>
       </div>
     </form>
@@ -149,7 +166,18 @@ export function CommissionForm({ commission }: { commission: AppSettings["commis
       <FormAlert state={state} />
       <Field label="Comissão sobre cada carta fechada" htmlFor="ratePercent" error={errors.ratePercent} hint={`Padrão ${formatPercent(DEFAULT_COMMISSION_PERCENT)}: em R$ 100 mil de carta você recebe R$ 400.`}>
         <div className="relative w-40">
-          <Input id="ratePercent" name="ratePercent" inputMode="decimal" value={value} onChange={(e) => { setValue(e.target.value); setConfirmed(false); }} invalid={Boolean(errors.ratePercent)} className="pr-10 tabular-nums" />
+          <Input
+            id="ratePercent"
+            name="ratePercent"
+            inputMode="decimal"
+            value={value}
+            onChange={(e) => {
+              setValue(e.target.value);
+              setConfirmed(false);
+            }}
+            invalid={Boolean(errors.ratePercent)}
+            className="pr-10 tabular-nums"
+          />
           <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-[14px] text-muted">%</span>
         </div>
       </Field>
@@ -161,7 +189,14 @@ export function CommissionForm({ commission }: { commission: AppSettings["commis
             <Button size="sm" variant="dark" onClick={() => setConfirmed(true)}>
               Sim, subi de nível
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setValue(current); setConfirmed(false); }}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setValue(current);
+                setConfirmed(false);
+              }}
+            >
               Voltar ao atual
             </Button>
           </div>
@@ -183,9 +218,8 @@ export function AlertsForm({ alerts }: { alerts: AppSettings["alerts"] }) {
   const [sound, setSound] = useState<SoundId>((formValue(state, "sound", alerts.sound) || alerts.sound) as SoundId);
 
   function preview() {
-    unlockAudio();
-    // O contexto de áudio acorda de forma assíncrona depois do clique; um instante basta.
-    window.setTimeout(() => playSound(sound), 60);
+    // Dentro do clique o navegador libera o áudio; só então tocamos.
+    void unlockAudio().then(() => playSound(sound));
   }
 
   return (
@@ -226,6 +260,10 @@ export function AlertsForm({ alerts }: { alerts: AppSettings["alerts"] }) {
           </div>
         </Field>
       </div>
+      <label className="flex cursor-pointer items-center gap-3 text-[14px] text-ink">
+        <input type="checkbox" name="kanbanSound" defaultChecked={alerts.kanbanSound} className="size-5 accent-accent" />
+        Sonzinho ao mover um card de etapa no funil
+      </label>
       <div className="flex justify-end">
         <SubmitButton size="sm" variant="secondary">
           Salvar alertas
