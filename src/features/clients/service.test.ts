@@ -4,7 +4,7 @@ import { createTestDb } from "@/db/test-db";
 import { createLeader } from "@/features/leaders/service";
 import { clientInputSchema } from "./schema";
 import { countClientsByStatus, getClientDetail, getDailySeries, getLeaderStats, getPeriodStats, listApproved, listClients, listClientsNeedingAction, parseClientFilters } from "./queries";
-import { addClientNote, assignLeader, createClient, deleteClient, registerAttendance, setClientStatus, STATUS_ARROW, updateApproval, updateClient } from "./service";
+import { addClientNote, assignLeader, createClient, deleteClient, getClient, registerAttendance, setClientStatus, STATUS_ARROW, updateApproval, updateClient } from "./service";
 
 const now = new Date(2026, 7, 27, 14, 0);
 
@@ -132,6 +132,26 @@ describe("client lifecycle", () => {
     expect(updated.closedAt).toBeNull();
     const logs = (await getClientDetail(db, c.id))?.activities.map((a) => a.content) ?? [];
     expect(logs.some((l) => l.startsWith("Adesão:"))).toBe(true);
+  });
+
+  it("clears the approval date when the owner empties the field, and leaves it alone when it is not sent", async () => {
+    const c = await createClient(db, base, now);
+    await setClientStatus(db, c.id, "fechou", now);
+    const stamped = await getClient(db, c.id);
+    expect(stamped.approvedAt).not.toBeNull();
+    expect(stamped.closedAt).not.toBeNull();
+
+    // Sem os campos (importação, seed): as datas ficam como estão.
+    const untouched = await updateApproval(db, { id: c.id, credit: 1000, adesao: 100, approvedDay: undefined, closedDay: undefined }, now);
+    expect(untouched.approvedAt).toBe(stamped.approvedAt);
+    expect(untouched.closedAt).toBe(stamped.closedAt);
+
+    // Campo apagado no formulário: a data sai de verdade e o histórico registra.
+    const cleared = await updateApproval(db, { id: c.id, credit: 1000, adesao: 100, approvedDay: "", closedDay: "" }, now);
+    expect(cleared.approvedAt).toBeNull();
+    expect(cleared.closedAt).toBeNull();
+    const detail = await getClientDetail(db, c.id);
+    expect(detail?.activities.some((a) => a.content === "Aprovado em: sem data")).toBe(true);
   });
 
   it("adds notes and deletes (cascade)", async () => {

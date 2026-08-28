@@ -41,12 +41,22 @@ export const assignLeaderSchema = z.object({
   leaderId: optionalString(z.string().max(64)),
 });
 
+/**
+ * Campo de data que o formulário sempre envia: "" (limpo pelo dono) precisa ser
+ * distinguido de ausente (chamada que nem mexe na data), por isso não é `optionalString`.
+ */
+const clearableDay = z
+  .string()
+  .trim()
+  .refine((v) => v === "" || isValidDayKey(v), "Data inválida")
+  .optional();
+
 /** Dados da aprovação/fechamento editados na página do cliente. */
 export const approvalSchema = z.object({
   id: z.string().min(1),
   credit: money,
   adesao: money,
-  approvedDay: optionalString(z.string().refine(isValidDayKey, "Data inválida")),
-  closedDay: optionalString(z.string().refine(isValidDayKey, "Data inválida")),
+  approvedDay: clearableDay,
+  closedDay: clearableDay,
 });
 export type ApprovalInput = z.output<typeof approvalSchema>;

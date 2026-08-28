@@ -1,7 +1,7 @@
 import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { attachments, clients, leaders, type Client } from "@/db/schema";
-import { dayBounds, toIso } from "@/lib/dates";
+import { dayBounds, formatDate, fromIso, toIso } from "@/lib/dates";
 import { CLIENT_STATUS_LABELS, STATUS_RANK, type ClientStatus } from "@/lib/domain";
 import { newId } from "@/lib/ids";
 import { formatBRL } from "@/lib/money";
@@ -126,6 +126,15 @@ export async function assignLeader(db: Db, id: string, leaderId: string | null, 
   return updated;
 }
 
+/**
+ * Campo de data do formulário: "" apaga a data (o dono limpou o campo), ausente
+ * deixa como está (chamadas que só mexem em valores).
+ */
+function dayPatch(day: string | undefined, current: string | null): string | null {
+  if (day === undefined) return current;
+  return day === "" ? null : toIso(dayBounds(day).start);
+}
+
 /** Valores e datas da aprovação/fechamento, editados à mão na página do cliente. */
 export async function updateApproval(db: Db, input: ApprovalInput, now: Date = new Date()): Promise<Client> {
   const before = await getClient(db, input.id);
@@ -134,16 +143,21 @@ export async function updateApproval(db: Db, input: ApprovalInput, now: Date = n
     .set({
       creditCents: input.credit,
       adesaoCents: input.adesao,
-      approvedAt: input.approvedDay ? toIso(dayBounds(input.approvedDay).start) : before.approvedAt,
-      closedAt: input.closedDay ? toIso(dayBounds(input.closedDay).start) : before.closedAt,
+      approvedAt: dayPatch(input.approvedDay, before.approvedAt),
+      closedAt: dayPatch(input.closedDay, before.closedAt),
       updatedAt: toIso(now),
     })
     .where(eq(clients.id, input.id))
     .returning();
   if (before.adesaoCents !== updated.adesaoCents) await logActivity(db, input.id, "cliente", `Adesão: ${formatBRL(updated.adesaoCents)}`, now);
   if (before.creditCents !== updated.creditCents) await logActivity(db, input.id, "cliente", `Carta: ${formatBRL(updated.creditCents)}`, now);
+  // As datas mandam no período em que a venda conta na meta: mexer nelas fica no histórico.
+  if (before.approvedAt !== updated.approvedAt) await logActivity(db, input.id, "cliente", `Aprovado em: ${dateOrNever(updated.approvedAt)}`, now);
+  if (before.closedAt !== updated.closedAt) await logActivity(db, input.id, "cliente", `Fechou em: ${dateOrNever(updated.closedAt)}`, now);
   return updated;
 }
+
+const dateOrNever = (iso: string | null) => (iso ? formatDate(fromIso(iso)) : "sem data");
 
 export async function addClientNote(db: Db, id: string, content: string, now: Date = new Date()) {
   await getClient(db, id);
