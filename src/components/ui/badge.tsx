@@ -43,10 +43,14 @@ const ATTACHMENT_KIND_TONE: Record<AttachmentKind, string> = {
   outro: "bg-surface-3 text-ink-2",
 };
 
-type ChipProps = { children: ReactNode; className?: string };
+type ChipProps = { children: ReactNode; className?: string; /** Tooltip: o texto por extenso quando o chip mostra a forma curta. */ title?: string };
 
-export function Chip({ className, children }: ChipProps) {
-  return <span className={cn("inline-flex h-7 items-center rounded-chip px-2.5 text-[13px] font-medium whitespace-nowrap", className)}>{children}</span>;
+export function Chip({ className, children, title }: ChipProps) {
+  return (
+    <span className={cn("inline-flex h-7 items-center rounded-chip px-2.5 text-[13px] font-medium whitespace-nowrap", className)} title={title}>
+      {children}
+    </span>
+  );
 }
 
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone } & ChipProps) {

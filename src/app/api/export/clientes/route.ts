@@ -1,7 +1,7 @@
 import { getDb } from "@/db/client";
 import { listClients, type ClientListItem } from "@/features/clients/queries";
 import { dayKey } from "@/lib/dates";
-import { ATTENDANCE_LABELS, CLIENT_STATUS_LABELS, INTEREST_LABELS, labelOf, SOURCE_LABELS } from "@/lib/domain";
+import { APPOINTMENT_KIND_LABELS, ATTENDANCE_LABELS, CLIENT_STATUS_LABELS, INTEREST_LABELS, labelOf, SOURCE_LABELS } from "@/lib/domain";
 import { formatPhone } from "@/lib/phone";
 import { buildWorkbook, xlsxResponse, type XlsxColumn } from "@/lib/xlsx";
 
@@ -19,8 +19,11 @@ const COLUMNS: XlsxColumn<ClientListItem>[] = [
   { label: "Origem", type: "text", width: 14, get: (r) => labelOf(SOURCE_LABELS, r.source) },
   { label: "Líder de vendas", type: "text", width: 22, get: (r) => r.leader?.name },
   { label: "1º atendimento", type: "date", width: 14, get: (r) => r.firstVisitAt },
-  { label: "Atendimentos", type: "integer", width: 13, get: (r) => r.meetingsCount },
+  { label: "Atendimentos feitos", type: "integer", width: 13, get: (r) => r.meetingsCount },
+  { label: "Encontros marcados", type: "integer", width: 13, get: (r) => r.meetingsTotal },
   { label: "Próximo agendamento", type: "datetime", width: 20, get: (r) => r.nextAppointment?.scheduledAt },
+  { label: "Tipo do próximo", type: "text", width: 16, get: (r) => (r.nextAppointment ? APPOINTMENT_KIND_LABELS[r.nextAppointment.kind] : null) },
+  { label: "Nº do encontro", type: "integer", width: 13, get: (r) => r.nextAppointment?.meetingNumber },
   { label: "Aprovado em", type: "date", get: (r) => r.approvedAt },
   { label: "Fechou em", type: "date", get: (r) => r.closedAt },
   { label: "Adesão (R$)", type: "money", get: (r) => r.adesaoCents },

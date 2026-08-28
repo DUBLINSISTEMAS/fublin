@@ -8,6 +8,7 @@ import { ConfirmButton } from "@/components/ui/confirm-button";
 import { getDb } from "@/db/client";
 import { AppointmentRow } from "@/features/appointments/components/appointment-row";
 import { variantFor } from "@/features/appointments/components/variant";
+import { meetingNumber } from "@/features/appointments/sequence";
 import { AttachmentsPanel } from "@/features/attachments/components/attachments-panel";
 import { deleteClientAction } from "@/features/clients/actions";
 import { ApprovalForm } from "@/features/clients/components/approval-form";
@@ -36,7 +37,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
   if (!client) notFound();
 
   const now = new Date();
-  const withClient = client.appointments.map((a) => ({ ...a, client }));
+  const withClient = client.appointments.map((a) => ({ ...a, client, meetingNumber: meetingNumber(client.appointments, a.id) }));
   const pending = withClient.filter((a) => a.status === "agendado").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   const past = withClient.filter((a) => a.status !== "agendado");
   const AttendanceIcon = client.attendance === "online" ? Video : Store;
@@ -50,7 +51,8 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
     ["Origem", labelOf(SOURCE_LABELS, client.source)],
     ["Líder de vendas", client.leader?.name ?? "—"],
     ["1º atendimento", client.firstVisitAt ? formatDate(fromIso(client.firstVisitAt)) : "Ainda não"],
-    ["Atendimentos", String(client.meetingsCount)],
+    ["Atendimentos feitos", String(client.meetingsCount)],
+    ["Encontros marcados", String(client.meetingsTotal)],
     ["Em análise desde", dateOrDash(client.analysisStartedAt)],
     ["Aprovado em", dateOrDash(client.approvedAt)],
     ["Fechou em", dateOrDash(client.closedAt)],

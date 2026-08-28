@@ -139,13 +139,38 @@ export function formatDate(date: Date): string {
   return format(date, "dd/MM/yyyy");
 }
 
-/** "Hoje", "Amanhã", "Ontem" ou "27 ago". */
-export function formatRelativeDay(date: Date, now: Date = new Date()): string {
+/** "Qua, 27 ago" — dia da semana + data curta, para quem precisa saber o dia certo. */
+export function formatWeekdayDay(date: Date): string {
+  return `${formatWeekdayShort(date)}, ${formatDayShort(date)}`;
+}
+
+/** "Hoje", "Amanhã", "Ontem" — ou `null` quando o dia não é nenhum desses. */
+function nearbyDayName(date: Date, now: Date): string | null {
   const key = dayKey(date);
   if (key === dayKey(now)) return "Hoje";
   if (key === dayKey(addDays(now, 1))) return "Amanhã";
   if (key === dayKey(addDays(now, -1))) return "Ontem";
-  return formatDayShort(date);
+  return null;
+}
+
+/** "Hoje", "Amanhã", "Ontem" ou "27 ago". */
+export function formatRelativeDay(date: Date, now: Date = new Date()): string {
+  return nearbyDayName(date, now) ?? formatDayShort(date);
+}
+
+/**
+ * Quando o cliente vem: "Hoje · 14:30", "Amanhã · 09:00", "Qua, 27 ago · 10:00".
+ * Fora dos dias vizinhos o nome do dia da semana entra junto — dizer só "3 set"
+ * obriga a abrir o calendário para saber se dá para atender.
+ */
+export function formatSchedule(date: Date, now: Date = new Date()): string {
+  return `${nearbyDayName(date, now) ?? formatWeekdayDay(date)} · ${formatTime(date)}`;
+}
+
+/** Hoje ou amanhã — o que já pede preparação e merece destaque forte na tela. */
+export function isSoon(date: Date, now: Date = new Date()): boolean {
+  const key = dayKey(date);
+  return key === dayKey(now) || key === dayKey(addDays(now, 1));
 }
 
 /** "Hoje às 14:30" / "Amanhã às 09:00" / "27 ago às 10:00" */

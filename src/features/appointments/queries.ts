@@ -3,27 +3,48 @@ import { addHours, addMinutes } from "date-fns";
 import type { Db } from "@/db/client";
 import { appointments, type Appointment, type Client, type Leader } from "@/db/schema";
 import { dayBounds, dayKey, fromIso, isReminderDue, REMINDER_GRACE_MINUTES, toIso, type DayKey } from "@/lib/dates";
+import { meetingNumber, type MeetingItem } from "./sequence";
 
-export type AppointmentWithClient = Appointment & { client: Client & { leader: Leader | null } };
+export type AppointmentWithClient = Appointment & {
+  client: Client & { leader: Leader | null };
+  /** Qual encontro este é para o cliente (1ª, 2ª, 3ª visita/reunião); `null` em ligação e retorno. */
+  meetingNumber: number | null;
+};
 
-const WITH_CLIENT = { client: { with: { leader: true } } } as const;
+/** Junto do cliente vêm os irmãos dele, só com o necessário para numerar os encontros. */
+const WITH_CLIENT = { client: { with: { leader: true, appointments: { columns: { id: true, kind: true, status: true, scheduledAt: true } } } } } as const;
+
+type RowWithClient = Appointment & { client: Client & { leader: Leader | null; appointments: MeetingItem[] } };
+
+/** Troca a lista de irmãos pelo número do encontro: quem consome o tipo não precisa recalcular. */
+function withMeetingNumber(rows: RowWithClient[]): AppointmentWithClient[] {
+  return rows.map(({ client: { appointments: siblings, ...client }, ...appointment }) => ({
+    ...appointment,
+    client,
+    meetingNumber: meetingNumber(siblings, appointment.id),
+  }));
+}
 
 export async function listAppointmentsForDay(db: Db, day: DayKey): Promise<AppointmentWithClient[]> {
   const { start, end } = dayBounds(day);
-  return db.query.appointments.findMany({
-    where: between(appointments.scheduledAt, toIso(start), toIso(end)),
-    orderBy: [asc(appointments.scheduledAt)],
-    with: WITH_CLIENT,
-  });
+  return withMeetingNumber(
+    await db.query.appointments.findMany({
+      where: between(appointments.scheduledAt, toIso(start), toIso(end)),
+      orderBy: [asc(appointments.scheduledAt)],
+      with: WITH_CLIENT,
+    }),
+  );
 }
 
 /** Agendamentos com início em [start, end) — a agenda de uma semana ou de um mês. */
 export async function listAppointmentsBetween(db: Db, start: Date, end: Date): Promise<AppointmentWithClient[]> {
-  return db.query.appointments.findMany({
-    where: and(gte(appointments.scheduledAt, toIso(start)), lt(appointments.scheduledAt, toIso(end))),
-    orderBy: [asc(appointments.scheduledAt)],
-    with: WITH_CLIENT,
-  });
+  return withMeetingNumber(
+    await db.query.appointments.findMany({
+      where: and(gte(appointments.scheduledAt, toIso(start)), lt(appointments.scheduledAt, toIso(end))),
+      orderBy: [asc(appointments.scheduledAt)],
+      with: WITH_CLIENT,
+    }),
+  );
 }
 
 /** Quantos agendamentos (exceto cancelados) por dia em [start, end) — os pontinhos do mini-calendário. */
@@ -42,25 +63,29 @@ export async function countAppointmentsByDay(db: Db, start: Date, end: Date): Pr
 
 /** Agendados no passado sem baixa (o usuário precisa marcar realizado/faltou). */
 export async function listOverdueAppointments(db: Db, now: Date, limit = 50): Promise<AppointmentWithClient[]> {
-  return db.query.appointments.findMany({
-    where: and(eq(appointments.status, "agendado"), lt(appointments.scheduledAt, toIso(addMinutes(now, -REMINDER_GRACE_MINUTES)))),
-    orderBy: [asc(appointments.scheduledAt)],
-    with: WITH_CLIENT,
-    limit,
-  });
+  return withMeetingNumber(
+    await db.query.appointments.findMany({
+      where: and(eq(appointments.status, "agendado"), lt(appointments.scheduledAt, toIso(addMinutes(now, -REMINDER_GRACE_MINUTES)))),
+      orderBy: [asc(appointments.scheduledAt)],
+      with: WITH_CLIENT,
+      limit,
+    }),
+  );
 }
 
 /** Próximos agendados dentro de N horas a partir de agora (inclui a janela de tolerância). */
 export async function listUpcomingAppointments(db: Db, now: Date, hours = 24): Promise<AppointmentWithClient[]> {
-  return db.query.appointments.findMany({
-    where: and(
-      eq(appointments.status, "agendado"),
-      gte(appointments.scheduledAt, toIso(addMinutes(now, -REMINDER_GRACE_MINUTES))),
-      lte(appointments.scheduledAt, toIso(addHours(now, hours))),
-    ),
-    orderBy: [asc(appointments.scheduledAt)],
-    with: WITH_CLIENT,
-  });
+  return withMeetingNumber(
+    await db.query.appointments.findMany({
+      where: and(
+        eq(appointments.status, "agendado"),
+        gte(appointments.scheduledAt, toIso(addMinutes(now, -REMINDER_GRACE_MINUTES))),
+        lte(appointments.scheduledAt, toIso(addHours(now, hours))),
+      ),
+      orderBy: [asc(appointments.scheduledAt)],
+      with: WITH_CLIENT,
+    }),
+  );
 }
 
 export type ReminderItem = {

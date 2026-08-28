@@ -6,6 +6,7 @@ import { cn } from "@/lib/cn";
 import { formatCountdown, formatRelativeDay, formatTime, fromIso } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS } from "@/lib/domain";
 import { telUrl, whatsappUrl } from "@/lib/phone";
+import { meetingLabel, meetingOrdinal } from "../sequence";
 import type { AppointmentWithClient } from "../queries";
 import { QuickStatus } from "./quick-status";
 import type { AppointmentVariant } from "./variant";
@@ -22,18 +23,26 @@ export function AppointmentCard({ appointment, now, variant = "default" }: Props
   const pending = appointment.status === "agendado";
   const isNow = variant === "now";
   const context = appointment.notes ?? client.interestNotes;
+  const meeting = appointment.meetingNumber ? { ordinal: meetingOrdinal(appointment.meetingNumber), label: meetingLabel(appointment.meetingNumber, appointment.kind) } : null;
 
   return (
     <article className={cn("rounded-card p-4 shadow-card", isNow ? "bg-sky" : "bg-surface", variant === "done" && "opacity-70")}>
       <div className="flex items-start justify-between gap-2">
-        {!pending ? (
-          <AppointmentStatusBadge status={appointment.status} />
-        ) : isNow && appointment.kind === "visita" ? (
-          // Sobre o fundo azul-claro do "Agora", o chip azul da visita vira escuro para não sumir.
-          <Chip className="bg-dark text-white">{APPOINTMENT_KIND_LABELS.visita}</Chip>
-        ) : (
-          <AppointmentKindChip kind={appointment.kind} />
-        )}
+        <span className="flex flex-wrap items-center gap-1.5">
+          {!pending ? (
+            <AppointmentStatusBadge status={appointment.status} />
+          ) : isNow && appointment.kind === "visita" ? (
+            // Sobre o fundo azul-claro do "Agora", o chip azul da visita vira escuro para não sumir.
+            <Chip className="bg-dark text-white">{APPOINTMENT_KIND_LABELS.visita}</Chip>
+          ) : (
+            <AppointmentKindChip kind={appointment.kind} />
+          )}
+          {meeting ? (
+            <Chip className={cn("h-7 text-[12px]", isNow ? "bg-white/60 text-ink-2" : "bg-surface-2 text-ink-2")} title={meeting.label}>
+              {meeting.ordinal}
+            </Chip>
+          ) : null}
+        </span>
         <Link href={`/agenda/${appointment.id}/editar`} className="icon-btn -mt-1 -mr-1 size-8" aria-label="Editar agendamento">
           <MoreHorizontal className="size-4" aria-hidden />
         </Link>

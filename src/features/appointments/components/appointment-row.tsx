@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { MessageCircle, Pencil, Phone } from "lucide-react";
-import { AppointmentKindChip, AppointmentStatusBadge } from "@/components/ui/badge";
+import { AppointmentKindChip, AppointmentStatusBadge, Chip } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { formatCountdown, formatRelativeDay, formatTime, fromIso } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS, APPOINTMENT_KIND_SHORT } from "@/lib/domain";
 import { telUrl, whatsappUrl } from "@/lib/phone";
+import { meetingLabel, meetingOrdinal } from "../sequence";
 import type { AppointmentWithClient } from "../queries";
 import { QuickStatus } from "./quick-status";
 import type { AppointmentVariant } from "./variant";
@@ -38,6 +39,8 @@ export function AppointmentRow({ appointment, now, variant = "default", showDay 
   // Sem o nome do cliente o tipo já vira o título; com o nome, o chip só aparece quando a hora sozinha não basta.
   const showKindChip = pending && !hideClient && (showDay || variant === "now");
   const underTime = showDay ? formatRelativeDay(when, now) : variant === "now" ? formatCountdown(when, now) : APPOINTMENT_KIND_SHORT[appointment.kind];
+  // "3ª visita à loja": na página do cliente vira o próprio título; na agenda, um chip ao lado do nome.
+  const meeting = appointment.meetingNumber ? { ordinal: meetingOrdinal(appointment.meetingNumber), label: meetingLabel(appointment.meetingNumber, appointment.kind) } : null;
 
   return (
     <li className={cn("flex gap-3 px-4 py-4 sm:gap-4 sm:px-5", variant === "now" && "bg-sky/50", isDone && "opacity-70")}>
@@ -49,7 +52,7 @@ export function AppointmentRow({ appointment, now, variant = "default", showDay 
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
           {hideClient ? (
-            <span className="text-[16px] font-medium text-ink">{APPOINTMENT_KIND_LABELS[appointment.kind]}</span>
+            <span className="text-[16px] font-medium text-ink">{meeting?.label ?? APPOINTMENT_KIND_LABELS[appointment.kind]}</span>
           ) : (
             <Link href={`/clientes/${client.id}`} className="truncate text-[16px] font-medium text-ink hover:underline">
               {client.name}
@@ -57,6 +60,11 @@ export function AppointmentRow({ appointment, now, variant = "default", showDay 
           )}
           {!pending ? <AppointmentStatusBadge status={appointment.status} className="h-6 text-[12px]" /> : null}
           {showKindChip ? <AppointmentKindChip kind={appointment.kind} className="h-6 text-[12px]" /> : null}
+          {meeting && !hideClient ? (
+            <Chip className="h-6 bg-surface-3 text-[12px] text-ink-2" title={meeting.label}>
+              {meeting.ordinal}
+            </Chip>
+          ) : null}
         </div>
         {subtitle ? <p className="mt-0.5 truncate text-[13px] text-muted">{subtitle}</p> : null}
         <div className="mt-2 flex flex-wrap items-center gap-1.5">

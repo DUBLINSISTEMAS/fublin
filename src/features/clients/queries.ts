@@ -4,6 +4,7 @@ import type { Db } from "@/db/client";
 import { appointments, attachments, clients, leaders, type Appointment, type Attachment, type Client, type Leader } from "@/db/schema";
 import { dayBounds, dayKey, formatWeekdayShort, fromIso, shiftDayKey, toIso, type DayKey } from "@/lib/dates";
 import { ATTENDANCE_KINDS, CLIENT_STATUSES, INTERESTS, OPEN_CLIENT_STATUSES, STATUS_RANK, type ActivityType, type ClientStatus, type Interest } from "@/lib/domain";
+import { countMeetings, countMeetingsDone, meetingNumber } from "@/features/appointments/sequence";
 import { digitsOnly } from "@/lib/phone";
 import { pickParam, type SearchParams } from "@/lib/search-params";
 
@@ -14,13 +15,18 @@ export type ClientFilters = {
   leaderId?: string;
 };
 
-export type NextAppointment = Pick<Appointment, "id" | "scheduledAt" | "kind" | "status">;
+export type NextAppointment = Pick<Appointment, "id" | "scheduledAt" | "kind" | "status"> & {
+  /** Qual encontro este é (1ª, 2ª, 3ª visita/reunião) — `null` para ligação e retorno. */
+  meetingNumber: number | null;
+};
 
 export type ClientListItem = Client & {
   leader: Leader | null;
   nextAppointment: NextAppointment | null;
   /** Visitas/reuniões já realizadas com o líder. */
   meetingsCount: number;
+  /** Visitas/reuniões marcadas ao todo (as feitas, as faltadas e as que ainda vêm). */
+  meetingsTotal: number;
 };
 
 /** Normaliza filtros vindos da URL (descarta valores inválidos). */
@@ -34,10 +40,6 @@ export function parseClientFilters(params: SearchParams): ClientFilters {
     interest: (INTERESTS as readonly string[]).includes(interest ?? "") ? (interest as Interest) : undefined,
     leaderId: pickParam(params, "lider") || undefined,
   };
-}
-
-function isAttendanceDone(a: Pick<Appointment, "kind" | "status">): boolean {
-  return a.status === "realizado" && (ATTENDANCE_KINDS as readonly string[]).includes(a.kind);
 }
 
 /** `%` e `_` são curingas do LIKE; quem busca "50%" quer o texto literal. */
@@ -72,15 +74,19 @@ export async function listClients(db: Db, filters: ClientFilters = {}, now: Date
     orderBy: [desc(clients.updatedAt)],
     with: { leader: true, appointments: { columns: LIGHT_APPOINTMENT_COLUMNS, orderBy: [asc(appointments.scheduledAt)] } },
   });
-  return rows.map(({ appointments: all, ...client }) => ({
-    ...client,
-    nextAppointment: all.find((a) => a.status === "agendado" && a.scheduledAt >= nowIso) ?? null,
-    meetingsCount: all.filter(isAttendanceDone).length,
-  }));
+  return rows.map(({ appointments: all, ...client }) => {
+    const next = all.find((a) => a.status === "agendado" && a.scheduledAt >= nowIso) ?? null;
+    return {
+      ...client,
+      nextAppointment: next ? { ...next, meetingNumber: meetingNumber(all, next.id) } : null,
+      meetingsCount: countMeetingsDone(all),
+      meetingsTotal: countMeetings(all),
+    };
+  });
 }
 
 export type ActivityItem = { id: string; type: ActivityType; content: string; createdAt: string };
-export type ClientDetail = Client & { leader: Leader | null; appointments: Appointment[]; activities: ActivityItem[]; attachments: Attachment[]; meetingsCount: number };
+export type ClientDetail = Client & { leader: Leader | null; appointments: Appointment[]; activities: ActivityItem[]; attachments: Attachment[]; meetingsCount: number; meetingsTotal: number };
 
 export async function getClientDetail(db: Db, id: string): Promise<ClientDetail | null> {
   const row = await db.query.clients.findFirst({
@@ -94,7 +100,7 @@ export async function getClientDetail(db: Db, id: string): Promise<ClientDetail 
     },
   });
   if (!row) return null;
-  return { ...row, meetingsCount: row.appointments.filter(isAttendanceDone).length };
+  return { ...row, meetingsCount: countMeetingsDone(row.appointments), meetingsTotal: countMeetings(row.appointments) };
 }
 
 export type ClientOption = Pick<Client, "id" | "name" | "phone">;
@@ -219,7 +225,7 @@ export async function listApproved(db: Db, filters: ApprovedFilters = {}): Promi
   return rows.map(({ attachments: files, appointments: all, ...client }) => ({
     ...client,
     attachmentsCount: files.length,
-    meetingsCount: all.filter(isAttendanceDone).length,
+    meetingsCount: countMeetingsDone(all),
   }));
 }
 

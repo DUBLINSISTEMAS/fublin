@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { ChevronRight, Clock, UserPlus, Users } from "lucide-react";
+import { ChevronRight, UserPlus, Users } from "lucide-react";
 import { ClientStatusBadge, InterestChip } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
-import { formatWhen, fromIso } from "@/lib/dates";
+import { APPOINTMENT_KIND_ICON } from "@/features/appointments/components/kind-icon";
+import { meetingLabel } from "@/features/appointments/sequence";
+import { formatSchedule, fromIso } from "@/lib/dates";
 import { formatPhone } from "@/lib/phone";
 import { initials } from "@/lib/text";
 import type { ClientListItem } from "../queries";
@@ -30,6 +32,8 @@ export function ClientList({ items, now, hasFilters }: Props) {
       <ul className="divide-y divide-line">
         {items.map((c) => {
           const meta = [c.interestNotes, c.leader?.name].filter(Boolean).join(" · ");
+          const next = c.nextAppointment;
+          const NextIcon = next ? APPOINTMENT_KIND_ICON[next.kind] : null;
           return (
             <li key={c.id}>
               <Link href={`/clientes/${c.id}`} className="flex items-center gap-3 px-4 py-4 transition-colors duration-150 hover:bg-surface-2 sm:gap-4 sm:px-5">
@@ -41,10 +45,11 @@ export function ClientList({ items, now, hasFilters }: Props) {
                     <ClientStatusBadge status={c.status} className="h-6 text-[12px]" />
                   </span>
                   {meta ? <span className="mt-0.5 block truncate text-[13px] text-muted">{meta}</span> : null}
-                  {c.nextAppointment ? (
-                    <span className="mt-1 inline-flex items-center gap-1 text-[13px] font-medium text-accent-ink">
-                      <Clock className="size-3.5" aria-hidden />
-                      {formatWhen(fromIso(c.nextAppointment.scheduledAt), now)}
+                  {next && NextIcon ? (
+                    <span className="mt-1 inline-flex items-center gap-1.5 text-[13px] font-medium text-accent-ink">
+                      <NextIcon className="size-3.5" aria-hidden />
+                      <span className="tabular-nums">{formatSchedule(fromIso(next.scheduledAt), now)}</span>
+                      {next.meetingNumber ? <span className="text-muted">· {meetingLabel(next.meetingNumber, next.kind)}</span> : null}
                     </span>
                   ) : null}
                 </span>

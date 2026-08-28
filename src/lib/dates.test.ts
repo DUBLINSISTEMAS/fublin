@@ -5,11 +5,14 @@ import {
   formatCountdown,
   formatMonthLong,
   formatRelativeDay,
+  formatSchedule,
+  formatWeekdayDay,
   formatWhen,
   fromLocalInput,
   isReminderDue,
   isValidDayKey,
   isValidMonthKey,
+  isSoon,
   isValidTime,
   monthKey,
   monthRange,
@@ -70,6 +73,20 @@ describe("relative formatting", () => {
   });
   it("formats when", () => {
     expect(formatWhen(new Date(2026, 7, 27, 16, 30), now)).toBe("Hoje às 16:30");
+  });
+  it("formats the schedule with the weekday and the time, so the owner knows when the client comes", () => {
+    expect(formatSchedule(new Date(2026, 7, 27, 16, 30), now)).toBe("Hoje · 16:30");
+    expect(formatSchedule(new Date(2026, 7, 28, 9, 0), now)).toBe("Amanhã · 09:00");
+    expect(formatSchedule(new Date(2026, 7, 26, 9, 0), now)).toBe("Ontem · 09:00");
+    // 3 set 2026 cai numa quinta-feira.
+    expect(formatSchedule(new Date(2026, 8, 3, 14, 30), now)).toBe("Qui, 3 set · 14:30");
+    expect(formatWeekdayDay(new Date(2026, 8, 3))).toBe("Qui, 3 set");
+  });
+  it("treats today and tomorrow as soon, and nothing else", () => {
+    expect(isSoon(new Date(2026, 7, 27, 23, 59), now)).toBe(true);
+    expect(isSoon(new Date(2026, 7, 28, 0, 1), now)).toBe(true);
+    expect(isSoon(new Date(2026, 7, 29, 9, 0), now)).toBe(false);
+    expect(isSoon(new Date(2026, 7, 26, 9, 0), now)).toBe(false);
   });
   it("formats countdown", () => {
     expect(formatCountdown(new Date(2026, 7, 27, 14, 25), now)).toBe("em 25 min");
