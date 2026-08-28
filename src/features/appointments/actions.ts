@@ -7,8 +7,9 @@ import { errorMessage } from "@/lib/actions";
 import { dayKey, fromIso } from "@/lib/dates";
 import { actionError, formError, OK, type ActionResult, type FormState } from "@/lib/result";
 import { idSchema, parseForm } from "@/lib/validation";
+import { z } from "zod";
 import { appointmentInputSchema, appointmentStatusSchema } from "./schema";
-import { createAppointment, deleteAppointment, getAppointment, setAppointmentStatus, updateAppointment } from "./service";
+import { createAppointment, deleteAppointment, getAppointment, rescheduleAppointment, setAppointmentStatus, updateAppointment } from "./service";
 
 const INVALID = "Confira os campos destacados.";
 
@@ -54,6 +55,23 @@ export async function updateAppointmentAction(id: string, _prev: FormState, form
   }
   revalidateAppointment(parsed.data.clientId);
   redirect(target);
+}
+
+const rescheduleSchema = z.object({ id: z.string().min(1), startIso: z.iso.datetime() });
+
+/** Arrastar na agenda: novo horário em ISO; devolve ok/erro para a UI desfazer se precisar. */
+export async function rescheduleAppointmentAction(id: string, startIso: string): Promise<ActionResult> {
+  const parsed = rescheduleSchema.safeParse({ id, startIso });
+  if (!parsed.success) return actionError("Horário inválido.");
+  let clientId: string;
+  try {
+    const db = await getDb();
+    clientId = (await rescheduleAppointment(db, parsed.data.id, new Date(parsed.data.startIso))).clientId;
+  } catch (error) {
+    return actionError(errorMessage(error));
+  }
+  revalidateAppointment(clientId);
+  return OK;
 }
 
 /** Baixa rápida (Realizado / Faltou): o erro volta para o botão, sem página de erro. */

@@ -13,7 +13,7 @@ export default async function NewClientPage() {
   const leaders = await listLeaders(db);
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader eyebrow="Clientes" title="Novo cliente" description="Cadastre quem você trouxe ou vai trazer para a loja." />
+      <PageHeader eyebrow="Clientes" backHref="/clientes" title="Novo cliente" description="Cadastre quem você trouxe ou vai trazer para a loja." />
       <ClientForm action={createClientAction} leaders={leaders} cancelHref="/clientes" submitLabel="Cadastrar cliente" />
     </div>
   );

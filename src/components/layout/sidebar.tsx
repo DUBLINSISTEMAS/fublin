@@ -7,9 +7,9 @@ import { getCurrentPeriodProgress } from "@/features/goals/queries";
 import { listLeaders } from "@/features/leaders/service";
 import { DEFAULT_SETTINGS } from "@/features/settings/schema";
 import { getSettings } from "@/features/settings/service";
-import { formatWhen, fromIso } from "@/lib/dates";
-import { APPOINTMENT_KIND_LABELS } from "@/lib/domain";
 import { NavLinks } from "./nav-links";
+import { NextUpCard } from "./next-up-card";
+import { ThemeToggle } from "./theme-toggle";
 
 /**
  * Sidebar (desktop): seu perfil, navegação, meta da quinzena, líderes de vendas
@@ -60,27 +60,9 @@ export async function Sidebar() {
         </div>
       </div>
 
-      <div className="p-3">
-        <div className="rounded-card bg-dark p-4 text-white">
-          <p className="text-[17px] font-medium">{next ? "Próximo" : "Agenda livre"}</p>
-          {next ? (
-            <>
-              <p className="mt-1.5 text-[13px] leading-snug text-white/70">
-                {APPOINTMENT_KIND_LABELS[next.kind]} com <span className="text-white">{next.client.name}</span>, {formatWhen(fromIso(next.scheduledAt), now).toLowerCase()}.
-              </p>
-              <Link href={`/clientes/${next.clientId}`} className="mt-4 flex h-10 items-center justify-center rounded-control bg-white text-[13px] font-medium text-ink transition-colors hover:bg-surface-2">
-                Ver cliente
-              </Link>
-            </>
-          ) : (
-            <>
-              <p className="mt-1.5 text-[13px] leading-snug text-white/70">Nada marcado nas próximas 48 h. Que tal ligar para um cliente em aberto?</p>
-              <Link href="/agenda/novo" className="mt-4 flex h-10 items-center justify-center rounded-control bg-white text-[13px] font-medium text-ink transition-colors hover:bg-surface-2">
-                Agendar
-              </Link>
-            </>
-          )}
-        </div>
+      <div className="space-y-2 p-3">
+        <NextUpCard next={next ? { clientId: next.clientId, clientName: next.client.name, kind: next.kind, scheduledAt: next.scheduledAt } : null} nowIso={now.toISOString()} />
+        <ThemeToggle compact />
       </div>
     </aside>
   );

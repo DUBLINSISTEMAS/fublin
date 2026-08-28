@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { CalendarPlus, Plus, Search } from "lucide-react";
+import { SEARCH_INPUT_ID } from "./shortcuts";
 
 const DEBOUNCE_MS = 300;
 
@@ -48,10 +49,11 @@ export function TopBar() {
       <form onSubmit={submit} className="relative min-w-0 flex-1">
         <Search className="pointer-events-none absolute top-1/2 left-4 size-[18px] -translate-y-1/2 text-ink-2" aria-hidden />
         <input
+          id={SEARCH_INPUT_ID}
           type="search"
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="Buscar cliente"
+          placeholder="Buscar cliente  ( / )"
           aria-label="Buscar cliente"
           className="h-12 w-full min-w-0 rounded-control bg-transparent pr-3 pl-11 text-[15px] text-ink placeholder:text-ink-2/70 focus:bg-surface-2 focus:outline-none"
         />

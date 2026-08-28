@@ -2,9 +2,10 @@ import os from "node:os";
 import { Download, Smartphone } from "lucide-react";
 import { NotificationSettings } from "@/components/layout/notification-settings";
 import { PageHeader } from "@/components/layout/page-header";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { Card, Section } from "@/components/ui/card";
 import { getDb } from "@/db/client";
-import { AlertsForm, GoalDefaultsForm, PeriodForm, ProfileForm } from "@/features/settings/components/settings-forms";
+import { AlertsForm, CommissionForm, GoalDefaultsForm, PeriodForm, ProfileForm } from "@/features/settings/components/settings-forms";
 import { getSettings } from "@/features/settings/service";
 
 export const dynamic = "force-dynamic";
@@ -37,15 +38,28 @@ export default async function ConfigPage() {
           </Card>
         </Section>
 
-        <Section title="Quinzenas e meta" className="scroll-mt-24" >
+        <Section title="Quinzenas, meta e comissão" className="scroll-mt-24">
           <div id="quinzenas" className="grid gap-4 md:grid-cols-2">
-            <Card className="p-4 sm:p-5">
+            <Card className="p-4 sm:p-5 md:row-span-2">
               <PeriodForm period={settings.period} />
             </Card>
             <Card className="p-4 sm:p-5">
               <GoalDefaultsForm goals={settings.goals} />
             </Card>
+            <Card className="p-4 sm:p-5">
+              <CommissionForm commission={settings.commission} />
+            </Card>
           </div>
+        </Section>
+
+        <Section title="Aparência">
+          <Card className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+            <div>
+              <p className="text-[15px] font-medium text-ink">Tema</p>
+              <p className="mt-0.5 text-sm text-muted">Escuro é azul-marinho, não preto. Automático segue o celular ou o computador.</p>
+            </div>
+            <ThemeToggle />
+          </Card>
         </Section>
 
         <Section title="Alertas de agendamento">

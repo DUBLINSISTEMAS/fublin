@@ -5,6 +5,7 @@ import { Store, Video } from "lucide-react";
 import { ButtonLink } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
+import { MoneyInput } from "@/components/ui/money-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFocusFirstError } from "@/components/ui/use-focus-first-error";
 import type { Client, Leader } from "@/db/schema";
@@ -97,11 +98,8 @@ export function ClientForm({ action, leaders, initial, cancelHref, submitLabel =
               ))}
             </Select>
           </Field>
-          <Field label="Valor da carta" htmlFor="credit" error={errors.credit} hint="Crédito pretendido. Ex.: 300.000">
-            <div className="relative">
-              <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[15px] text-muted">R$</span>
-              <Input id="credit" name="credit" inputMode="decimal" defaultValue={value("credit", centsToInput(initial?.creditCents))} invalid={Boolean(errors.credit)} placeholder="0,00" className="pl-11" />
-            </div>
+          <Field label="Valor da carta" htmlFor="credit" error={errors.credit} hint="Crédito pretendido. Ex.: 300.000,00">
+            <MoneyInput id="credit" name="credit" defaultValue={value("credit", centsToInput(initial?.creditCents))} invalid={Boolean(errors.credit)} placeholder="0,00" />
           </Field>
           <Field label="Detalhe do interesse" htmlFor="interestNotes" error={errors.interestNotes} hint="Ex.: apartamento na zona sul, SUV até 120 mil">
             <Input id="interestNotes" name="interestNotes" defaultValue={value("interestNotes", initial?.interestNotes)} invalid={Boolean(errors.interestNotes)} placeholder="opcional" />

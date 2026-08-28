@@ -18,7 +18,7 @@ export default async function EditClientPage(props: PageProps<"/clientes/[id]/ed
   const action = updateClientAction.bind(null, client.id);
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader eyebrow="Clientes" title={client.name} description="Editar dados do cliente" />
+      <PageHeader eyebrow={client.name} backHref={`/clientes/${client.id}`} title="Editar cliente" description="Altere os dados e salve." />
       <ClientForm action={action} leaders={leaders} initial={client} cancelHref={`/clientes/${client.id}`} submitLabel="Salvar alterações" />
     </div>
   );

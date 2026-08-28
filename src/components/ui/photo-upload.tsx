@@ -5,6 +5,7 @@ import { useRef, useState } from "react";
 import { Camera, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { Avatar } from "./avatar";
+import { PhotoCropper } from "./photo-cropper";
 import { toast } from "./toast";
 
 type Props = {
@@ -16,46 +17,32 @@ type Props = {
   className?: string;
 };
 
-const MAX_SIDE = 512;
-const JPEG_QUALITY = 0.86;
-
 /**
- * Reduz a foto no navegador (celular manda 4–8 MB) para um JPEG de até 512px.
- * Se o navegador não decodificar (HEIC no Chrome), envia o original.
+ * Avatar com botão de trocar/remover foto. A foto escolhida abre o ajuste (enquadrar e
+ * aproximar) e sobe já recortada em 512px; se o navegador não decodificar (HEIC no Chrome),
+ * sobe o original e o servidor guarda como veio.
  */
-async function shrink(file: File): Promise<Blob> {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-    const side = Math.min(bitmap.width, bitmap.height) * scale;
-    const canvas = document.createElement("canvas");
-    canvas.width = side;
-    canvas.height = side;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return file;
-    // Recorte central quadrado: a foto já chega pronta para o círculo.
-    const sx = (bitmap.width - side / scale) / 2;
-    const sy = (bitmap.height - side / scale) / 2;
-    ctx.drawImage(bitmap, sx, sy, side / scale, side / scale, 0, 0, side, side);
-    bitmap.close();
-    return await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b ?? file), "image/jpeg", JPEG_QUALITY));
-  } catch {
-    return file;
-  }
-}
-
-/** Avatar com botão de trocar/remover foto; o upload vai para /api/fotos. */
 export function PhotoUpload({ kind, id, name, photoKey, size = 64, className }: Props) {
   const router = useRouter();
   const input = useRef<HTMLInputElement>(null);
   const [busy, setBusy] = useState(false);
+  const [cropping, setCropping] = useState<{ image: ImageBitmap; fallback: File } | null>(null);
 
-  async function upload(file: File) {
+  async function pick(file: File) {
+    try {
+      setCropping({ image: await createImageBitmap(file), fallback: file });
+    } catch {
+      toast.info("Este formato não abre no ajuste; enviando a foto como veio.");
+      await upload(file);
+    }
+  }
+
+  async function upload(blob: Blob) {
     setBusy(true);
     const body = new FormData();
     body.set("kind", kind);
     if (id) body.set("id", id);
-    body.set("file", await shrink(file), "foto.jpg");
+    body.set("file", blob, "foto.jpg");
     try {
       const res = await fetch("/api/fotos", { method: "POST", body });
       const data = (await res.json().catch(() => ({}))) as { error?: string };
@@ -113,7 +100,23 @@ export function PhotoUpload({ kind, id, name, photoKey, size = 64, className }: 
           <Trash2 className="size-3" aria-hidden />
         </button>
       ) : null}
-      <input ref={input} type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && void upload(e.target.files[0])} />
+      <input ref={input} type="file" accept="image/*" className="sr-only" onChange={(e) => e.target.files?.[0] && void pick(e.target.files[0])} />
+      {cropping ? (
+        <PhotoCropper
+          image={cropping.image}
+          title={`Ajustar foto de ${name}`}
+          onCancel={() => {
+            cropping.image.close();
+            setCropping(null);
+            if (input.current) input.current.value = "";
+          }}
+          onConfirm={(blob) => {
+            cropping.image.close();
+            setCropping(null);
+            void upload(blob);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

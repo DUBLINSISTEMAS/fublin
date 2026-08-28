@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { AlarmClock, Bell, Check, X } from "lucide-react";
 import type { ReminderItem } from "@/features/appointments/queries";
 import { setAppointmentStatusAction } from "@/features/appointments/actions";
-import { beep, unlockAudio } from "@/lib/beep";
+import { playSound, unlockAudio, type SoundId } from "@/lib/sounds";
 import { formatCountdown, formatWhen } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS } from "@/lib/domain";
 import { OK } from "@/lib/result";
@@ -18,7 +18,7 @@ const STORAGE_KEY = "relacionador:alerts";
 const KEEP_MS = 2 * 24 * 60 * 60 * 1000;
 
 type Memory = { dismissed: Record<string, number>; snoozed: Record<string, number> };
-type AlertPrefs = { repeatMinutes: number; sound: boolean };
+type AlertPrefs = { repeatMinutes: number; sound: SoundId };
 type Payload = { now: string; items: ReminderItem[]; alerts: AlertPrefs };
 
 function readMemory(): Memory {
@@ -67,13 +67,13 @@ export function ReminderWatcher() {
   const [now, setNow] = useState(() => new Date());
   const memory = useRef<Memory>({ dismissed: {}, snoozed: {} });
   const lastFired = useRef<Record<string, number>>({});
-  const prefs = useRef<AlertPrefs>({ repeatMinutes: 2, sound: true });
+  const prefs = useRef<AlertPrefs>({ repeatMinutes: 2, sound: "suave" });
 
   const fire = useCallback(
     (item: ReminderItem) => {
       lastFired.current[item.id] = Date.now();
       notify(item, () => router.push(`/clientes/${item.clientId}`));
-      if (prefs.current.sound) beep();
+      playSound(prefs.current.sound);
     },
     [router],
   );

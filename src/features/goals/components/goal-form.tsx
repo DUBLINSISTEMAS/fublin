@@ -3,7 +3,8 @@
 import { useActionState, useState } from "react";
 import { Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/field";
+import { Field } from "@/components/ui/field";
+import { MoneyInput } from "@/components/ui/money-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useActionToast } from "@/components/ui/toast";
 import { centsToInput, formatBRL } from "@/lib/money";
@@ -42,11 +43,8 @@ export function GoalForm({ periodKey, targetCents, isDefault }: Props) {
   return (
     <form action={formAction} noValidate className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="periodKey" value={periodKey} />
-      <Field label="Meta da quinzena" htmlFor={`goal-${periodKey}`} error={errors.target} className="w-56">
-        <div className="relative">
-          <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[14px] text-muted">R$</span>
-          <Input id={`goal-${periodKey}`} name="target" inputMode="decimal" defaultValue={formValue(state, "target", centsToInput(targetCents))} invalid={Boolean(errors.target)} placeholder="700.000" className="h-11 pl-11" autoFocus />
-        </div>
+      <Field label="Meta da quinzena" htmlFor={`goal-${periodKey}`} error={errors.target} className="w-60">
+        <MoneyInput id={`goal-${periodKey}`} name="target" defaultValue={formValue(state, "target", centsToInput(targetCents))} invalid={Boolean(errors.target)} placeholder="700.000,00" className="h-11" autoFocus />
       </Field>
       <SubmitButton size="md" className="h-11">
         Salvar meta

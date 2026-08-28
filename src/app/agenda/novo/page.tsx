@@ -27,7 +27,7 @@ export default async function NewAppointmentPage(props: PageProps<"/agenda/novo"
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader eyebrow="Agenda" title="Novo agendamento" description="Você recebe um alerta antes do horário, no computador e no celular." />
+      <PageHeader eyebrow={locked ? locked.name : "Agenda"} backHref={cancelHref} title="Novo agendamento" description="Você recebe um alerta antes do horário, no computador e no celular." />
       <AppointmentForm
         action={createAppointmentAction}
         clients={clients}

@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, Target } from "lucide-react";
+import { ArrowRight, Target, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/cn";
 import { formatBRL, formatBRLCompact } from "@/lib/money";
 import { periodDatesLabel, periodTitle } from "@/lib/quinzena";
 import { plural } from "@/lib/text";
+import { commissionCents, formatPercent } from "../commission";
 import { motivationFor } from "../motivation";
 import type { PeriodProgress } from "../queries";
 
@@ -39,8 +40,10 @@ export function GoalSidebarCard({ progress }: { progress: PeriodProgress }) {
   );
 }
 
-/** Versão grande (Hoje e Metas): números, barra, frase e o que falta. */
-export function GoalHeroCard({ progress, children }: { progress: PeriodProgress; children?: React.ReactNode }) {
+type HeroProps = { progress: PeriodProgress; ratePercent?: number; children?: React.ReactNode };
+
+/** Versão grande (Hoje e Metas): números, barra, frase, o que falta e a comissão prevista. */
+export function GoalHeroCard({ progress, ratePercent, children }: HeroProps) {
   const m = motivationFor(progress);
   const done = progress.targetCents !== null && progress.achievedCents >= progress.targetCents;
   return (
@@ -58,13 +61,17 @@ export function GoalHeroCard({ progress, children }: { progress: PeriodProgress;
           <p className={cn("mt-3 text-[17px] font-medium", TONE_TEXT[m.tone])}>{m.headline}</p>
           <p className="mt-0.5 text-[14px] text-ink-2">{m.detail}</p>
         </div>
-        <dl className="grid shrink-0 grid-cols-3 gap-x-5 gap-y-1 text-[13px] sm:text-right">
-          <dt className="text-muted sm:col-start-1">Cartas</dt>
+        <dl className="grid shrink-0 grid-cols-2 gap-x-5 gap-y-1 text-[13px] sm:grid-cols-4 sm:text-right">
+          <dt className="text-muted">Cartas</dt>
           <dt className="text-muted">Faltam</dt>
           <dt className="text-muted">Dias</dt>
+          <dt className="text-muted">Comissão</dt>
           <dd className="text-[20px] font-light tabular-nums text-ink">{progress.closedCount}</dd>
           <dd className="text-[20px] font-light tabular-nums text-ink">{progress.targetCents ? formatBRLCompact(progress.remainingCents) : "—"}</dd>
           <dd className="text-[20px] font-light tabular-nums text-ink">{progress.clock.daysLeft}</dd>
+          <dd className="text-[20px] font-light tabular-nums text-lime-ink" title={ratePercent !== undefined ? `${formatPercent(ratePercent)} das cartas fechadas` : undefined}>
+            {ratePercent !== undefined ? formatBRLCompact(commissionCents(progress.achievedCents, ratePercent)) : "—"}
+          </dd>
         </dl>
       </div>
       <div className="mt-5 flex items-center gap-3">
@@ -77,7 +84,7 @@ export function GoalHeroCard({ progress, children }: { progress: PeriodProgress;
 }
 
 /** Linha de resumo para listas (histórico, produção). */
-export function GoalRow({ progress, href }: { progress: PeriodProgress; href?: string }) {
+export function GoalRow({ progress, ratePercent, href }: { progress: PeriodProgress; ratePercent?: number; href?: string }) {
   const body = (
     <>
       <div className="min-w-0 flex-1">
@@ -88,7 +95,10 @@ export function GoalRow({ progress, href }: { progress: PeriodProgress; href?: s
       </div>
       <div className="w-44 shrink-0 text-right text-[13px] tabular-nums">
         <p className="font-medium text-ink">{formatBRL(progress.achievedCents)}</p>
-        <p className="text-muted">{progress.targetCents ? `${progress.percent}% de ${formatBRLCompact(progress.targetCents)}` : "sem meta"}</p>
+        <p className="text-muted">
+          {progress.targetCents ? `${progress.percent}% de ${formatBRLCompact(progress.targetCents)}` : "sem meta"}
+          {ratePercent !== undefined && progress.achievedCents ? ` · ${formatBRLCompact(commissionCents(progress.achievedCents, ratePercent))} de comissão` : ""}
+        </p>
       </div>
       {href ? <ArrowRight className="size-4 shrink-0 text-faint" aria-hidden /> : null}
     </>
@@ -100,5 +110,38 @@ export function GoalRow({ progress, href }: { progress: PeriodProgress; href?: s
     </Link>
   ) : (
     <div className={className}>{body}</div>
+  );
+}
+
+type PayoutProps = { current: PeriodProgress; previous: PeriodProgress; ratePercent: number };
+
+/** Recebimentos: comissão da quinzena atual e da anterior (a que cai no próximo pagamento). */
+export function PayoutCard({ current, previous, ratePercent }: PayoutProps) {
+  const now = commissionCents(current.achievedCents, ratePercent);
+  const last = commissionCents(previous.achievedCents, ratePercent);
+  return (
+    <Card className="flex flex-col justify-between p-5">
+      <div>
+        <p className="flex items-center gap-2 text-[13px] font-medium text-muted">
+          <Wallet className="size-4" aria-hidden />
+          Recebimentos · {formatPercent(ratePercent)} por carta
+        </p>
+        <p className="mt-2 text-[30px] leading-none font-light tabular-nums tracking-tight text-ink">{formatBRL(now)}</p>
+        <p className="mt-1 text-[13px] text-ink-2">
+          nesta {periodTitle(current.period)} · {plural(current.closedCount, "carta")} · {formatBRLCompact(current.achievedCents)}
+        </p>
+      </div>
+      <div className="mt-4 border-t border-line pt-3">
+        <p className="flex items-baseline justify-between gap-3 text-[13px]">
+          <span className="text-muted">
+            {periodTitle(previous.period)} passada · {periodDatesLabel(previous.period)}
+          </span>
+          <span className="font-medium tabular-nums text-ink">{formatBRL(last)}</span>
+        </p>
+        <Link href="/metas" className="mt-2 inline-block text-[13px] font-medium text-accent hover:underline">
+          Ver metas e histórico
+        </Link>
+      </div>
+    </Card>
   );
 }

@@ -59,7 +59,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
 
   return (
     <div className="space-y-5">
-      <Link href="/clientes" className="inline-flex items-center gap-1 text-[13px] font-medium text-muted hover:text-ink md:hidden">
+      <Link href="/clientes" className="inline-flex h-8 items-center gap-1 rounded-full pr-2 text-[13px] font-medium text-muted transition-colors hover:text-ink">
         <ArrowLeft className="size-4" aria-hidden />
         Clientes
       </Link>

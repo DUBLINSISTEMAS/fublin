@@ -3,6 +3,7 @@
 import { useActionState, useRef } from "react";
 import { Field, Input } from "@/components/ui/field";
 import { FormAlert } from "@/components/ui/form-alert";
+import { MoneyInput } from "@/components/ui/money-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFocusFirstError } from "@/components/ui/use-focus-first-error";
 import type { Client } from "@/db/schema";
@@ -26,10 +27,10 @@ export function ApprovalForm({ client }: { client: Client }) {
       <FormAlert state={state} />
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-1">
         <Field label="Valor da carta" htmlFor="ap-credit" error={errors.credit}>
-          <Money id="ap-credit" name="credit" defaultValue={value("credit", centsToInput(client.creditCents))} invalid={Boolean(errors.credit)} />
+          <MoneyInput id="ap-credit" name="credit" defaultValue={value("credit", centsToInput(client.creditCents))} invalid={Boolean(errors.credit)} placeholder="0,00" className="h-11" />
         </Field>
         <Field label="Adesão" htmlFor="ap-adesao" error={errors.adesao} hint="Quanto o cliente pagou de adesão.">
-          <Money id="ap-adesao" name="adesao" defaultValue={value("adesao", centsToInput(client.adesaoCents))} invalid={Boolean(errors.adesao)} />
+          <MoneyInput id="ap-adesao" name="adesao" defaultValue={value("adesao", centsToInput(client.adesaoCents))} invalid={Boolean(errors.adesao)} placeholder="0,00" className="h-11" />
         </Field>
         <Field label="Aprovado em" htmlFor="ap-approved" error={errors.approvedDay}>
           <Input id="ap-approved" name="approvedDay" type="date" defaultValue={value("approvedDay", day(client.approvedAt))} invalid={Boolean(errors.approvedDay)} className="h-11" />
@@ -47,14 +48,5 @@ export function ApprovalForm({ client }: { client: Client }) {
         </SubmitButton>
       </div>
     </form>
-  );
-}
-
-function Money({ id, name, defaultValue, invalid }: { id: string; name: string; defaultValue: string; invalid: boolean }) {
-  return (
-    <div className="relative">
-      <span className="pointer-events-none absolute top-1/2 left-4 -translate-y-1/2 text-[14px] text-muted">R$</span>
-      <Input id={id} name={name} inputMode="decimal" defaultValue={defaultValue} invalid={invalid} placeholder="0,00" className="h-11 pl-11" />
-    </div>
   );
 }

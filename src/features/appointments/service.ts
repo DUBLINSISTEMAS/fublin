@@ -69,6 +69,16 @@ export async function updateAppointment(db: Db, id: string, input: AppointmentIn
   return updated;
 }
 
+/** Muda só o horário (arrastar na agenda): mantém tipo, duração e lembrete. */
+export async function rescheduleAppointment(db: Db, id: string, when: Date, now: Date = new Date()): Promise<Appointment> {
+  const before = await getAppointment(db, id);
+  const scheduledAt = toIso(when);
+  if (before.scheduledAt === scheduledAt) return before;
+  const [updated] = await db.update(appointments).set({ scheduledAt, updatedAt: toIso(now) }).where(eq(appointments.id, id)).returning();
+  await logActivity(db, updated.clientId, "agendamento", `Remarcou: ${describe(updated.kind, when)}`, now);
+  return updated;
+}
+
 /** Dá baixa no agendamento e reflete no funil do cliente. */
 export async function setAppointmentStatus(db: Db, id: string, status: AppointmentStatus, now: Date = new Date()): Promise<Appointment> {
   const before = await getAppointment(db, id);

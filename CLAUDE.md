@@ -38,7 +38,12 @@ Regras que mantêm o sistema coerente:
 - **Quinzenas e metas**: períodos em `lib/quinzena.ts` (chave `YYYY-MM-1|2`); progresso em `features/goals/queries.ts` (soma de `credit_cents` fechados por `closed_at`); frases em `goals/motivation.ts`. Filtros de período nas abas: `resolvePeriodFilter` + `<PeriodPicker>`.
 - **Fotos** (líderes e perfil): `features/photos/service.ts` + `/api/fotos`; a chave muda a cada troca (cache imutável). Sempre renderize com `<Avatar>`; para trocar, `<PhotoUpload>`.
 - **Agenda**: `appointments.duration_minutes` define o bloco; `calendar/layout.ts` posiciona (faixas para sobreposição) e é testado; `TimeGrid` é cliente (linha do agora, painel do evento), `MonthGrid`/`MiniCalendar` são servidor.
-- **Alertas**: `ReminderWatcher` lê `/api/reminders` (itens + preferências) a cada 30 s; dispensados/adiados ficam no `localStorage` (`relacionador:alerts`). Som via `lib/beep.ts` só depois de um gesto do usuário.
+- **Alertas**: `ReminderWatcher` lê `/api/reminders` (itens + preferências) a cada 30 s; dispensados/adiados ficam no `localStorage` (`relacionador:alerts`). Sons via `lib/sounds.ts` (presets WebAudio) só depois de um gesto do usuário.
+- **Dinheiro digitado** sempre com `<MoneyInput>` (máscara pt-BR); nunca `<Input>` cru para valores.
+- **Comissão**: `settings.commission.ratePercent` + `commissionCents()`; qualquer número de "recebimento" passa por aí.
+- **Tema**: tokens do `@theme` redefinidos em `[data-theme="dark"]` no `globals.css`; nunca cores fixas em componentes. `ThemeToggle` grava em `localStorage` e o script no `<head>` aplica antes da hidratação.
+- **Agenda arrastável**: só mouse (toque rola a grade); `snapMinutes` encaixa em 15 min; a pilha (`groupSize > 1`) abre o `EventChooser`.
+- **Voltar**: use `backHref` no `PageHeader` em toda tela que não é raiz do menu.
 - Testes de componente ficam ao lado do componente com `// @vitest-environment jsdom` na primeira linha; o padrão do Vitest é Node.
 
 ## Limitações conhecidas (decisões, não esquecimentos)

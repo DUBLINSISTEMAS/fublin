@@ -3,7 +3,7 @@ import type { Db } from "@/db/client";
 import { createTestDb } from "@/db/test-db";
 import { createLeader } from "@/features/leaders/service";
 import { clientInputSchema } from "./schema";
-import { countClientsByStatus, getClientDetail, getDailySeries, getLeaderStats, getMonthStats, listApproved, listClients, parseClientFilters } from "./queries";
+import { countClientsByStatus, getClientDetail, getDailySeries, getLeaderStats, getPeriodStats, listApproved, listClients, listClientsNeedingAction, parseClientFilters } from "./queries";
 import { addClientNote, assignLeader, createClient, deleteClient, registerAttendance, setClientStatus, STATUS_ARROW, updateApproval, updateClient } from "./service";
 
 const now = new Date(2026, 7, 27, 14, 0);
@@ -170,21 +170,40 @@ describe("listClients filters", () => {
     const counts = await countClientsByStatus(db);
     expect(counts.novo).toBe(1);
     expect(counts.fechou).toBe(1);
-    const stats = await getMonthStats(db, new Date(2026, 7, 1));
-    expect(stats).toEqual({ newClients: 2, visits: 0, approved: 1, closed: 1, adesaoCents: 150000 });
-    const previous = await getMonthStats(db, new Date(2026, 6, 1), new Date(2026, 7, 1));
+    const stats = await getPeriodStats(db, new Date(2026, 7, 1));
+    expect(stats).toEqual({ newClients: 2, visits: 0, approved: 1, closed: 1, creditCents: 0, adesaoCents: 150000 });
+    const previous = await getPeriodStats(db, new Date(2026, 6, 1), new Date(2026, 7, 1));
     expect(previous.newClients).toBe(0);
   });
 
-  it("builds a 7-day series ending today", async () => {
+  it("builds a daily series from a first day", async () => {
     await createClient(db, base, now);
     await createClient(db, base, new Date(2026, 7, 25, 9, 0));
     await createClient(db, base, new Date(2026, 7, 1, 9, 0)); // fora da janela
-    const series = await getDailySeries(db, now, 7);
+    const series = await getDailySeries(db, "2026-08-21", 7);
     expect(series).toHaveLength(7);
     expect(series[6]).toMatchObject({ day: "2026-08-27", label: "Qui", newClients: 1, visits: 0 });
     expect(series[4]).toMatchObject({ day: "2026-08-25", newClients: 1 });
     expect(series.reduce((s, p) => s + p.newClients, 0)).toBe(2);
+    expect((await getDailySeries(db, "2026-08-01", 27))[0]).toMatchObject({ label: "1", newClients: 1 });
+  });
+
+  it("lists clients that need a next step", async () => {
+    const stale = await createClient(db, { ...base, name: "Parado" }, new Date(2026, 7, 10));
+    const scheduled = await createClient(db, { ...base, name: "Com visita" }, now);
+    await db.insert((await import("@/db/schema")).appointments).values({ id: "ap1", clientId: scheduled.id, scheduledAt: new Date(2026, 7, 28, 10).toISOString(), durationMinutes: 60, kind: "visita", status: "agendado", notes: null, reminderMinutes: 30, createdAt: now.toISOString(), updatedAt: now.toISOString() });
+    const analysed = await createClient(db, { ...base, name: "Em análise antiga" }, now);
+    await setClientStatus(db, analysed.id, "analise", new Date(2026, 7, 15));
+    const approved = await createClient(db, { ...base, name: "Aprovada sem adesão" }, now);
+    await setClientStatus(db, approved.id, "aprovado", new Date(2026, 7, 20));
+    await createClient(db, { ...base, name: "Perdido", status: "perdido" }, now);
+
+    const needs = await listClientsNeedingAction(db, now);
+    expect(needs.noNextStep.map((c) => c.name)).toEqual(["Parado", "Em análise antiga"]);
+    expect(needs.noNextStep[0]).toMatchObject({ id: stale.id, days: 17 });
+    expect(needs.stuckInAnalysis.map((c) => c.name)).toEqual(["Em análise antiga"]);
+    expect(needs.stuckInAnalysis[0].days).toBe(12);
+    expect(needs.missingAdesao.map((c) => c.name)).toEqual(["Aprovada sem adesão"]);
   });
 });
 

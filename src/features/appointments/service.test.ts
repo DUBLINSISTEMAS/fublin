@@ -5,8 +5,8 @@ import { clientInputSchema } from "@/features/clients/schema";
 import { getClientDetail, listClients } from "@/features/clients/queries";
 import { createClient } from "@/features/clients/service";
 import { appointmentInputSchema } from "./schema";
-import { getActivityHeatmap, listAppointmentsForDay, listOverdueAppointments, listReminders, listUpcomingAppointments } from "./queries";
-import { createAppointment, deleteAppointment, setAppointmentStatus, updateAppointment } from "./service";
+import { countAppointmentsByDay, listAppointmentsBetween, listAppointmentsForDay, listOverdueAppointments, listReminders, listUpcomingAppointments } from "./queries";
+import { createAppointment, deleteAppointment, rescheduleAppointment, setAppointmentStatus, updateAppointment } from "./service";
 
 const now = new Date(2026, 7, 27, 14, 0);
 const baseClient = clientInputSchema.parse({ name: "Ana Souza", phone: "11987654321", interest: "imovel" });
@@ -79,21 +79,28 @@ describe("appointments", () => {
     await expect(deleteAppointment(db, a.id)).rejects.toThrow();
   });
 
-  it("buckets appointments into an hour x day heatmap", async () => {
+  it("lists a date range and counts per day (skipping cancelled) for the calendar", async () => {
     await createAppointment(db, input("2026-08-27", "14:10"), now);
     await createAppointment(db, input("2026-08-27", "14:50"), now);
     await createAppointment(db, input("2026-08-20", "09:00"), now);
     const cancelled = await createAppointment(db, input("2026-08-27", "16:00"), now);
     await setAppointmentStatus(db, cancelled.id, "cancelado", now);
-    const heat = await getActivityHeatmap(db, now, 14);
-    expect(heat.days).toHaveLength(14);
-    expect(heat.days[13].day).toBe("2026-08-27");
-    expect(heat.days[13].label).toBe("27");
-    const hour14 = heat.hours.indexOf(14);
-    expect(heat.cells[hour14][13]).toBe(2);
-    expect(heat.cells[heat.hours.indexOf(16)][13]).toBe(0);
-    expect(heat.cells[heat.hours.indexOf(9)][6]).toBe(1);
-    expect(heat.max).toBe(2);
+    const week = await listAppointmentsBetween(db, new Date(2026, 7, 24), new Date(2026, 7, 31));
+    expect(week.map((a) => a.scheduledAt.slice(11, 13))).toHaveLength(3);
+    expect(week[0].client.name).toBe("Ana Souza");
+    expect(await countAppointmentsByDay(db, new Date(2026, 7, 1), new Date(2026, 8, 1))).toEqual({ "2026-08-20": 1, "2026-08-27": 2 });
+  });
+
+  it("reschedules keeping duration and logging the change", async () => {
+    const a = await createAppointment(db, input("2026-08-27", "10:00", { durationMinutes: 45 }), now);
+    const moved = await rescheduleAppointment(db, a.id, new Date(2026, 7, 28, 15, 30), now);
+    expect(moved.scheduledAt).toBe(new Date(2026, 7, 28, 15, 30).toISOString());
+    expect(moved.durationMinutes).toBe(45);
+    const same = await rescheduleAppointment(db, a.id, new Date(2026, 7, 28, 15, 30), now);
+    expect(same.updatedAt).toBe(moved.updatedAt);
+    const logs = (await getClientDetail(db, clientId))?.activities.map((x) => x.content) ?? [];
+    expect(logs.filter((l) => l.startsWith("Remarcou"))).toHaveLength(1);
+    await expect(rescheduleAppointment(db, "nope", now, now)).rejects.toThrow("Agendamento não encontrado");
   });
 
   it("overdue, upcoming and reminders windows", async () => {

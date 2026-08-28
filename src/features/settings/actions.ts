@@ -6,23 +6,17 @@ import { getDb } from "@/db/client";
 import { errorMessage } from "@/lib/actions";
 import { formError, formSuccess, type FormState } from "@/lib/result";
 import { parseForm } from "@/lib/validation";
-import { alertSettingsSchema, goalSettingsFormSchema, periodSettingsSchema, profileFormSchema, type AppSettings, type SettingsKey } from "./schema";
+import { alertSettingsSchema, commissionFormSchema, goalSettingsFormSchema, periodFormSchema, profileFormSchema, type AppSettings } from "./schema";
 import { patchSetting, saveSetting } from "./service";
 
 const INVALID = "Confira os campos destacados.";
 
-/** Perfil e quinzenas aparecem em todas as telas (sidebar, metas): revalida o layout inteiro. */
+/** Perfil, quinzenas e comissão aparecem em todas as telas (sidebar, metas): revalida o layout inteiro. */
 function revalidateAll() {
   revalidatePath("/", "layout");
 }
 
-async function saveFromForm<K extends SettingsKey, S extends z.ZodTypeAny>(
-  key: K,
-  schema: S,
-  formData: FormData,
-  apply: (data: z.output<S>) => Promise<void>,
-  success: string,
-): Promise<FormState> {
+async function saveFromForm<S extends z.ZodTypeAny>(schema: S, formData: FormData, apply: (data: z.output<S>) => Promise<void>, success: string): Promise<FormState> {
   const parsed = parseForm(schema, formData);
   if (!parsed.ok) return formError(INVALID, parsed.fieldErrors, parsed.values);
   try {
@@ -35,29 +29,31 @@ async function saveFromForm<K extends SettingsKey, S extends z.ZodTypeAny>(
 }
 
 export async function saveProfileAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return saveFromForm("profile", profileFormSchema, formData, async (data) => {
-    const db = await getDb();
-    await patchSetting(db, "profile", { name: data.name });
+  return saveFromForm(profileFormSchema, formData, async (data) => {
+    await patchSetting(await getDb(), "profile", { name: data.name });
   }, "Perfil salvo.");
 }
 
 export async function savePeriodAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return saveFromForm("period", periodSettingsSchema, formData, async (data) => {
-    const db = await getDb();
-    await saveSetting(db, "period", data);
+  return saveFromForm(periodFormSchema, formData, async (cuts) => {
+    await saveSetting(await getDb(), "period", cuts);
   }, "Quinzenas atualizadas.");
 }
 
 export async function saveAlertsAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return saveFromForm("alerts", alertSettingsSchema, formData, async (data) => {
-    const db = await getDb();
-    await saveSetting(db, "alerts", data as AppSettings["alerts"]);
+  return saveFromForm(alertSettingsSchema, formData, async (data) => {
+    await saveSetting(await getDb(), "alerts", data as AppSettings["alerts"]);
   }, "Alertas atualizados.");
 }
 
 export async function saveGoalDefaultsAction(_prev: FormState, formData: FormData): Promise<FormState> {
-  return saveFromForm("goals", goalSettingsFormSchema, formData, async (data) => {
-    const db = await getDb();
-    await saveSetting(db, "goals", data);
+  return saveFromForm(goalSettingsFormSchema, formData, async (data) => {
+    await saveSetting(await getDb(), "goals", data);
   }, "Meta padrão salva.");
+}
+
+export async function saveCommissionAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  return saveFromForm(commissionFormSchema, formData, async (data) => {
+    await saveSetting(await getDb(), "commission", { ratePercent: data.ratePercent });
+  }, "Comissão atualizada.");
 }

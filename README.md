@@ -33,17 +33,26 @@ Se o celular não abrir, libere a porta 3000 no Firewall do Windows (na primeira
 ### Agenda
 
 - **Dia · Semana · Mês**, no estilo Google Agenda: grade de horas com os blocos no tamanho da duração, linha vermelha do "agora", mini-calendário e filtro por tipo (visita, reunião online, ligação, retorno). Clique num horário vazio para agendar já naquela hora; clique num bloco para ver o cliente, chamar no WhatsApp, dar baixa ou editar.
+- **Arraste um bloco** (com o mouse) para outro horário ou dia: remarca na hora, de 15 em 15 minutos. Dois clientes no mesmo horário aparecem empilhados com um contador — o clique abre a escolha de qual ver.
 - No celular a semana desliza de lado, um dia por vez.
+
+### Atalhos e navegação
+
+Toda tela de cadastro tem a setinha de voltar. No computador: `/` vai para a busca, `n` abre um cliente novo, `a` abre um agendamento, `?` mostra os atalhos, `Esc` fecha painéis.
 
 ### Alertas
 
 - A tela **Hoje** mostra o que está por vir agora, o dia inteiro e o que ficou atrasado sem baixa.
-- Cada agendamento tem um lembrete (15 min, 30 min, 1 h…). Quando chega a hora, o alerta **fica na tela até você dispensar (X), adiar 5 min ou dar baixa**, repetindo som e notificação no intervalo que você escolher em **Config → Alertas**.
+- Cada agendamento tem um lembrete (15 min, 30 min, 1 h…). Quando chega a hora, o alerta **fica na tela até você dispensar (X), adiar 5 min ou dar baixa**, repetindo som e notificação no intervalo que você escolher em **Config → Alertas** — lá você também escolhe e ouve o som (suave, sino, insistente, digital).
 - Em **Config**, ative as notificações do navegador para receber o aviso do sistema mesmo em outra aba.
 
 ### Metas por quinzena
 
-A loja fecha a produção em duas quinzenas por mês (por padrão do dia 5 ao 19 e do dia 20 ao 4 — ajuste em **Config → Quinzenas**). Em **Metas** você define a meta de cada quinzena (ou uma meta padrão); cada cliente que chega a **Fechou** soma o valor da carta na barra, e o sistema diz quanto falta, quanto precisa fechar por dia e como está a produção (as duas quinzenas juntas). A meta também aparece no menu e na tela Hoje.
+A loja fecha a produção em duas quinzenas por mês (por padrão a 1ª vai do dia 5 ao 19; a 2ª é o resto do mês — ajuste em **Config → Quinzenas**, escrevendo "do dia X ao dia Y"). Em **Metas** você define a meta de cada quinzena (ou uma meta padrão); cada cliente que chega a **Fechou** soma o valor da carta na barra, e o sistema diz quanto falta, quanto precisa fechar por dia e como está a produção (as duas quinzenas juntas). A meta também aparece no menu e na tela Hoje.
+
+### Comissão e recebimentos
+
+Sua comissão é **0,4% do valor de cada carta fechada** (Config → Comissão; mudar pede confirmação, porque só líderes ganham mais). A tela Hoje mostra quanto você vai receber pela quinzena atual e pela anterior; Metas mostra a comissão de cada quinzena do histórico.
 
 ### Você e os líderes
 
@@ -76,7 +85,8 @@ Tudo fica na linha do tempo do cliente: status, líder, notas, agendamentos e an
 
 Direção inspirada em dashboards SaaS de CRM (referências: *B2B SaaS Web CRM Dashboard* e *Customer Journey CRM Dashboard*, Dribbble): canvas cinza-azulado claro, painéis brancos flutuantes com raio grande, azul como cor principal, chips pastel (azul, limão, amarelo), contadores pretos redondos, tipografia geométrica leve (Outfit).
 
-- **Hoje**: meta da quinzena, gráfico de área (novos clientes × atendimentos, 7 dias), heatmap de atividade (hora × dia, 14 dias), KPIs e a agenda em colunas (Agora · Hoje · Atrasados · Amanhã).
+- **Hoje**: saudação, meta da quinzena e recebimentos, a agenda em colunas (Agora · Hoje · Atrasados · Amanhã), **Precisa de ação** (quem está sem próximo passo, parado em análise ou sem adesão) e **Resultados** por quinzena, mês ou tudo (KPIs, gráfico diário, funil).
+- **Tema**: claro, escuro (azul-marinho) ou automático — na sidebar ou em Config.
 - **Clientes**: kanban do funil por status com arrastar-e-soltar (`@dnd-kit`) — arraste o fundo ou use as setas para ver as outras etapas; o card que chega "pousa" com animação e um brilho azul. Ou lista; busca global na barra superior.
 - Sidebar com seu perfil, a meta da quinzena, os líderes de vendas (com foto) e um card escuro com o próximo agendamento.
 

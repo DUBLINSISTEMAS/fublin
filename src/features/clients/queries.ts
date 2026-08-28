@@ -110,10 +110,10 @@ export async function countClientsByStatus(db: Db): Promise<Record<ClientStatus,
   return base;
 }
 
-export type MonthStats = { newClients: number; visits: number; approved: number; closed: number; adesaoCents: number };
+export type PeriodStats = { newClients: number; visits: number; approved: number; closed: number; creditCents: number; adesaoCents: number };
 
-/** Números de um período [start, end): novos, atendimentos realizados, aprovados, fechados e adesão somada. */
-export async function getMonthStats(db: Db, periodStart: Date, periodEnd?: Date): Promise<MonthStats> {
+/** Números de um período [start, end): novos, atendimentos realizados, aprovados, fechados, cartas e adesão somadas. */
+export async function getPeriodStats(db: Db, periodStart: Date, periodEnd?: Date): Promise<PeriodStats> {
   const start = toIso(periodStart);
   const end = periodEnd ? toIso(periodEnd) : undefined;
   const within = (column: AnySQLiteColumn) => (end ? and(gte(column, start), lt(column, end)) : gte(column, start));
@@ -124,24 +124,63 @@ export async function getMonthStats(db: Db, periodStart: Date, periodEnd?: Date)
       .from(appointments)
       .where(and(inArray(appointments.kind, [...ATTENDANCE_KINDS]), eq(appointments.status, "realizado"), within(appointments.scheduledAt))),
     db.select({ approved: count() }).from(clients).where(within(clients.approvedAt)),
-    db.select({ adesao: clients.adesaoCents }).from(clients).where(within(clients.closedAt)),
+    db.select({ credit: clients.creditCents, adesao: clients.adesaoCents }).from(clients).where(and(eq(clients.status, "fechou"), within(clients.closedAt))),
   ]);
-  const adesaoCents = closedRows.reduce((sum, r) => sum + (r.adesao ?? 0), 0);
-  return { newClients, visits, approved, closed: closedRows.length, adesaoCents };
+  return {
+    newClients,
+    visits,
+    approved,
+    closed: closedRows.length,
+    creditCents: closedRows.reduce((sum, r) => sum + (r.credit ?? 0), 0),
+    adesaoCents: closedRows.reduce((sum, r) => sum + (r.adesao ?? 0), 0),
+  };
+}
+
+export type ActionItem = { id: string; name: string; status: ClientStatus; leaderName: string | null; /** Dias desde o fato que pede ação. */ days: number };
+export type NeedsAction = { noNextStep: ActionItem[]; stuckInAnalysis: ActionItem[]; missingAdesao: ActionItem[] };
+
+const STUCK_AFTER_DAYS = 5;
+const daysSince = (iso: string | null, now: Date) => (iso ? Math.max(0, Math.floor((now.getTime() - fromIso(iso).getTime()) / 86_400_000)) : 0);
+
+/**
+ * Quem precisa de um próximo passo hoje: abertos sem agendamento futuro (os parados há mais
+ * tempo primeiro), em análise há mais de 5 dias e aprovados/fechados sem adesão registrada.
+ */
+export async function listClientsNeedingAction(db: Db, now: Date, limit = 5): Promise<NeedsAction> {
+  const nowIso = toIso(now);
+  const rows = await db.query.clients.findMany({
+    where: or(inArray(clients.status, [...OPEN_CLIENT_STATUSES]), eq(clients.status, "fechou")),
+    with: { leader: { columns: { name: true } }, appointments: { columns: { scheduledAt: true, status: true } } },
+  });
+  const item = (c: (typeof rows)[number], since: string | null): ActionItem => ({ id: c.id, name: c.name, status: c.status, leaderName: c.leader?.name ?? null, days: daysSince(since, now) });
+  const open = rows.filter((c) => (OPEN_CLIENT_STATUSES as readonly string[]).includes(c.status));
+  const noNextStep = open
+    .filter((c) => c.status !== "aprovado" && !c.appointments.some((a) => a.status === "agendado" && a.scheduledAt >= nowIso))
+    .sort((a, b) => a.updatedAt.localeCompare(b.updatedAt))
+    .map((c) => item(c, c.updatedAt));
+  const stuckInAnalysis = open
+    .filter((c) => c.status === "analise" && daysSince(c.analysisStartedAt, now) >= STUCK_AFTER_DAYS)
+    .sort((a, b) => (a.analysisStartedAt ?? "").localeCompare(b.analysisStartedAt ?? ""))
+    .map((c) => item(c, c.analysisStartedAt));
+  const missingAdesao = rows
+    .filter((c) => (c.status === "aprovado" || c.status === "fechou") && !c.adesaoCents)
+    .sort((a, b) => (a.approvedAt ?? "").localeCompare(b.approvedAt ?? ""))
+    .map((c) => item(c, c.closedAt ?? c.approvedAt));
+  return { noNextStep: noNextStep.slice(0, limit), stuckInAnalysis: stuckInAnalysis.slice(0, limit), missingAdesao: missingAdesao.slice(0, limit) };
 }
 
 export type DayPoint = { day: DayKey; label: string; newClients: number; visits: number };
 
-/** Série dos últimos N dias (inclui hoje): novos clientes e atendimentos realizados por dia. */
-export async function getDailySeries(db: Db, now: Date, days = 7): Promise<DayPoint[]> {
-  const firstDay = shiftDayKey(dayKey(now), -(days - 1));
+/** Série de N dias a partir de `firstDay`: novos clientes e atendimentos realizados por dia. */
+export async function getDailySeries(db: Db, firstDay: DayKey, days: number): Promise<DayPoint[]> {
   const startIso = toIso(dayBounds(firstDay).start);
+  const endIso = toIso(dayBounds(shiftDayKey(firstDay, days)).start);
   const [clientRows, visitRows] = await Promise.all([
-    db.select({ at: clients.createdAt }).from(clients).where(gte(clients.createdAt, startIso)),
+    db.select({ at: clients.createdAt }).from(clients).where(and(gte(clients.createdAt, startIso), lt(clients.createdAt, endIso))),
     db
       .select({ at: appointments.scheduledAt })
       .from(appointments)
-      .where(and(inArray(appointments.kind, [...ATTENDANCE_KINDS]), eq(appointments.status, "realizado"), gte(appointments.scheduledAt, startIso))),
+      .where(and(inArray(appointments.kind, [...ATTENDANCE_KINDS]), eq(appointments.status, "realizado"), gte(appointments.scheduledAt, startIso), lt(appointments.scheduledAt, endIso))),
   ]);
   const countByDay = (rows: { at: string }[]) => {
     const map = new Map<string, number>();
@@ -153,9 +192,11 @@ export async function getDailySeries(db: Db, now: Date, days = 7): Promise<DayPo
   };
   const newByDay = countByDay(clientRows);
   const visitsByDay = countByDay(visitRows);
+  // Até 7 dias cabe o nome do dia; séries maiores usam o número do dia.
+  const label = (day: DayKey) => (days <= 7 ? formatWeekdayShort(dayBounds(day).start) : String(Number(day.slice(8, 10))));
   return Array.from({ length: days }, (_, i) => {
     const day = shiftDayKey(firstDay, i);
-    return { day, label: formatWeekdayShort(dayBounds(day).start), newClients: newByDay.get(day) ?? 0, visits: visitsByDay.get(day) ?? 0 };
+    return { day, label: label(day), newClients: newByDay.get(day) ?? 0, visits: visitsByDay.get(day) ?? 0 };
   });
 }
 

@@ -21,7 +21,7 @@ export default async function EditAppointmentPage(props: PageProps<"/agenda/[id]
 
   return (
     <div className="mx-auto max-w-2xl">
-      <PageHeader eyebrow="Agenda" title="Editar agendamento" description={client ? `Com ${client.name}` : undefined} />
+      <PageHeader eyebrow={client?.name ?? "Agenda"} backHref={`/clientes/${appointment.clientId}`} title="Editar agendamento" description="Remarque, mude o tipo ou a duração." />
       <AppointmentForm action={action} clients={clients} lockedClient={client} initial={appointment} returnTo="cliente" cancelHref={`/clientes/${appointment.clientId}`} submitLabel="Salvar alterações" />
       <div className="mt-10 border-t border-line pt-6">
         <ConfirmButton action={deleteAppointmentAction} hidden={{ id: appointment.id }} label="Excluir agendamento" confirmLabel="Excluir" />

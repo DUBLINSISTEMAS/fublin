@@ -160,3 +160,21 @@ Decisões:
 - **Alertas** (`ReminderWatcher`): poll de 30 s; alerta fica na tela até dispensar (X), adiar 5 min (soneca) ou dar baixa; repete som (WebAudio, liberado no 1º clique) e notificação do sistema a cada N min configurados; título da aba mostra "(n)". Dispensados/adiados ficam no `localStorage` por 2 dias.
 - **Toasts** (`components/ui/toast.tsx`): store fora do React; `useActionToast` transforma resultados de ações em "Salvo"/erro. Todas as ações automáticas (etapa, líder, baixa, foto, metas, configurações) avisam.
 - **Períodos nas abas**: `PeriodPicker` (Quinzena · Mês · Tudo) em Aprovados e Líderes; `getLeaderStats(range)` conta cada fato pela própria data; nova coluna "Cartas" (produção do líder).
+
+---
+
+## Adendo 4 (2026-08-27, madrugada) — revisão de uso: navegação, agenda arrastável, comissão, dashboard, tema
+
+Pedido do dono (áudio): setinha de voltar em cards/formulários; arrastar o evento na agenda para outro horário; dois clientes no mesmo horário empilhados com escolha; dinheiro sempre em R$ formatado; quinzenas como "do dia X ao dia Y"; ouvir e escolher o som do alerta; dashboard "é o que vou ver todos os dias?" com filtro de período; card "Próximo" chamativo (amarelo) e recolhível; ajustar a foto no upload; modo escuro azul; comissão de 0,4% por venda com recebimentos por quinzena; "tirar todo lixo".
+
+Decisões:
+- **Voltar**: `PageHeader` ganha `backHref` (setinha + nome de onde veio) em novo/editar cliente e agendamento; a página do cliente mostra "← Clientes" em todo tamanho. **Atalhos** (`components/layout/shortcuts.tsx`): `/` busca, `n` novo cliente, `a` agendar, `?` lista, Esc fecha painéis.
+- **Agenda**: arrastar com o mouse remarca (encaixe de 15 min, prévia tracejada, otimista + `rescheduleAppointmentAction`, toast "remarcado"); no toque, remarcar é pelo painel → Editar. Clientes no mesmo horário viram uma **pilha** (cards deslocados 10px, badge com a quantidade) e o clique abre o `EventChooser` para escolher. `layout.ts` passa a devolver `group/groupSize`.
+- **Dinheiro**: `MoneyInput` (máscara pt-BR ao digitar, completa centavos ao sair) em carta, adesão, meta e meta padrão.
+- **Quinzenas**: formulário "1ª quinzena do dia X ao dia Y"; a 2ª é calculada (Y+1 até X−1 do mês seguinte) e mostrada ao vivo com "hoje estamos na …". Armazenamento continua em cortes (`cutsFromRange`/`rangeFromCuts`).
+- **Sons**: presets WebAudio (`lib/sounds.ts`: suave, sino, insistente, digital, sem som) com botão "Ouvir"; `alerts.sound` vira id (valores booleanos antigos são convertidos).
+- **Comissão**: `settings.commission.ratePercent` (padrão 0,4%; mudar pede confirmação "subi de nível"). `commissionCents(cartas, %)` aparece no hero da meta, nas linhas do histórico, no card **Recebimentos** do Hoje (quinzena atual + anterior) e nos KPIs de resultados.
+- **Hoje** repensado para o dia a dia: saudação com o nome; meta + recebimentos; Agora/Hoje/Atrasados/Amanhã; **Precisa de ação** (abertos sem próximo passo, parados em análise ≥ 5 dias, aprovados sem adesão — `listClientsNeedingAction`); **Resultados** com `PeriodPicker` (quinzena/mês/tudo): KPIs, série diária do período e funil. O heatmap saiu (bonito, pouco acionável).
+- **Próximo** na sidebar: `NextUpCard` amarelo com contagem regressiva e botão de recolher (lembrado no navegador); tema Claro/Escuro/Automático na sidebar e em Config.
+- **Fotos**: `PhotoCropper` (arrastar para enquadrar, zoom, recorte circular 512px) antes do upload; HEIC não decodificável sobe como veio.
+- **Modo escuro**: tokens redefinidos em `[data-theme="dark"]` (azul-marinho #0d1526 / #141d33, nunca preto); script inline no `<head>` aplica o tema salvo antes da hidratação; `ThemeToggle` com `localStorage` + `prefers-color-scheme`.

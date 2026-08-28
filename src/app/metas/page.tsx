@@ -4,6 +4,7 @@ import { Settings } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, Section } from "@/components/ui/card";
 import { getDb } from "@/db/client";
+import { formatPercent } from "@/features/goals/commission";
 import { GoalHeroCard, GoalRow } from "@/features/goals/components/goal-card";
 import { GoalForm } from "@/features/goals/components/goal-form";
 import { PeriodNav } from "@/features/goals/components/period-nav";
@@ -49,7 +50,7 @@ export default async function GoalsPage(props: PageProps<"/metas">) {
         }
       />
 
-      <GoalHeroCard progress={progress}>
+      <GoalHeroCard progress={progress} ratePercent={settings.commission.ratePercent}>
         <GoalForm periodKey={key} targetCents={progress.targetCents} isDefault={progress.isDefaultTarget} />
       </GoalHeroCard>
 
@@ -83,7 +84,7 @@ export default async function GoalsPage(props: PageProps<"/metas">) {
                 <ul className="divide-y divide-line">
                   {history.map((h) => (
                     <li key={h.period.key}>
-                      <GoalRow progress={h} href={`/metas?q=${h.period.key}`} />
+                      <GoalRow progress={h} ratePercent={settings.commission.ratePercent} href={`/metas?q=${h.period.key}`} />
                     </li>
                   ))}
                 </ul>
@@ -116,7 +117,8 @@ export default async function GoalsPage(props: PageProps<"/metas">) {
           </Section>
           <Card className="p-4 text-[13px] text-muted">
             <p>
-              A meta conta o <span className="font-medium text-ink">valor da carta</span> dos clientes que chegaram a “Fechou” dentro da quinzena (pela data de fechamento).
+              A meta conta o <span className="font-medium text-ink">valor da carta</span> dos clientes que chegaram a “Fechou” dentro da quinzena (pela data de fechamento). A comissão é{" "}
+              <span className="font-medium text-ink">{formatPercent(settings.commission.ratePercent)}</span> desse total.
             </p>
             <Link href="/config#quinzenas" className="mt-3 inline-flex items-center gap-1.5 font-medium text-accent hover:underline">
               <Settings className="size-4" aria-hidden />
