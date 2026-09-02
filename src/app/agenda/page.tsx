@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { addMonths } from "date-fns";
 import { Fab } from "@/components/layout/fab";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { CalendarHeader } from "@/features/appointments/components/calendar/calendar-header";
 import { KindFilter } from "@/features/appointments/components/calendar/kind-filter";
 import { MiniCalendar } from "@/features/appointments/components/calendar/mini-calendar";
@@ -38,6 +39,7 @@ function step(view: CalendarView, day: DayKey, direction: 1 | -1): DayKey {
 }
 
 export default async function AgendaPage(props: PageProps<"/agenda">) {
+  await requireAdmin();
   const params = (await props.searchParams) as SearchParams;
   const now = new Date();
   const today = dayKey(now);

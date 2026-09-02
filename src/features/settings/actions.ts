@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import type { z } from "zod";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { errorMessage } from "@/lib/actions";
 import { formError, formSuccess, type FormState } from "@/lib/result";
 import { parseForm } from "@/lib/validation";
@@ -29,30 +30,35 @@ async function saveFromForm<S extends z.ZodTypeAny>(schema: S, formData: FormDat
 }
 
 export async function saveProfileAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   return saveFromForm(profileFormSchema, formData, async (data) => {
     await patchSetting(await getDb(), "profile", { name: data.name });
   }, "Perfil salvo.");
 }
 
 export async function savePeriodAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   return saveFromForm(periodFormSchema, formData, async (cuts) => {
     await saveSetting(await getDb(), "period", cuts);
   }, "Quinzenas atualizadas.");
 }
 
 export async function saveAlertsAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   return saveFromForm(alertSettingsSchema, formData, async (data) => {
     await saveSetting(await getDb(), "alerts", data as AppSettings["alerts"]);
   }, "Alertas atualizados.");
 }
 
 export async function saveGoalDefaultsAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   return saveFromForm(goalSettingsFormSchema, formData, async (data) => {
     await saveSetting(await getDb(), "goals", data);
   }, "Meta padrão salva.");
 }
 
 export async function saveCommissionAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   return saveFromForm(commissionFormSchema, formData, async (data) => {
     await saveSetting(await getDb(), "commission", { ratePercent: data.ratePercent });
   }, "Comissão atualizada.");

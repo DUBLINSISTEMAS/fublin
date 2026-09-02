@@ -8,9 +8,10 @@ import type { Leader } from "@/db/schema";
 import { APPOINTMENT_KIND_ICON } from "@/features/appointments/components/kind-icon";
 import { meetingLabel, meetingOrdinal } from "@/features/appointments/sequence";
 import { cn } from "@/lib/cn";
-import { formatDayShort, formatSchedule, fromIso, isSoon } from "@/lib/dates";
+import { formatDayShort, formatSchedule, formatScheduleDay, formatTime, fromIso, isSoon } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS, CLIENT_STATUS_LABELS, type ClientStatus } from "@/lib/domain";
 import { formatBRLCompact } from "@/lib/money";
+import { differenceInCalendarDays } from "date-fns";
 import type { ClientListItem, NextAppointment } from "../queries";
 import { CardMenu } from "./card-menu";
 
@@ -23,6 +24,7 @@ type Props = {
   dragging?: boolean;
   /** Cor da borda enquanto arrasta (a da coluna sob o card). */
   ringClass?: string;
+  canManage?: boolean;
 };
 
 /** O último fato relevante do cliente (rodapé do card), do mais urgente ao mais antigo. */
@@ -42,36 +44,47 @@ export function cardFooter(client: ClientListItem): { label: string; title?: str
  */
 function NextMeeting({ next, now, tinted }: { next: NextAppointment; now: Date; tinted: boolean }) {
   const when = fromIso(next.scheduledAt);
-  const urgent = isSoon(when, now);
+  const past = when < now;
+  const urgent = !past && isSoon(when, now);
   const Icon = APPOINTMENT_KIND_ICON[next.kind];
   return (
-    <p
+    <div
       className={cn(
-        "mt-3 flex items-center gap-2 rounded-chip px-2.5 py-2 text-[13px]",
-        urgent ? "bg-dark text-white" : tinted ? "bg-white/70 text-ink" : "bg-surface-2 text-ink",
+        "mt-3 flex items-stretch gap-2 rounded-control p-2.5",
+        past ? "bg-sun text-sun-ink" : urgent ? "bg-dark text-white" : tinted ? "bg-white/70 text-ink" : "bg-surface-2 text-ink",
       )}
       title={`${APPOINTMENT_KIND_LABELS[next.kind]} — ${formatSchedule(when, now)}`}
     >
-      <Icon className="size-4 shrink-0" aria-hidden />
-      <span className="min-w-0 flex-1 truncate font-medium tabular-nums">{formatSchedule(when, now)}</span>
+      <span className={cn("grid size-9 shrink-0 place-items-center self-center rounded-full", urgent ? "bg-white/15" : past ? "bg-white/45 text-sun-ink" : "bg-accent-soft text-accent-ink")}>
+        <Icon className="size-4" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1 border-r border-current/15 pr-2">
+        <span className={cn("block text-[10px] font-semibold uppercase tracking-[0.12em]", urgent ? "text-white/65" : past ? "text-sun-ink/70" : "text-muted")}>{past ? "Atrasado" : "Dia"}</span>
+        <span className="block truncate text-[14px] font-semibold leading-tight">{formatScheduleDay(when, now)}</span>
+      </span>
+      <span className="shrink-0 text-right">
+        <span className={cn("block text-[10px] font-semibold uppercase tracking-[0.12em]", urgent ? "text-white/65" : "text-muted")}>Horário</span>
+        <span className="block text-[19px] font-semibold leading-tight tabular-nums tracking-tight">{formatTime(when)}</span>
+      </span>
       {next.meetingNumber ? (
         <span
-          className={cn("shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums", urgent ? "bg-white/20" : "bg-ink/10")}
+          className={cn("hidden shrink-0 self-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums min-[340px]:inline", urgent ? "bg-white/20" : "bg-ink/10")}
           title={meetingLabel(next.meetingNumber, next.kind)}
         >
           {meetingOrdinal(next.meetingNumber)}
         </span>
       ) : null}
-    </p>
+    </div>
   );
 }
 
 /** Card do funil: chip de interesse, nome, carta, líder, quando o cliente vem e atendimentos. */
-export function ClientCard({ client, now, leaders, onMove, highlight = false, dragging = false, ringClass = "ring-accent" }: Props) {
+export function ClientCard({ client, now, leaders, onMove, highlight = false, dragging = false, ringClass = "ring-accent", canManage = true }: Props) {
   const description = client.interestNotes ?? client.notes;
   const AttendanceIcon = client.attendance === "online" ? Video : Store;
   const footer = cardFooter(client);
   const meetingsTitle = `${client.meetingsCount} de ${client.meetingsTotal} ${client.meetingsTotal === 1 ? "encontro marcado" : "encontros marcados"} já realizados`;
+  const daysInStage = Math.max(0, differenceInCalendarDays(now, fromIso(client.statusSince)));
 
   return (
     <article
@@ -92,8 +105,13 @@ export function ClientCard({ client, now, leaders, onMove, highlight = false, dr
             <AttendanceIcon className="size-3.5" aria-hidden />
             {client.attendance === "online" ? "Online" : "Loja"}
           </span>
+          {daysInStage > 0 ? (
+            <span className={cn("inline-flex h-7 items-center rounded-chip px-2 text-[11px] font-medium", daysInStage >= 5 ? "bg-sun text-sun-ink" : highlight ? "bg-white/60 text-ink-2" : "bg-surface-2 text-muted")} title="Tempo na etapa atual">
+              {daysInStage}d na etapa
+            </span>
+          ) : null}
         </span>
-        <CardMenu clientId={client.id} status={client.status} leaderId={client.leaderId} leaders={leaders} onMove={onMove} tinted={highlight} />
+        <CardMenu clientId={client.id} status={client.status} leaderId={client.leaderId} leaders={leaders} onMove={onMove} tinted={highlight} canManage={canManage} />
       </div>
 
       <Link href={`/clientes/${client.id}`} className="mt-3 block text-[17px] font-medium leading-tight text-ink hover:underline" onPointerDown={(e) => e.stopPropagation()}>

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { makeLeader, makeListItem, makeNextAppointment, NOW } from "@/test/fixtures";
 import { cardFooter, ClientCard } from "./client-card";
 
-vi.mock("../actions", () => ({ assignLeaderAction: vi.fn(), moveClientAction: vi.fn() }));
+vi.mock("../actions", () => ({ assignLeaderAction: vi.fn(), deleteClientAction: vi.fn(), moveClientAction: vi.fn() }));
 
 describe("cardFooter", () => {
   it("names the kind of the next appointment, then closing, approval, first attendance, and a placeholder", () => {
@@ -39,25 +39,31 @@ describe("ClientCard", () => {
   it("shows the weekday, the time and which meeting it is", () => {
     // 3 set 2026 é uma quinta-feira: longe o bastante para não virar "Hoje"/"Amanhã".
     render1({ nextAppointment: makeNextAppointment({ scheduledAt: new Date(2026, 8, 3, 14, 30).toISOString(), meetingNumber: 3 }) });
-    expect(screen.getByText("Qui, 3 set · 14:30")).toBeInTheDocument();
+    expect(screen.getByText("Qui, 3 set")).toBeInTheDocument();
+    expect(screen.getByText("14:30")).toBeInTheDocument();
+    expect(screen.getByText("Dia")).toBeInTheDocument();
+    expect(screen.getByText("Horário")).toBeInTheDocument();
     expect(screen.getByTitle("3ª visita à loja")).toHaveTextContent("3ª");
     expect(screen.getByText("Visita à loja")).toBeInTheDocument();
   });
 
   it('writes "Hoje" and "Amanhã" instead of the date for what is about to happen', () => {
     render1({ nextAppointment: makeNextAppointment({ scheduledAt: new Date(2026, 7, 27, 16, 0).toISOString() }) });
-    expect(screen.getByText("Hoje · 16:00")).toBeInTheDocument();
+    expect(screen.getByText("Hoje")).toBeInTheDocument();
+    expect(screen.getByText("16:00")).toBeInTheDocument();
   });
 
   it("marks an online meeting as such", () => {
     render1({ nextAppointment: makeNextAppointment({ kind: "reuniao", meetingNumber: 2 }) });
-    expect(screen.getByText("Amanhã · 10:00")).toBeInTheDocument();
+    expect(screen.getByText("Amanhã")).toBeInTheDocument();
+    expect(screen.getByText("10:00")).toBeInTheDocument();
     expect(screen.getByTitle("2ª reunião online")).toHaveTextContent("2ª");
   });
 
   it("does not number a call — it is a contact, not a meeting", () => {
     render1({ nextAppointment: makeNextAppointment({ kind: "ligacao", meetingNumber: null }) });
-    expect(screen.getByText("Amanhã · 10:00")).toBeInTheDocument();
+    expect(screen.getByText("Amanhã")).toBeInTheDocument();
+    expect(screen.getByText("10:00")).toBeInTheDocument();
     expect(screen.queryByText(/^\d+ª$/)).not.toBeInTheDocument();
     expect(screen.getByText("Ligação")).toBeInTheDocument();
   });

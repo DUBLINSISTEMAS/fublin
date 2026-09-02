@@ -35,7 +35,7 @@ export function makeClient(overrides: Partial<Client> = {}): Client {
 }
 
 export function makeListItem(overrides: Partial<ClientListItem> = {}): ClientListItem {
-  return { ...makeClient(), leader: null, nextAppointment: null, meetingsCount: 0, meetingsTotal: 0, ...overrides };
+  return { ...makeClient(), leader: null, nextAppointment: null, meetingsCount: 0, meetingsTotal: 0, statusSince: NOW.toISOString(), ...overrides };
 }
 
 /** Próximo agendamento do card; por padrão a 1ª visita à loja de amanhã às 10h. */

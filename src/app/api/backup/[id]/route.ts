@@ -2,11 +2,15 @@ import { NextResponse } from "next/server";
 import { BACKUP_ID_RE } from "@/features/backup/schema";
 import { exportBackupZip, resolveBackupDir } from "@/features/backup/service";
 import { DomainError } from "@/lib/result";
+import { apiAuth } from "@/features/auth/api";
+import { localBackupsAvailable } from "@/lib/runtime";
 
 export const dynamic = "force-dynamic";
 
 /** Baixa a pasta do backup como .zip (banco + anexos + manifest). */
 export async function GET(_request: Request, context: { params: Promise<{ id: string }> }) {
+  const denied = await apiAuth(true); if (denied) return denied;
+  if (!localBackupsAvailable()) return NextResponse.json({ error: "Backup local não está disponível na versão online." }, { status: 409 });
   const { id } = await context.params;
   if (!BACKUP_ID_RE.test(id)) return NextResponse.json({ error: "Backup inválido." }, { status: 400 });
   try {

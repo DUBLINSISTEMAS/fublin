@@ -4,6 +4,7 @@ import { getPeriodProgress } from "@/features/goals/queries";
 import { getSettings } from "@/features/settings/service";
 import { periodFor, shiftPeriod } from "@/lib/quinzena";
 import { buildWorkbook, xlsxResponse, type XlsxColumn } from "@/lib/xlsx";
+import { apiAuth } from "@/features/auth/api";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ const COLUMNS: XlsxColumn<PayoutRow>[] = [
 
 /** Exporta em Excel a quinzena atual + as 11 anteriores, com produção e comissão de cada uma. */
 export async function GET() {
+  const denied = await apiAuth(true); if (denied) return denied;
   const db = await getDb();
   const now = new Date();
   const settings = await getSettings(db);

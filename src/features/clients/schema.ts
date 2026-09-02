@@ -36,6 +36,12 @@ export const clientNoteSchema = z.object({
   content: z.string().trim().min(1, "Escreva a nota").max(2000, "Máximo de 2000 caracteres"),
 });
 
+export const clientContactSchema = z.object({
+  id: z.string().min(1),
+  kind: z.enum(["whatsapp", "ligacao", "email", "outro"]),
+  summary: z.string().trim().min(2, "Resuma o contato").max(500, "Máximo de 500 caracteres"),
+});
+
 export const assignLeaderSchema = z.object({
   id: z.string().min(1),
   leaderId: optionalString(z.string().max(64)),

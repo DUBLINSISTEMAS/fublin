@@ -11,6 +11,7 @@ const globalForScheduler = globalThis as unknown as { __relacionadorBackupSchedu
 
 export async function register() {
   if (process.env.NEXT_RUNTIME !== "nodejs") return;
+  if (process.env.VERCEL) return;
   if (process.env.NODE_ENV === "test" || process.env.DISABLE_BACKUP_SCHEDULER) return;
   if (process.env.NEXT_PHASE === "phase-production-build") return;
   // O HMR do `next dev` reavalia este módulo; a flag global evita dois agendadores.

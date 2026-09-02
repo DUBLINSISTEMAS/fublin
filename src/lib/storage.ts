@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { del, get, put } from "@vercel/blob";
+import { usesCloudStorage } from "./runtime";
 
 /** Chave: "<clientId>/<attachmentId>.<ext>" — nada de barras extras, pontos duplos ou maiúsculas. */
 const KEY_RE = /^[a-z0-9-]{1,64}\/[a-z0-9-]{1,64}\.[a-z0-9]{1,8}$/;
@@ -55,12 +57,39 @@ export function createMemoryStorage(): Storage & { files: Map<string, Uint8Array
   };
 }
 
+const BLOB_PREFIX = "relacionador/";
+
+/** Armazenamento privado e persistente para produção na Vercel. */
+export function createBlobStorage(token = process.env.BLOB_READ_WRITE_TOKEN): Storage {
+  if (!token) throw new Error("Arquivos não configurados: conecte um Vercel Blob privado e defina BLOB_READ_WRITE_TOKEN.");
+  const blobKey = (key: string) => {
+    assertStorageKey(key);
+    return `${BLOB_PREFIX}${key}`;
+  };
+  return {
+    async write(key, bytes) {
+      await put(blobKey(key), Buffer.from(bytes), { access: "private", addRandomSuffix: false, token });
+    },
+    async read(key) {
+      const result = await get(blobKey(key), { access: "private", token, useCache: true });
+      if (!result || result.statusCode !== 200) throw new Error("Arquivo não encontrado.");
+      return new Uint8Array(await new Response(result.stream).arrayBuffer());
+    },
+    async remove(key) {
+      await del(blobKey(key), { token });
+    },
+  };
+}
+
 const globalForStorage = globalThis as unknown as { __relacionadorStorage?: Storage };
 
 export function getStorage(): Storage {
   if (!globalForStorage.__relacionadorStorage) {
-    const root = process.env.UPLOADS_DIR ?? path.join(process.cwd(), "data", "uploads");
-    globalForStorage.__relacionadorStorage = createFileStorage(root);
+    if (usesCloudStorage()) globalForStorage.__relacionadorStorage = createBlobStorage();
+    else {
+      const root = process.env.UPLOADS_DIR ?? path.join(process.cwd(), "data", "uploads");
+      globalForStorage.__relacionadorStorage = createFileStorage(root);
+    }
   }
   return globalForStorage.__relacionadorStorage;
 }

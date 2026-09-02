@@ -3,11 +3,13 @@ import { getDb } from "@/db/client";
 import { getAttachment } from "@/features/attachments/service";
 import { DomainError } from "@/lib/result";
 import { getStorage } from "@/lib/storage";
+import { apiAuth } from "@/features/auth/api";
 
 export const dynamic = "force-dynamic";
 
 /** Serve o arquivo do anexo (inline para imagens/PDF; `?download=1` força download). */
 export async function GET(request: Request, context: RouteContext<"/api/anexos/[id]">) {
+  const denied = await apiAuth(true); if (denied) return denied;
   const { id } = await context.params;
   try {
     const db = await getDb();

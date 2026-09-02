@@ -159,11 +159,11 @@ export function AppointmentForm({
         </Field>
       </fieldset>
 
-      <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <ButtonLink href={cancelHref} variant="ghost">
+      <div className="sticky bottom-20 z-10 -mx-2 flex gap-2 rounded-[18px] glass-bar p-2 sm:static sm:mx-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none sm:backdrop-blur-none">
+        <ButtonLink href={cancelHref} variant="ghost" className="flex-1 sm:flex-none">
           Cancelar
         </ButtonLink>
-        <SubmitButton>{submitLabel}</SubmitButton>
+        <SubmitButton className="flex-1 sm:flex-none">{submitLabel}</SubmitButton>
       </div>
     </form>
   );

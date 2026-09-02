@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { updateClientAction } from "@/features/clients/actions";
 import { ClientForm } from "@/features/clients/components/client-form";
 import { findClient } from "@/features/clients/queries";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Editar cliente" };
 
 export default async function EditClientPage(props: PageProps<"/clientes/[id]/editar">) {
+  await requireAdmin();
   const { id } = await props.params;
   const db = await getDb();
   const [client, leaders] = await Promise.all([findClient(db, id), listLeaders(db, { includeInactive: true })]);

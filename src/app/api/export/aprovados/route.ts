@@ -6,6 +6,7 @@ import { resolvePeriodFilter } from "@/lib/period-filter";
 import { formatPhone } from "@/lib/phone";
 import type { SearchParams } from "@/lib/search-params";
 import { buildWorkbook, xlsxResponse, type XlsxColumn } from "@/lib/xlsx";
+import { apiAuth } from "@/features/auth/api";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ const COLUMNS: XlsxColumn<ApprovedItem>[] = [
 
 /** Exporta os aprovados em Excel com os mesmos filtros da tela (`periodo`, `q`/`mes`, `lider`). */
 export async function GET(request: Request) {
+  const denied = await apiAuth(true); if (denied) return denied;
   const url = new URL(request.url);
   const params: SearchParams = Object.fromEntries(url.searchParams.entries());
   const leaderId = url.searchParams.get("lider") || undefined;

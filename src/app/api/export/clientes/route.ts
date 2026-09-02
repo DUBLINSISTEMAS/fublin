@@ -4,6 +4,7 @@ import { dayKey } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS, ATTENDANCE_LABELS, CLIENT_STATUS_LABELS, INTEREST_LABELS, labelOf, SOURCE_LABELS } from "@/lib/domain";
 import { formatPhone } from "@/lib/phone";
 import { buildWorkbook, xlsxResponse, type XlsxColumn } from "@/lib/xlsx";
+import { apiAuth } from "@/features/auth/api";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ const COLUMNS: XlsxColumn<ClientListItem>[] = [
 
 /** Exporta todos os clientes em Excel (.xlsx), com as colunas do funil v2. */
 export async function GET() {
+  const denied = await apiAuth(true); if (denied) return denied;
   const db = await getDb();
   const now = new Date();
   const rows = await listClients(db, {}, now);

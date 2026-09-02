@@ -6,6 +6,7 @@ import { BarChart } from "@/components/charts/bar-chart";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Section } from "@/components/ui/card";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { commissionCents, formatPercent } from "@/features/goals/commission";
 import { GoalHeroCard, GoalRow } from "@/features/goals/components/goal-card";
 import { GoalForm } from "@/features/goals/components/goal-form";
@@ -49,6 +50,7 @@ function shareData(name: string, progress: PeriodProgress, ratePercent: number):
 }
 
 export default async function GoalsPage(props: PageProps<"/metas">) {
+  await requireAdmin();
   const params = await props.searchParams;
   const db = await getDb();
   const now = new Date();

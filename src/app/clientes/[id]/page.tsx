@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CalendarPlus, MessageCircle, Pencil, Phone, Store, Video } from "lucide-react";
 import { Badge, ClientStatusBadge, InterestChip } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -12,29 +12,35 @@ import { meetingNumber } from "@/features/appointments/sequence";
 import { AttachmentsPanel } from "@/features/attachments/components/attachments-panel";
 import { deleteClientAction } from "@/features/clients/actions";
 import { ApprovalForm } from "@/features/clients/components/approval-form";
+import { ContactForm } from "@/features/clients/components/contact-form";
 import { NoteForm } from "@/features/clients/components/note-form";
+import { MessageTemplates } from "@/features/clients/components/message-templates";
 import { StatusPicker } from "@/features/clients/components/status-picker";
 import { Timeline } from "@/features/clients/components/timeline";
 import { findClient, getClientDetail } from "@/features/clients/queries";
 import { formatDate, fromIso } from "@/lib/dates";
-import { ATTENDANCE_LABELS, labelOf, SOURCE_LABELS } from "@/lib/domain";
+import { ATTENDANCE_LABELS, labelOf, OPEN_CLIENT_STATUSES, SOURCE_LABELS } from "@/lib/domain";
 import { formatBRL } from "@/lib/money";
 import { formatPhone, telUrl, whatsappUrl } from "@/lib/phone";
 import { initials, plural } from "@/lib/text";
+import { canAccessClient, requireUser } from "@/features/auth/session";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(props: PageProps<"/clientes/[id]">) {
+  const user = await requireUser();
   const { id } = await props.params;
   const client = await findClient(await getDb(), id);
-  return { title: client?.name ?? "Cliente" };
+  return { title: client && canAccessClient(user, client.leaderId) ? client.name : "Cliente" };
 }
 
 export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
+  const user = await requireUser();
   const { id } = await props.params;
   const db = await getDb();
   const client = await getClientDetail(db, id);
   if (!client) notFound();
+  if (!canAccessClient(user, client.leaderId)) redirect("/clientes");
 
   const now = new Date();
   const withClient = client.appointments.map((a) => ({ ...a, client, meetingNumber: meetingNumber(client.appointments, a.id) }));
@@ -42,6 +48,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
   const past = withClient.filter((a) => a.status !== "agendado");
   const AttendanceIcon = client.attendance === "online" ? Video : Store;
   const needsAdesao = (client.status === "aprovado" || client.status === "fechou") && !client.adesaoCents;
+  const missingNextStep = (OPEN_CLIENT_STATUSES as readonly string[]).includes(client.status) && pending.length === 0;
   const dateOrDash = (iso: string | null) => (iso ? formatDate(fromIso(iso)) : "—");
 
   const facts: [string, string][] = [
@@ -98,44 +105,56 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
               <Phone className="size-4" aria-hidden />
               Ligar
             </a>
-            <ButtonLink href={`/clientes/${client.id}/editar`} variant="secondary">
+            {user.role === "admin" ? <ButtonLink href={`/clientes/${client.id}/editar`} variant="secondary">
               <Pencil className="size-4" aria-hidden />
               Editar
-            </ButtonLink>
-            <ButtonLink href={`/agenda/novo?cliente=${client.id}`} variant="dark">
+            </ButtonLink> : null}
+            {user.role === "admin" ? <ButtonLink href={`/agenda/novo?cliente=${client.id}`} variant="dark">
               <CalendarPlus className="size-4" aria-hidden />
               Agendar
-            </ButtonLink>
+            </ButtonLink> : null}
           </div>
         </div>
       </Card>
 
+      {missingNextStep && user.role === "admin" ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-sun p-4 text-sun-ink">
+          <div><p className="font-semibold">Este cliente está sem próximo passo</p><p className="text-[13px]">Marque uma ligação, retorno, visita ou reunião para ele não sair do radar.</p></div>
+          <ButtonLink href={`/agenda/novo?cliente=${client.id}`} variant="dark"><CalendarPlus className="size-4" aria-hidden />Definir próxima ação</ButtonLink>
+        </div>
+      ) : null}
+
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="space-y-5">
-          <Section title="Agendamentos" count={withClient.length} action={<Link href={`/agenda/novo?cliente=${client.id}`} className="text-[13px] font-medium text-accent hover:underline">Novo</Link>}>
+          <Section title="Agendamentos" count={withClient.length} action={user.role === "admin" ? <Link href={`/agenda/novo?cliente=${client.id}`} className="text-[13px] font-medium text-accent hover:underline">Novo</Link> : undefined}>
             {withClient.length === 0 ? (
               <Card className="px-5 py-6 text-[14px] text-muted">Nenhum agendamento ainda. Marque uma visita, reunião online, ligação ou retorno.</Card>
             ) : (
               <Card>
                 <ul className="divide-y divide-line">
                   {[...pending, ...past].map((a) => (
-                    <AppointmentRow key={a.id} appointment={a} now={now} showDay hideClient variant={variantFor(a.status, fromIso(a.scheduledAt), now)} />
+                    <AppointmentRow key={a.id} appointment={a} now={now} showDay hideClient readOnly={user.role === "leader"} variant={variantFor(a.status, fromIso(a.scheduledAt), now)} />
                   ))}
                 </ul>
               </Card>
             )}
           </Section>
 
-          <Section title="Propostas e documentos" count={client.attachments.length}>
+          {user.role === "admin" ? <Section title="Propostas e documentos" count={client.attachments.length}>
             <Card className="p-4 sm:p-5">
               <AttachmentsPanel clientId={client.id} attachments={client.attachments} />
             </Card>
-          </Section>
+          </Section> : null}
 
-          <Section title="Histórico" count={client.activities.length}>
+          <Section title="Comunicação e histórico" count={client.activities.length}>
             <Card className="space-y-6 p-4 sm:p-5">
+              <div className="space-y-2">
+                <p className="text-[13px] font-semibold text-ink">Mensagens rápidas</p>
+                <MessageTemplates name={client.name} phone={client.phone} nextAt={pending[0]?.scheduledAt} />
+              </div>
+              <ContactForm clientId={client.id} />
               <NoteForm clientId={client.id} />
-              <Timeline items={client.activities} />
+              <Timeline items={client.activities} currentUserId={user.id} />
             </Card>
           </Section>
         </div>
@@ -146,11 +165,11 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
               <StatusPicker id={client.id} status={client.status} lostReason={client.lostReason} />
             </Card>
           </Section>
-          <Section title="Aprovação" action={needsAdesao ? <Badge tone="warning" className="h-6 text-[11px]">Falta a adesão</Badge> : undefined}>
+          {user.role === "admin" ? <Section title="Aprovação" action={needsAdesao ? <Badge tone="warning" className="h-6 text-[11px]">Falta a adesão</Badge> : undefined}>
             <Card className="p-4">
               <ApprovalForm client={client} />
             </Card>
-          </Section>
+          </Section> : null}
           <Section title="Dados">
             <Card>
               <dl className="divide-y divide-line">
@@ -168,9 +187,9 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
               <Card className="p-4 text-[14px] whitespace-pre-wrap text-ink-2">{client.notes}</Card>
             </Section>
           ) : null}
-          <div className="pt-1">
+          {user.role === "admin" ? <div className="pt-1">
             <ConfirmButton action={deleteClientAction} hidden={{ id: client.id }} label="Excluir cliente" confirmLabel="Excluir" />
-          </div>
+          </div> : null}
         </aside>
       </div>
     </div>

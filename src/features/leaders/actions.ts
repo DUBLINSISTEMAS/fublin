@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { errorMessage } from "@/lib/actions";
 import { actionError, formError, formSuccess, OK, type ActionResult, type FormState } from "@/lib/result";
 import { idSchema, parseForm } from "@/lib/validation";
@@ -15,6 +16,7 @@ function revalidateLeaders() {
 }
 
 export async function createLeaderAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   const parsed = parseForm(leaderInputSchema, formData);
   if (!parsed.ok) return formError("Informe o nome do líder.", parsed.fieldErrors, parsed.values);
   try {
@@ -28,6 +30,7 @@ export async function createLeaderAction(_prev: FormState, formData: FormData): 
 }
 
 export async function updateLeaderAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   const parsed = parseForm(leaderInputSchema, formData);
   if (!parsed.ok) return formError("Informe o nome do líder.", parsed.fieldErrors, parsed.values);
   try {
@@ -43,6 +46,7 @@ export async function updateLeaderAction(id: string, _prev: FormState, formData:
 const toggleSchema = idSchema.extend({ active: z.enum(["true", "false"]) });
 
 export async function toggleLeaderAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  await requireAdmin();
   const parsed = parseForm(toggleSchema, formData);
   if (!parsed.ok) return actionError("Líder inválido.");
   try {

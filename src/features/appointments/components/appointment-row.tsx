@@ -17,6 +17,7 @@ type Props = {
   showDay?: boolean;
   /** Na página do próprio cliente o nome é redundante: mostra o tipo no lugar. */
   hideClient?: boolean;
+  readOnly?: boolean;
 };
 
 const TIME_TONE: Record<AppointmentVariant, string> = {
@@ -30,7 +31,7 @@ const TIME_TONE: Record<AppointmentVariant, string> = {
  * Linha de agendamento (agenda do dia e página do cliente): hora à esquerda,
  * chip do tipo, nome, contexto e ações. Enquanto "agendado", oferece baixa rápida.
  */
-export function AppointmentRow({ appointment, now, variant = "default", showDay = false, hideClient = false }: Props) {
+export function AppointmentRow({ appointment, now, variant = "default", showDay = false, hideClient = false, readOnly = false }: Props) {
   const when = fromIso(appointment.scheduledAt);
   const { client } = appointment;
   const pending = appointment.status === "agendado";
@@ -44,9 +45,9 @@ export function AppointmentRow({ appointment, now, variant = "default", showDay 
 
   return (
     <li className={cn("flex gap-3 px-4 py-4 sm:gap-4 sm:px-5", variant === "now" && "bg-sky/50", isDone && "opacity-70")}>
-      <div className="w-14 shrink-0 pt-0.5">
-        <p className={cn("text-[17px] font-medium tabular-nums tracking-tight", TIME_TONE[variant])}>{formatTime(when)}</p>
-        <p className="text-[11px] text-muted">{underTime}</p>
+      <div className="w-16 shrink-0 pt-0.5">
+        <p className={cn("text-[20px] font-semibold leading-tight tabular-nums tracking-tight", TIME_TONE[variant])}>{formatTime(when)}</p>
+        <p className={cn("mt-0.5 text-[11px] font-medium leading-tight", showDay ? "text-ink-2" : "text-muted")}>{underTime}</p>
       </div>
 
       <div className="min-w-0 flex-1">
@@ -74,10 +75,10 @@ export function AppointmentRow({ appointment, now, variant = "default", showDay 
           <a href={telUrl(client.phone)} className="icon-btn" aria-label={`Ligar para ${client.name}`}>
             <Phone className="size-4" aria-hidden />
           </a>
-          <Link href={`/agenda/${appointment.id}/editar`} className="icon-btn" aria-label="Editar agendamento">
+          {!readOnly ? <Link href={`/agenda/${appointment.id}/editar`} className="icon-btn" aria-label="Editar agendamento">
             <Pencil className="size-4" aria-hidden />
-          </Link>
-          {pending ? <QuickStatus appointmentId={appointment.id} layout="row" /> : null}
+          </Link> : null}
+          {pending && !readOnly ? <QuickStatus appointmentId={appointment.id} layout="row" /> : null}
         </div>
       </div>
     </li>

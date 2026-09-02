@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { createAppointmentAction } from "@/features/appointments/actions";
 import { AppointmentForm } from "@/features/appointments/components/appointment-form";
 import { listClientOptions } from "@/features/clients/queries";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Novo agendamento" };
 
 export default async function NewAppointmentPage(props: PageProps<"/agenda/novo">) {
+  await requireAdmin();
   const params = await props.searchParams;
   const requestedDay = pickParam(params, "d");
   const requestedTime = pickParam(params, "h");

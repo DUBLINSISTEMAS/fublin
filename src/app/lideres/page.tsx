@@ -7,6 +7,7 @@ import { Card, Section } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PeriodPicker } from "@/components/ui/period-picker";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { getLeaderStats } from "@/features/clients/queries";
 import { LeaderForm } from "@/features/leaders/components/leader-form";
 import { LeaderRow } from "@/features/leaders/components/leader-row";
@@ -22,6 +23,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Líderes de vendas" };
 
 export default async function LeadersPage(props: PageProps<"/lideres">) {
+  await requireAdmin();
   const params = (await props.searchParams) as SearchParams;
   const db = await getDb();
   const now = new Date();

@@ -1,19 +1,22 @@
 import Link from "next/link";
-import { BadgeCheck, Briefcase, ChevronRight, Download, Settings } from "lucide-react";
+import { BadgeCheck, Briefcase, ChevronRight, Download, KeyRound, Settings } from "lucide-react";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";
+import { requireAdmin } from "@/features/auth/session";
 
 export const metadata = { title: "Mais" };
 
 const ITEMS = [
   { href: "/aprovados", label: "Aprovados", description: "Quem passou na análise: valores, líder, datas e propostas.", icon: BadgeCheck },
   { href: "/lideres", label: "Líderes de vendas", description: "Quem atende na loja e como cada um está convertendo.", icon: Briefcase },
+  { href: "/acessos", label: "Acessos da equipe", description: "Usuários, senhas iniciais e permissões dos líderes.", icon: KeyRound },
   { href: "/config", label: "Configurações", description: "Perfil, quinzenas, alertas, acesso pelo celular e seus dados.", icon: Settings },
   { href: "/api/export/clientes", label: "Exportar clientes (Excel)", description: "Planilha .xlsx pronta para o Excel.", icon: Download },
 ];
 
 /** Atalhos que não cabem na tab bar do celular. */
-export default function MorePage() {
+export default async function MorePage() {
+  await requireAdmin();
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader title="Mais" />

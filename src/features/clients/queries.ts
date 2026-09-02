@@ -2,8 +2,9 @@ import { and, asc, count, desc, eq, gte, inArray, like, lt, or, sql } from "driz
 import type { AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { Db } from "@/db/client";
 import { appointments, attachments, clients, leaders, type Appointment, type Attachment, type Client, type Leader } from "@/db/schema";
-import { dayBounds, dayKey, formatWeekdayShort, fromIso, shiftDayKey, toIso, type DayKey } from "@/lib/dates";
+import { dayBounds, dayKey, formatWeekdayShort, fromIso, shiftDayKey, toIso, weekStartKey, type DayKey } from "@/lib/dates";
 import { ATTENDANCE_KINDS, CLIENT_STATUSES, INTERESTS, OPEN_CLIENT_STATUSES, STATUS_RANK, type ActivityType, type ClientStatus, type Interest } from "@/lib/domain";
+import type { Source } from "@/lib/domain";
 import { countMeetings, countMeetingsDone, meetingNumber } from "@/features/appointments/sequence";
 import { digitsOnly } from "@/lib/phone";
 import { pickParam, type SearchParams } from "@/lib/search-params";
@@ -13,6 +14,8 @@ export type ClientFilters = {
   status?: ClientStatus | "abertos";
   interest?: Interest;
   leaderId?: string;
+  priority?: boolean;
+  schedule?: "today" | "week";
 };
 
 export type NextAppointment = Pick<Appointment, "id" | "scheduledAt" | "kind" | "status"> & {
@@ -27,6 +30,8 @@ export type ClientListItem = Client & {
   meetingsCount: number;
   /** Visitas/reuniões marcadas ao todo (as feitas, as faltadas e as que ainda vêm). */
   meetingsTotal: number;
+  /** Início da etapa atual, reconstruído pela trilha de mudanças de status. */
+  statusSince: string;
 };
 
 /** Normaliza filtros vindos da URL (descarta valores inválidos). */
@@ -39,6 +44,8 @@ export function parseClientFilters(params: SearchParams): ClientFilters {
     status: validStatus ? (status as ClientFilters["status"]) : undefined,
     interest: (INTERESTS as readonly string[]).includes(interest ?? "") ? (interest as Interest) : undefined,
     leaderId: pickParam(params, "lider") || undefined,
+    ...(pickParam(params, "prioridade") === "1" ? { priority: true } : {}),
+    ...(["today", "week"].includes(pickParam(params, "agenda") ?? "") ? { schedule: pickParam(params, "agenda") as ClientFilters["schedule"] } : {}),
   };
 }
 
@@ -60,8 +67,12 @@ export async function listClients(db: Db, filters: ClientFilters = {}, now: Date
   const conditions = [];
   if (filters.q) {
     const byName = sql`${clients.name} LIKE ${likeContains(filters.q)} ESCAPE ${LIKE_ESCAPE}`;
+    const byEmail = sql`${clients.email} LIKE ${likeContains(filters.q)} ESCAPE ${LIKE_ESCAPE}`;
+    const byInterest = sql`${clients.interestNotes} LIKE ${likeContains(filters.q)} ESCAPE ${LIKE_ESCAPE}`;
+    const byNotes = sql`${clients.notes} LIKE ${likeContains(filters.q)} ESCAPE ${LIKE_ESCAPE}`;
+    const bySource = sql`${clients.source} LIKE ${likeContains(filters.q)} ESCAPE ${LIKE_ESCAPE}`;
     const digits = digitsOnly(filters.q);
-    conditions.push(digits.length >= 3 ? or(byName, like(clients.phone, `%${digits}%`)) : byName);
+    conditions.push(digits.length >= 3 ? or(byName, byEmail, byInterest, byNotes, bySource, like(clients.phone, `%${digits}%`)) : or(byName, byEmail, byInterest, byNotes, bySource));
   }
   if (filters.status === "abertos") conditions.push(or(...OPEN_CLIENT_STATUSES.map((s) => eq(clients.status, s))));
   else if (filters.status) conditions.push(eq(clients.status, filters.status));
@@ -69,23 +80,40 @@ export async function listClients(db: Db, filters: ClientFilters = {}, now: Date
   if (filters.leaderId) conditions.push(eq(clients.leaderId, filters.leaderId));
 
   const nowIso = toIso(now);
+  const today = dayKey(now);
+  const scheduleRange = filters.schedule
+    ? filters.schedule === "today"
+      ? { start: dayBounds(today).start, end: dayBounds(shiftDayKey(today, 1)).start }
+      : { start: dayBounds(weekStartKey(today)).start, end: dayBounds(shiftDayKey(weekStartKey(today), 7)).start }
+    : null;
   const rows = await db.query.clients.findMany({
     where: conditions.length ? and(...conditions) : undefined,
     orderBy: [desc(clients.updatedAt)],
-    with: { leader: true, appointments: { columns: LIGHT_APPOINTMENT_COLUMNS, orderBy: [asc(appointments.scheduledAt)] } },
+    with: {
+      leader: true,
+      appointments: { columns: LIGHT_APPOINTMENT_COLUMNS, orderBy: [asc(appointments.scheduledAt)] },
+      activities: { columns: { type: true, createdAt: true }, orderBy: (a, { desc: d }) => [d(a.createdAt)] },
+    },
   });
-  return rows.map(({ appointments: all, ...client }) => {
-    const next = all.find((a) => a.status === "agendado" && a.scheduledAt >= nowIso) ?? null;
+  const mapped = rows.map(({ appointments: all, activities: history, ...client }) => {
+    const scheduled = all.filter((a) => a.status === "agendado");
+    const next = scheduleRange
+      ? scheduled.find((a) => a.scheduledAt >= toIso(scheduleRange.start) && a.scheduledAt < toIso(scheduleRange.end)) ?? null
+      : scheduled.find((a) => a.scheduledAt >= nowIso) ?? null;
+    const statusSince = history.find((a) => a.type === "status")?.createdAt ?? client.createdAt;
     return {
       ...client,
       nextAppointment: next ? { ...next, meetingNumber: meetingNumber(all, next.id) } : null,
       meetingsCount: countMeetingsDone(all),
       meetingsTotal: countMeetings(all),
+      statusSince,
     };
   });
+  const scheduled = scheduleRange ? mapped.filter((client) => client.nextAppointment) : mapped;
+  return filters.priority ? scheduled.filter((client) => (OPEN_CLIENT_STATUSES as readonly string[]).includes(client.status) && !client.nextAppointment) : scheduled;
 }
 
-export type ActivityItem = { id: string; type: ActivityType; content: string; createdAt: string };
+export type ActivityItem = { id: string; type: ActivityType; content: string; authorUserId?: string | null; authorName?: string | null; createdAt: string };
 export type ClientDetail = Client & { leader: Leader | null; appointments: Appointment[]; activities: ActivityItem[]; attachments: Attachment[]; meetingsCount: number; meetingsTotal: number };
 
 export async function getClientDetail(db: Db, id: string): Promise<ClientDetail | null> {
@@ -109,14 +137,37 @@ export async function listClientOptions(db: Db): Promise<ClientOption[]> {
   return db.select({ id: clients.id, name: clients.name, phone: clients.phone }).from(clients).orderBy(asc(clients.name));
 }
 
-export async function countClientsByStatus(db: Db): Promise<Record<ClientStatus, number>> {
-  const rows = await db.select({ status: clients.status, total: count() }).from(clients).groupBy(clients.status);
+export async function countClientsByStatus(db: Db, leaderId?: string): Promise<Record<ClientStatus, number>> {
+  const rows = await db.select({ status: clients.status, total: count() }).from(clients).where(leaderId ? eq(clients.leaderId, leaderId) : undefined).groupBy(clients.status);
   const base = Object.fromEntries(CLIENT_STATUSES.map((s) => [s, 0])) as Record<ClientStatus, number>;
   for (const r of rows) base[r.status] = r.total;
   return base;
 }
 
 export type PeriodStats = { newClients: number; visits: number; approved: number; closed: number; creditCents: number; adesaoCents: number };
+
+export type ConversionItem = { key: string; total: number; closed: number; conversion: number; creditCents: number };
+export type CommercialBreakdown = { bySource: ConversionItem[]; byInterest: ConversionItem[] };
+
+/** Conversão da carteira captada no período, por origem e interesse. */
+export async function getCommercialBreakdown(db: Db, periodStart?: Date, periodEnd?: Date): Promise<CommercialBreakdown> {
+  const conditions = [];
+  if (periodStart) conditions.push(gte(clients.createdAt, toIso(periodStart)));
+  if (periodEnd) conditions.push(lt(clients.createdAt, toIso(periodEnd)));
+  const rows = await db.select({ source: clients.source, interest: clients.interest, status: clients.status, credit: clients.creditCents }).from(clients).where(conditions.length ? and(...conditions) : undefined);
+  const group = (keyOf: (row: (typeof rows)[number]) => string) => {
+    const map = new Map<string, ConversionItem>();
+    for (const row of rows) {
+      const key = keyOf(row);
+      const item = map.get(key) ?? { key, total: 0, closed: 0, conversion: 0, creditCents: 0 };
+      item.total += 1;
+      if (row.status === "fechou") { item.closed += 1; item.creditCents += row.credit ?? 0; }
+      map.set(key, item);
+    }
+    return [...map.values()].map((item) => ({ ...item, conversion: item.total ? Math.round((item.closed / item.total) * 100) : 0 })).sort((a, b) => b.total - a.total);
+  };
+  return { bySource: group((row) => (row.source as Source | null) ?? "nao_informada"), byInterest: group((row) => row.interest) };
+}
 
 /** Números de um período [start, end): novos, atendimentos realizados, aprovados, fechados, cartas e adesão somadas. */
 export async function getPeriodStats(db: Db, periodStart: Date, periodEnd?: Date): Promise<PeriodStats> {

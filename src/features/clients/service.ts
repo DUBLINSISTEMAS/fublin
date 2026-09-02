@@ -5,9 +5,11 @@ import { dayBounds, formatDate, fromIso, toIso } from "@/lib/dates";
 import { CLIENT_STATUS_LABELS, STATUS_RANK, type ClientStatus } from "@/lib/domain";
 import { newId } from "@/lib/ids";
 import { formatBRL } from "@/lib/money";
+import { digitsOnly } from "@/lib/phone";
 import { DomainError } from "@/lib/result";
 import type { Storage } from "@/lib/storage";
 import { logActivity } from "@/features/activities/service";
+import type { ActivityActor } from "@/features/activities/service";
 import type { ApprovalInput, ClientInput } from "./schema";
 
 /** Seta usada nos registros de mudança de status. */
@@ -100,6 +102,7 @@ export async function setClientStatus(
   status: ClientStatus,
   now: Date = new Date(),
   options: { lostReason?: string | null } = {},
+  actor?: ActivityActor,
 ): Promise<Client> {
   const before = await getClient(db, id);
   if (before.status === status && !options.lostReason) return before;
@@ -108,8 +111,8 @@ export async function setClientStatus(
     .set({ status, ...statusStamps(before, status, now, options.lostReason), updatedAt: toIso(now) })
     .where(eq(clients.id, id))
     .returning();
-  if (before.status !== status) await logStatusChange(db, id, before.status, status, now);
-  if (status === "perdido" && options.lostReason) await logActivity(db, id, "status", `Motivo: ${options.lostReason}`, now);
+  if (before.status !== status) await logStatusChange(db, id, before.status, status, now, actor);
+  if (status === "perdido" && options.lostReason) await logActivity(db, id, "status", `Motivo: ${options.lostReason}`, now, actor);
   return updated;
 }
 
@@ -159,9 +162,26 @@ export async function updateApproval(db: Db, input: ApprovalInput, now: Date = n
 
 const dateOrNever = (iso: string | null) => (iso ? formatDate(fromIso(iso)) : "sem data");
 
-export async function addClientNote(db: Db, id: string, content: string, now: Date = new Date()) {
+export async function addClientNote(db: Db, id: string, content: string, now: Date = new Date(), actor?: ActivityActor) {
   await getClient(db, id);
-  return logActivity(db, id, "nota", content, now);
+  return logActivity(db, id, "nota", content, now, actor);
+}
+
+/** Telefone identifica a pessoa no CRM; formatação diferente não cria outro cliente. */
+export async function findDuplicatePhone(db: Db, phone: string, ignoreId?: string): Promise<{ id: string; name: string } | null> {
+  const wanted = digitsOnly(phone);
+  const rows = await db.select({ id: clients.id, name: clients.name, phone: clients.phone }).from(clients);
+  const duplicate = rows.find((row) => row.id !== ignoreId && digitsOnly(row.phone) === wanted);
+  return duplicate ? { id: duplicate.id, name: duplicate.name } : null;
+}
+
+export type ContactKind = "whatsapp" | "ligacao" | "email" | "outro";
+const CONTACT_LABELS: Record<ContactKind, string> = { whatsapp: "WhatsApp", ligacao: "Ligação", email: "E-mail", outro: "Contato" };
+
+/** Registra uma tentativa/conversa sem obrigar a criar um agendamento. */
+export async function addClientContact(db: Db, id: string, kind: ContactKind, summary: string, now: Date = new Date(), actor?: ActivityActor) {
+  await getClient(db, id);
+  return logActivity(db, id, "nota", `${CONTACT_LABELS[kind]}: ${summary}`, now, actor);
 }
 
 /**
@@ -215,9 +235,9 @@ export async function markScheduled(db: Db, id: string, now: Date = new Date()):
   await logStatusChange(db, id, "novo", "agendado", now);
 }
 
-async function logStatusChange(db: Db, id: string, from: ClientStatus, to: ClientStatus, now: Date) {
+async function logStatusChange(db: Db, id: string, from: ClientStatus, to: ClientStatus, now: Date, actor?: ActivityActor) {
   const content = `Status: ${CLIENT_STATUS_LABELS[from]} ${STATUS_ARROW} ${CLIENT_STATUS_LABELS[to]}`;
-  await logActivity(db, id, "status", content, now);
+  await logActivity(db, id, "status", content, now, actor);
 }
 
 async function logLeader(db: Db, id: string, leaderId: string | null, now: Date) {

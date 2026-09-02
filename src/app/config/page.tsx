@@ -1,14 +1,17 @@
 import os from "node:os";
-import { Download, Smartphone } from "lucide-react";
+import { Cloud, Download, Smartphone } from "lucide-react";
 import { NotificationSettings } from "@/components/layout/notification-settings";
 import { PageHeader } from "@/components/layout/page-header";
 import { DensityToggle, ThemeToggle } from "@/components/layout/theme-toggle";
 import { Card, Section } from "@/components/ui/card";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { BackupPanel } from "@/features/backup/components/backup-panel";
+import { ClientImport } from "@/features/clients/components/client-import";
 import { listBackups, resolveBackupDir } from "@/features/backup/service";
 import { AlertsForm, CommissionForm, GoalDefaultsForm, PeriodForm, ProfileForm } from "@/features/settings/components/settings-forms";
 import { getSettings } from "@/features/settings/service";
+import { localBackupsAvailable } from "@/lib/runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +35,12 @@ const EXPORTS = [
 ];
 
 export default async function ConfigPage() {
+  await requireAdmin();
   const port = process.env.PORT ?? "3000";
   const addresses = lanAddresses();
   const backupDir = resolveBackupDir();
-  const [settings, backups] = await Promise.all([getSettings(await getDb()), listBackups(backupDir)]);
+  const hasLocalBackups = localBackupsAvailable();
+  const [settings, backups] = await Promise.all([getSettings(await getDb()), hasLocalBackups ? listBackups(backupDir) : Promise.resolve([])]);
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -118,6 +123,10 @@ export default async function ConfigPage() {
 
         <Section title="Planilhas (Excel)">
           <Card>
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line p-4 sm:px-5">
+              <div><p className="text-[15px] font-medium text-ink">Importar clientes</p><p className="mt-0.5 text-sm text-muted">Adicione uma carteira existente sem criar telefones duplicados.</p></div>
+              <ClientImport />
+            </div>
             <ul className="divide-y divide-line">
               {EXPORTS.map((item) => (
                 <li key={item.href} className="flex flex-wrap items-center justify-between gap-3 p-4 sm:px-5">
@@ -139,10 +148,17 @@ export default async function ConfigPage() {
         <Section title="Backup dos seus dados" className="scroll-mt-24">
           <div id="backup">
             <Card className="p-4 sm:p-5">
-              <BackupPanel backups={backups} backupDir={backupDir} />
-              <p className="mt-5 border-t border-line pt-4 text-[13px] text-muted">
-                Os dados ficam só neste computador, na pasta <code className="rounded bg-surface-2 px-1">data/</code> (banco, fotos e anexos). Com o instalador do Windows, o backup das 00:05 roda mesmo com o sistema fechado.
-              </p>
+              {hasLocalBackups ? (
+                <>
+                  <BackupPanel backups={backups} backupDir={backupDir} />
+                  <p className="mt-5 border-t border-line pt-4 text-[13px] text-muted">Os dados ficam neste computador, na pasta <code className="rounded bg-surface-2 px-1">data/</code>. O instalador mantém o backup diário.</p>
+                </>
+              ) : (
+                <div className="flex items-start gap-3">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-ink"><Cloud className="size-5" aria-hidden /></span>
+                  <div><p className="text-[15px] font-medium text-ink">Dados protegidos na nuvem</p><p className="mt-1 text-sm text-muted">Nesta instalação, o banco e os arquivos são persistidos em serviços privados. Backup e restauração local ficam desativados para impedir uma restauração parcial ou perda de dados.</p></div>
+                </div>
+              )}
             </Card>
           </div>
         </Section>

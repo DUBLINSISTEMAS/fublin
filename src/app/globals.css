@@ -121,7 +121,11 @@
       box-shadow 350ms ease !important;
   }
   body {
-    background: var(--color-canvas);
+    background:
+      radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--color-accent) 8%, transparent) 0, transparent 26rem),
+      radial-gradient(circle at 100% 100%, color-mix(in srgb, var(--color-lime) 8%, transparent) 0, transparent 30rem),
+      var(--color-canvas);
+    background-attachment: fixed;
     color: var(--color-ink);
     font-family: var(--font-sans);
     font-feature-settings: "ss01", "cv01";
@@ -209,6 +213,7 @@
 /* Painel branco flutuante (sidebar, top bar, blocos grandes) */
 @utility panel {
   background: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-line) 82%, transparent);
   border-radius: var(--radius-panel);
   box-shadow: var(--shadow-panel);
 }
@@ -223,9 +228,26 @@
   color: var(--color-muted);
   cursor: pointer;
   transition: color 150ms, background-color 150ms;
+  &:active {
+    transform: scale(0.94);
+  }
   &:hover {
     background-color: var(--color-surface-2);
     color: var(--color-ink);
+  }
+}
+
+@utility glass-bar {
+  background: color-mix(in srgb, var(--color-surface) 88%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-line) 75%, transparent);
+  box-shadow: 0 10px 30px -24px rgb(17 24 39 / 0.3);
+  backdrop-filter: blur(18px) saturate(1.25);
+}
+
+@utility tap-scale {
+  transition: transform 150ms var(--ease-out-expo), background-color 150ms, color 150ms;
+  &:active {
+    transform: scale(0.97);
   }
 }
 

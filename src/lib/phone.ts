@@ -16,9 +16,10 @@ function withCountryCode(value: string): string {
   return d.length <= 11 ? `55${d}` : d;
 }
 
-/** Link do WhatsApp com DDI 55 se faltar. */
-export function whatsappUrl(value: string): string {
-  return `https://wa.me/${withCountryCode(value)}`;
+/** Link do WhatsApp com DDI 55 se faltar e, opcionalmente, mensagem pronta. */
+export function whatsappUrl(value: string, message?: string): string {
+  const base = `https://wa.me/${withCountryCode(value)}`;
+  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }
 
 export function telUrl(value: string): string {

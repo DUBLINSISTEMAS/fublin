@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { makeListItem, NOW } from "@/test/fixtures";
 import { Pipeline } from "./pipeline";
 
-const actions = vi.hoisted(() => ({ moveClientAction: vi.fn(), assignLeaderAction: vi.fn() }));
+const actions = vi.hoisted(() => ({ moveClientAction: vi.fn(), assignLeaderAction: vi.fn(), deleteClientAction: vi.fn() }));
 vi.mock("../actions", () => actions);
 
 const column = (name: string) => within(screen.getByRole("region", { name: `Coluna ${name}` }));

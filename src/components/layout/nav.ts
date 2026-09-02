@@ -1,4 +1,4 @@
-import { BadgeCheck, Briefcase, CalendarDays, House, Menu, Settings, Target, Users, type LucideIcon } from "lucide-react";
+import { BadgeCheck, Briefcase, CalendarDays, House, KeyRound, Menu, Settings, Target, Users, type LucideIcon } from "lucide-react";
 
 export type NavItem = { href: string; label: string; icon: LucideIcon; /** Rotas extras que contam como "ativas" para este item. */ also?: string[] };
 
@@ -10,6 +10,7 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/aprovados", label: "Aprovados", icon: BadgeCheck },
   { href: "/metas", label: "Metas", icon: Target },
   { href: "/lideres", label: "Líderes", icon: Briefcase },
+  { href: "/acessos", label: "Acessos", icon: KeyRound },
   { href: "/config", label: "Config", icon: Settings },
 ];
 

@@ -6,7 +6,7 @@ export type ButtonVariant = "primary" | "secondary" | "ghost" | "danger" | "dark
 export type ButtonSize = "sm" | "md" | "lg";
 
 const BASE =
-  "inline-flex cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-control font-medium transition-colors duration-150 disabled:pointer-events-none disabled:opacity-50";
+  "inline-flex cursor-pointer select-none items-center justify-center gap-2 whitespace-nowrap rounded-control font-medium transition-[transform,background-color,color,border-color] duration-150 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50";
 
 const VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-accent text-white hover:bg-accent-strong",

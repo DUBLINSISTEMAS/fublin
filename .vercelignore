@@ -1,0 +1,6 @@
+data/
+coverage/
+installer/
+*.db
+*.db-journal
+*.log

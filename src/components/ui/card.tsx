@@ -4,7 +4,7 @@ import { CountBadge } from "./badge";
 
 /** Card branco com raio grande e sombra quase nula (assenta no canvas cinza). */
 export function Card({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("rounded-card bg-surface shadow-card", className)} {...props} />;
+  return <div className={cn("rounded-card border border-line/70 bg-surface shadow-card", className)} {...props} />;
 }
 
 type SectionProps = { title: ReactNode; count?: number; action?: ReactNode; children: ReactNode; className?: string };

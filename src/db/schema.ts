@@ -23,6 +23,36 @@ export const leaders = sqliteTable("leaders", {
   createdAt: text("created_at").notNull(),
 });
 
+export const users = sqliteTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    login: text("login").notNull().unique(),
+    passwordHash: text("password_hash").notNull(),
+    role: text("role", { enum: ["admin", "leader"] as const }).notNull(),
+    leaderId: text("leader_id").references(() => leaders.id, { onDelete: "cascade" }),
+    active: integer("active", { mode: "boolean" }).notNull().default(true),
+    failedLoginCount: integer("failed_login_count").notNull().default(0),
+    lockedUntil: text("locked_until"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("users_login_idx").on(t.login), index("users_leader_idx").on(t.leaderId)],
+);
+
+export const sessions = sqliteTable(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: text("expires_at").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("sessions_token_idx").on(t.tokenHash), index("sessions_user_idx").on(t.userId)],
+);
+
 export const clients = sqliteTable(
   "clients",
   {
@@ -90,6 +120,8 @@ export const activities = sqliteTable(
       .references(() => clients.id, { onDelete: "cascade" }),
     type: text("type", { enum: ACTIVITY_TYPES }).notNull(),
     content: text("content").notNull(),
+    authorUserId: text("author_user_id").references(() => users.id, { onDelete: "set null" }),
+    authorName: text("author_name"),
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("activities_client_idx").on(t.clientId)],
@@ -133,6 +165,17 @@ export const goals = sqliteTable("goals", {
 
 export const leadersRelations = relations(leaders, ({ many }) => ({
   clients: many(clients),
+  users: many(users),
+}));
+
+export const usersRelations = relations(users, ({ one, many }) => ({
+  leader: one(leaders, { fields: [users.leaderId], references: [leaders.id] }),
+  sessions: many(sessions),
+  activities: many(activities),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, { fields: [sessions.userId], references: [users.id] }),
 }));
 
 export const clientsRelations = relations(clients, ({ one, many }) => ({
@@ -148,6 +191,7 @@ export const appointmentsRelations = relations(appointments, ({ one }) => ({
 
 export const activitiesRelations = relations(activities, ({ one }) => ({
   client: one(clients, { fields: [activities.clientId], references: [clients.id] }),
+  author: one(users, { fields: [activities.authorUserId], references: [users.id] }),
 }));
 
 export const attachmentsRelations = relations(attachments, ({ one }) => ({
@@ -161,3 +205,5 @@ export type Activity = typeof activities.$inferSelect;
 export type Attachment = typeof attachments.$inferSelect;
 export type Setting = typeof settings.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
+export type User = typeof users.$inferSelect;
+export type Session = typeof sessions.$inferSelect;

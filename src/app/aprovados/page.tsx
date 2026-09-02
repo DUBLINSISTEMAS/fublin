@@ -8,6 +8,7 @@ import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
 import { StatCard } from "@/components/ui/stat-card";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { ApprovedFilters } from "@/features/clients/components/approved-filters";
 import { listApproved, type ApprovedItem } from "@/features/clients/queries";
 import { listLeaders } from "@/features/leaders/service";
@@ -24,6 +25,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Aprovados" };
 
 export default async function ApprovedPage(props: PageProps<"/aprovados">) {
+  await requireAdmin();
   const params = (await props.searchParams) as SearchParams;
   const now = new Date();
   const db = await getDb();

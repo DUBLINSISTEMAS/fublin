@@ -4,6 +4,9 @@ import { MAX_IMPORT_BYTES } from "@/features/backup/schema";
 import { importBackupZip, resolveBackupDir } from "@/features/backup/service";
 import { DomainError } from "@/lib/result";
 import { formatBytes } from "@/lib/text";
+import { rejectCrossOriginMutation } from "@/lib/request-security";
+import { apiAuth } from "@/features/auth/api";
+import { localBackupsAvailable } from "@/lib/runtime";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +19,10 @@ const TOO_LARGE = `Arquivo acima de ${formatBytes(MAX_IMPORT_BYTES)}.`;
  * Devolve `{ ok, id }`; restaurar é o passo seguinte, na tela de configurações.
  */
 export async function POST(request: Request) {
+  const denied = await apiAuth(true); if (denied) return denied;
+  if (!localBackupsAvailable()) return NextResponse.json({ error: "Backup local não está disponível na versão online." }, { status: 409 });
+  const forbidden = rejectCrossOriginMutation(request);
+  if (forbidden) return forbidden;
   const declared = Number(request.headers.get("content-length") ?? 0);
   if (declared > MAX_BODY_BYTES) return NextResponse.json({ error: TOO_LARGE }, { status: 413 });
 

@@ -4,7 +4,7 @@ import { createTestDb } from "@/db/test-db";
 import { createLeader } from "@/features/leaders/service";
 import { clientInputSchema } from "./schema";
 import { countClientsByStatus, getClientDetail, getDailySeries, getLeaderStats, getPeriodStats, listApproved, listClients, listClientsNeedingAction, parseClientFilters } from "./queries";
-import { addClientNote, assignLeader, createClient, deleteClient, getClient, registerAttendance, setClientStatus, STATUS_ARROW, updateApproval, updateClient } from "./service";
+import { addClientContact, addClientNote, assignLeader, createClient, deleteClient, findDuplicatePhone, getClient, registerAttendance, setClientStatus, STATUS_ARROW, updateApproval, updateClient } from "./service";
 
 const now = new Date(2026, 7, 27, 14, 0);
 
@@ -162,6 +162,14 @@ describe("client lifecycle", () => {
     expect(await getClientDetail(db, c.id)).toBeNull();
     await expect(deleteClient(db, c.id)).rejects.toThrow("Cliente não encontrado");
   });
+
+  it("detects a phone with different formatting and records structured contacts", async () => {
+    const c = await createClient(db, base, now);
+    expect(await findDuplicatePhone(db, "(11) 98765-4321")).toEqual({ id: c.id, name: "Ana Souza" });
+    expect(await findDuplicatePhone(db, "(11) 98765-4321", c.id)).toBeNull();
+    await addClientContact(db, c.id, "whatsapp", "Respondeu; enviar proposta", now);
+    expect((await getClientDetail(db, c.id))?.activities[0].content).toBe("WhatsApp: Respondeu; enviar proposta");
+  });
 });
 
 describe("listClients filters", () => {
@@ -181,6 +189,29 @@ describe("listClients filters", () => {
   it("parses filters from URL and ignores invalid values", () => {
     expect(parseClientFilters({ q: " ana ", status: "abertos", interesse: "nope", lider: "x" })).toEqual({ q: "ana", status: "abertos", interest: undefined, leaderId: "x" });
     expect(parseClientFilters({ status: ["fechou"] }).status).toBe("fechou");
+    expect(parseClientFilters({ agenda: "week" }).schedule).toBe("week");
+    expect(parseClientFilters({ agenda: "month" }).schedule).toBeUndefined();
+  });
+
+  it("filters cards with scheduled appointments today or in the current week", async () => {
+    const { appointments } = await import("@/db/schema");
+    const todayClient = await createClient(db, { ...base, name: "Hoje" }, now);
+    const weekClient = await createClient(db, { ...base, name: "Na semana" }, now);
+    const laterClient = await createClient(db, { ...base, name: "Depois" }, now);
+    const appointment = (id: string, clientId: string, scheduledAt: Date) => ({
+      id, clientId, scheduledAt: scheduledAt.toISOString(), durationMinutes: 60, kind: "visita" as const,
+      status: "agendado" as const, notes: null, reminderMinutes: 30, createdAt: now.toISOString(), updatedAt: now.toISOString(),
+    });
+    await db.insert(appointments).values([
+      appointment("today", todayClient.id, new Date(2026, 7, 27, 10)),
+      appointment("week", weekClient.id, new Date(2026, 7, 28, 9)),
+      appointment("later", laterClient.id, new Date(2026, 8, 3, 9)),
+    ]);
+
+    const todayItems = await listClients(db, { schedule: "today" }, now);
+    expect(todayItems.map((c) => c.name)).toEqual(["Hoje"]);
+    expect(todayItems[0].nextAppointment?.id).toBe("today");
+    expect((await listClients(db, { schedule: "week" }, now)).map((c) => c.name).sort()).toEqual(["Hoje", "Na semana"]);
   });
 
   it("counts by status and month stats (approved, closed, adesão)", async () => {

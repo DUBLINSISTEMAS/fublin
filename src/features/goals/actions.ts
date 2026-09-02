@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { goals } from "@/db/schema";
 import { errorMessage } from "@/lib/actions";
 import { toIso } from "@/lib/dates";
@@ -17,6 +18,7 @@ const goalSchema = z.object({
 
 /** Define (ou redefine) a meta de uma quinzena. */
 export async function saveGoalAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   const parsed = parseForm(goalSchema, formData);
   if (!parsed.ok) return formError("Confira a meta informada.", parsed.fieldErrors, parsed.values);
   try {

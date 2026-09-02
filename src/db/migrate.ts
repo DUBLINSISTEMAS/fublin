@@ -3,10 +3,11 @@
  * O app faz isso sozinho ao subir; use quando um `next dev` antigo continuar rodando
  * depois de uma migração nova, ou antes de publicar.
  */
-import { getDb } from "./client";
+import { getDb, migrateDb } from "./client";
 
 getDb()
-  .then(() => {
+  .then(async (db) => {
+    await migrateDb(db);
     console.log("Migrações aplicadas.");
     process.exit(0);
   })

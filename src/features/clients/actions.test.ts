@@ -12,6 +12,11 @@ vi.mock("@/db/client", async (importOriginal) => {
   return { ...actual, getDb: async () => state.db as Db };
 });
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/features/auth/session", () => ({
+  requireAdmin: vi.fn(async () => ({ id: undefined, name: "Admin", role: "admin", leaderId: null })),
+  requireUser: vi.fn(async () => ({ id: undefined, name: "Admin", role: "admin", leaderId: null })),
+  assertClientAccess: vi.fn(async () => undefined),
+}));
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);

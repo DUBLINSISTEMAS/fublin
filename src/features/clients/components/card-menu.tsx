@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
-import { CalendarPlus, MoreHorizontal, Pencil, UserRound } from "lucide-react";
+import { CalendarPlus, MoreHorizontal, Pencil, Trash2, UserRound } from "lucide-react";
 import { ActionError } from "@/components/ui/action-error";
+import { SubmitButton } from "@/components/ui/submit-button";
 import type { Leader } from "@/db/schema";
 import { cn } from "@/lib/cn";
 import { CLIENT_STATUS_LABELS, CLIENT_STATUSES, type ClientStatus } from "@/lib/domain";
 import { OK } from "@/lib/result";
-import { assignLeaderAction } from "../actions";
+import { assignLeaderAction, deleteClientAction } from "../actions";
 
 type Props = {
   clientId: string;
@@ -18,6 +19,7 @@ type Props = {
   /** Quem contém o card decide como mover (o kanban aplica otimista e chama o servidor). */
   onMove: (status: ClientStatus) => void;
   tinted?: boolean;
+  canManage?: boolean;
 };
 
 const SELECT = "h-9 w-full rounded-[8px] bg-surface-2 px-2 text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-accent/30";
@@ -27,9 +29,11 @@ const LABEL = "block px-2 pb-1 text-[11px] font-medium uppercase tracking-wide t
  * Menu "…" do card: mover de etapa (alternativa acessível ao arrastar),
  * trocar o líder de vendas e atalhos. Fecha com Esc ou clique fora.
  */
-export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted = false }: Props) {
+export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted = false, canManage = true }: Props) {
   const [open, setOpen] = useState(false);
   const [leaderState, assignLeader] = useActionState(assignLeaderAction, OK);
+  const [deleteState, deleteClient] = useActionState(deleteClientAction, OK);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const id = useId();
 
@@ -80,7 +84,7 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted =
             ))}
           </select>
 
-          <label htmlFor={`${id}-leader`} className={cn(LABEL, "pt-3")}>
+          {canManage ? <><label htmlFor={`${id}-leader`} className={cn(LABEL, "pt-3")}>
             Líder de vendas
           </label>
           <form action={assignLeader}>
@@ -95,12 +99,30 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted =
               ))}
             </select>
             <ActionError state={leaderState} className="px-2 pt-2 text-[12px]" />
-          </form>
+          </form></> : null}
 
           <div className="mt-2 border-t border-line pt-2">
             <MenuLink href={`/clientes/${clientId}`} icon={<UserRound className="size-4" aria-hidden />} label="Abrir cliente" />
-            <MenuLink href={`/agenda/novo?cliente=${clientId}`} icon={<CalendarPlus className="size-4" aria-hidden />} label="Agendar" />
-            <MenuLink href={`/clientes/${clientId}/editar`} icon={<Pencil className="size-4" aria-hidden />} label="Editar" />
+            {canManage ? <MenuLink href={`/agenda/novo?cliente=${clientId}`} icon={<CalendarPlus className="size-4" aria-hidden />} label="Agendar" /> : null}
+            {canManage ? <MenuLink href={`/clientes/${clientId}/editar`} icon={<Pencil className="size-4" aria-hidden />} label="Editar" /> : null}
+            {canManage ? (
+              confirmDelete ? (
+                <form action={deleteClient} className="mt-1 rounded-[8px] bg-rose p-2">
+                  <input type="hidden" name="id" value={clientId} />
+                  <p className="px-1 text-[12px] leading-snug text-rose-ink">Apagar o cliente, agenda, histórico e anexos?</p>
+                  <div className="mt-2 flex gap-1.5">
+                    <SubmitButton variant="danger" size="sm" pendingLabel="Apagando…">Apagar</SubmitButton>
+                    <button type="button" onClick={() => setConfirmDelete(false)} className="h-8 rounded-[8px] px-2.5 text-[12px] font-medium text-ink-2 hover:bg-surface">Cancelar</button>
+                  </div>
+                  <ActionError state={deleteState} className="mt-2 text-[12px]" />
+                </form>
+              ) : (
+                <button type="button" onClick={() => setConfirmDelete(true)} className="flex h-9 w-full items-center gap-2 rounded-[8px] px-2 text-left text-rose-ink transition-colors hover:bg-rose">
+                  <Trash2 className="size-4" aria-hidden />
+                  Excluir cliente
+                </button>
+              )
+            ) : null}
           </div>
         </div>
       ) : null}

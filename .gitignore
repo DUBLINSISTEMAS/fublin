@@ -11,6 +11,7 @@ next-env.d.ts
 
 # ambiente
 .env*
+!.env.example
 .DS_Store
 *.pem
 npm-debug.log*

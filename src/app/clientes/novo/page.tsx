@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { createClientAction } from "@/features/clients/actions";
 import { ClientForm } from "@/features/clients/components/client-form";
 import { listLeaders } from "@/features/leaders/service";
@@ -9,6 +10,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Novo cliente" };
 
 export default async function NewClientPage() {
+  await requireAdmin();
   const db = await getDb();
   const leaders = await listLeaders(db);
   return (

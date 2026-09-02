@@ -74,14 +74,14 @@ const noop = () => () => {};
 /** true só depois de montar no navegador (o portal precisa do document). */
 const useMounted = () => useSyncExternalStore(noop, () => true, () => false);
 
-type Props = { items: ClientListItem[]; leaders: Pick<Leader, "id" | "name" | "photoKey">[]; now: Date; /** Sonzinho ao soltar um card noutra etapa. */ moveSound?: boolean };
+type Props = { items: ClientListItem[]; leaders: Pick<Leader, "id" | "name" | "photoKey">[]; now: Date; /** Sonzinho ao soltar um card noutra etapa. */ moveSound?: boolean; canManage?: boolean };
 
 /**
  * Kanban do funil. Arraste o card para outra coluna (mouse, toque com pressão longa
  * ou teclado) ou use o menu "…"; a mudança é otimista e desfeita se o servidor recusar.
  * No desktop, arrastar o fundo rola o quadro; as setas nas bordas fazem o mesmo.
  */
-export function Pipeline({ items, leaders, now, moveSound = true }: Props) {
+export function Pipeline({ items, leaders, now, moveSound = true, canManage = true }: Props) {
   const [clients, setClients] = useState(items);
   const [seenItems, setSeenItems] = useState(items);
   /** Movimentos ainda em voo: o refresh de outra ação não pode "puxar de volta" estes cards. */
@@ -200,7 +200,7 @@ export function Pipeline({ items, leaders, now, moveSound = true }: Props) {
               {clients
                 .filter((c) => c.status === status)
                 .map((c) => (
-                  <DraggableCard key={c.id} client={c} now={now} leaders={leaders} highlight={soon.has(c.id)} settled={settledId === c.id} onMove={(s) => applyMove(c.id, s)} />
+                  <DraggableCard key={c.id} client={c} now={now} leaders={leaders} highlight={soon.has(c.id)} settled={settledId === c.id} onMove={(s) => applyMove(c.id, s)} canManage={canManage} />
                 ))}
             </Column>
           ))}
@@ -215,7 +215,7 @@ export function Pipeline({ items, leaders, now, moveSound = true }: Props) {
             <DragOverlay dropAnimation={DROP_ANIMATION}>
               {active ? (
                 <div style={{ zoom: readZoom() }}>
-                  <ClientCard client={active} now={now} leaders={leaders} highlight={soon.has(active.id)} onMove={(s) => applyMove(active.id, s)} dragging ringClass={COLUMN_RING[overStatus ?? active.status]} />
+                  <ClientCard client={active} now={now} leaders={leaders} highlight={soon.has(active.id)} onMove={(s) => applyMove(active.id, s)} dragging ringClass={COLUMN_RING[overStatus ?? active.status]} canManage={canManage} />
                 </div>
               ) : null}
             </DragOverlay>,
@@ -283,9 +283,10 @@ type DraggableCardProps = {
   highlight: boolean;
   settled: boolean;
   onMove: (s: ClientStatus) => void;
+  canManage: boolean;
 };
 
-function DraggableCard({ client, now, leaders, highlight, settled, onMove }: DraggableCardProps) {
+function DraggableCard({ client, now, leaders, highlight, settled, onMove, canManage }: DraggableCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: client.id, data: { status: client.status } });
   return (
     <div
@@ -299,7 +300,7 @@ function DraggableCard({ client, now, leaders, highlight, settled, onMove }: Dra
       {...listeners}
       {...attributes}
     >
-      <ClientCard client={client} now={now} leaders={leaders} highlight={highlight} onMove={onMove} />
+      <ClientCard client={client} now={now} leaders={leaders} highlight={highlight} onMove={onMove} canManage={canManage} />
     </div>
   );
 }

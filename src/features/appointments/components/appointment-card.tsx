@@ -3,7 +3,7 @@ import { CalendarDays, MessageCircle, MoreHorizontal, Phone } from "lucide-react
 import { Avatar } from "@/components/ui/avatar";
 import { AppointmentKindChip, AppointmentStatusBadge, Chip } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
-import { formatCountdown, formatRelativeDay, formatTime, fromIso } from "@/lib/dates";
+import { formatCountdown, formatScheduleDay, formatTime, fromIso } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS } from "@/lib/domain";
 import { telUrl, whatsappUrl } from "@/lib/phone";
 import { meetingLabel, meetingOrdinal } from "../sequence";
@@ -53,6 +53,18 @@ export function AppointmentCard({ appointment, now, variant = "default" }: Props
       </Link>
       {context ? <p className={cn("mt-1 line-clamp-2 text-[13px] leading-snug", isNow ? "text-ink-2" : "text-muted")}>{context}</p> : null}
 
+      <div className={cn("mt-3 flex items-center rounded-control p-2.5", isNow ? "bg-white/55" : "bg-surface-2")}>
+        <CalendarDays className={cn("mr-2.5 size-5 shrink-0", isNow ? "text-sky-ink" : "text-accent-ink")} aria-hidden />
+        <span className="min-w-0 flex-1 border-r border-current/10 pr-2">
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Dia</span>
+          <span className="block truncate text-[14px] font-semibold leading-tight text-ink">{formatScheduleDay(when, now)}</span>
+        </span>
+        <span className="shrink-0 pl-2.5 text-right">
+          <span className="block text-[10px] font-semibold uppercase tracking-[0.12em] text-muted">Horário</span>
+          <span className="block text-[20px] font-semibold leading-tight tabular-nums tracking-tight text-ink">{formatTime(when)}</span>
+        </span>
+      </div>
+
       <div className="mt-3 flex items-center gap-2.5">
         <Avatar name={client.leader?.name ?? client.name} photoKey={client.leader?.photoKey} size={32} tone={isNow ? "white" : "accent"} />
         <div className="min-w-0 text-[12px] leading-tight">
@@ -62,10 +74,7 @@ export function AppointmentCard({ appointment, now, variant = "default" }: Props
       </div>
 
       <div className={cn("mt-3 flex items-center justify-between gap-2 border-t pt-3", isNow ? "border-ink/10" : "border-line")}>
-        <span className="inline-flex items-center gap-1.5 text-[13px] tabular-nums text-ink-2">
-          <CalendarDays className="size-4" aria-hidden />
-          {isNow ? `${formatTime(when)} · ${formatCountdown(when, now)}` : `${formatRelativeDay(when, now)} ${formatTime(when)}`}
-        </span>
+        <span className={cn("text-[12px] font-medium", isNow ? "text-sky-ink" : "text-muted")}>{isNow ? formatCountdown(when, now) : APPOINTMENT_KIND_LABELS[appointment.kind]}</span>
         <span className="flex items-center gap-0.5">
           <a href={whatsappUrl(client.phone)} target="_blank" rel="noreferrer" className="icon-btn size-8" aria-label={`WhatsApp de ${client.name}`}>
             <MessageCircle className="size-4" aria-hidden />

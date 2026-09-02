@@ -6,11 +6,12 @@ import { cn } from "@/lib/cn";
 import { isNavActive, NAV_ITEMS } from "./nav";
 
 /** Lista de navegação da sidebar (client só para saber a rota ativa). */
-export function NavLinks() {
+export function NavLinks({ role = "admin" }: { role?: "admin" | "leader" }) {
   const pathname = usePathname();
+  const items = role === "leader" ? NAV_ITEMS.filter((item) => item.href === "/clientes") : NAV_ITEMS;
   return (
     <ul className="space-y-1">
-      {NAV_ITEMS.map((item) => {
+      {items.map((item) => {
         const { href, label, icon: Icon } = item;
         const active = isNavActive(item, pathname);
         return (

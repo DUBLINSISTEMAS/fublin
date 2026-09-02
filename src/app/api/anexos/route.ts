@@ -5,6 +5,8 @@ import { attachmentMetaSchema, MAX_ATTACHMENT_BYTES } from "@/features/attachmen
 import { addAttachment } from "@/features/attachments/service";
 import { DomainError } from "@/lib/result";
 import { getStorage } from "@/lib/storage";
+import { rejectCrossOriginMutation } from "@/lib/request-security";
+import { apiAuth } from "@/features/auth/api";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +47,9 @@ function cappedRequest(request: Request, maxBytes: number): Request {
  * Fica numa rota (e não em server action) para não esbarrar no limite de 1 MB do corpo.
  */
 export async function POST(request: Request) {
+  const denied = await apiAuth(true); if (denied) return denied;
+  const forbidden = rejectCrossOriginMutation(request);
+  if (forbidden) return forbidden;
   const declared = Number(request.headers.get("content-length") ?? 0);
   if (declared > MAX_BODY_BYTES) return NextResponse.json({ error: "Arquivo acima de 10 MB." }, { status: 413 });
 

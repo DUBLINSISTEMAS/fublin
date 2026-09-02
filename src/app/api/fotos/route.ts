@@ -6,6 +6,8 @@ import { MAX_PHOTO_BYTES, PHOTO_KINDS, removePhoto, savePhoto } from "@/features
 import { DomainError } from "@/lib/result";
 import { getStorage } from "@/lib/storage";
 import { optionalString } from "@/lib/validation";
+import { rejectCrossOriginMutation } from "@/lib/request-security";
+import { apiAuth } from "@/features/auth/api";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,9 @@ function fail(error: unknown) {
 
 /** Troca a foto de um líder (`kind=lider&id=`) ou do perfil (`kind=perfil`). Multipart com campo `file`. */
 export async function POST(request: Request) {
+  const denied = await apiAuth(true); if (denied) return denied;
+  const forbidden = rejectCrossOriginMutation(request);
+  if (forbidden) return forbidden;
   const declared = Number(request.headers.get("content-length") ?? 0);
   if (declared > MAX_PHOTO_BYTES + 64 * 1024) return NextResponse.json({ error: "Foto acima de 5 MB." }, { status: 413 });
   let form: FormData;
@@ -42,6 +47,9 @@ export async function POST(request: Request) {
 
 /** Remove a foto (`kind`, `id` no corpo JSON). */
 export async function DELETE(request: Request) {
+  const denied = await apiAuth(true); if (denied) return denied;
+  const forbidden = rejectCrossOriginMutation(request);
+  if (forbidden) return forbidden;
   const target = targetSchema.safeParse(await request.json().catch(() => ({})));
   if (!target.success) return NextResponse.json({ error: "Envio inválido." }, { status: 400 });
   try {

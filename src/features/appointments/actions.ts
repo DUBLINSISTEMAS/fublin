@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { errorMessage } from "@/lib/actions";
 import { dayKey, fromIso } from "@/lib/dates";
 import { actionError, formError, OK, type ActionResult, type FormState } from "@/lib/result";
@@ -28,6 +29,7 @@ function destination(formData: FormData, clientId: string, scheduledAt: string):
 }
 
 export async function createAppointmentAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   const parsed = parseForm(appointmentInputSchema, formData);
   if (!parsed.ok) return formError(INVALID, parsed.fieldErrors, parsed.values);
   let target: string;
@@ -43,6 +45,7 @@ export async function createAppointmentAction(_prev: FormState, formData: FormDa
 }
 
 export async function updateAppointmentAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
+  await requireAdmin();
   const parsed = parseForm(appointmentInputSchema, formData);
   if (!parsed.ok) return formError(INVALID, parsed.fieldErrors, parsed.values);
   let target: string;
@@ -61,6 +64,7 @@ const rescheduleSchema = z.object({ id: z.string().min(1), startIso: z.iso.datet
 
 /** Arrastar na agenda: novo horário em ISO; devolve ok/erro para a UI desfazer se precisar. */
 export async function rescheduleAppointmentAction(id: string, startIso: string): Promise<ActionResult> {
+  await requireAdmin();
   const parsed = rescheduleSchema.safeParse({ id, startIso });
   if (!parsed.success) return actionError("Horário inválido.");
   let clientId: string;
@@ -76,6 +80,7 @@ export async function rescheduleAppointmentAction(id: string, startIso: string):
 
 /** Baixa rápida (Realizado / Faltou): o erro volta para o botão, sem página de erro. */
 export async function setAppointmentStatusAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  await requireAdmin();
   const parsed = parseForm(appointmentStatusSchema, formData);
   if (!parsed.ok) return actionError("Status inválido.");
   let clientId: string;
@@ -90,6 +95,7 @@ export async function setAppointmentStatusAction(_prev: ActionResult, formData: 
 }
 
 export async function deleteAppointmentAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  await requireAdmin();
   const parsed = parseForm(idSchema, formData);
   if (!parsed.ok) return actionError("Agendamento inválido.");
   let clientId: string;

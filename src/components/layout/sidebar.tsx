@@ -10,12 +10,31 @@ import { getSettings } from "@/features/settings/service";
 import { NavLinks } from "./nav-links";
 import { NextUpCard } from "./next-up-card";
 import { ThemeToggle } from "./theme-toggle";
+import type { SafeUser } from "@/features/auth/service";
+import { logoutAction } from "@/features/auth/actions";
+import { CalendarDays, CalendarRange, LogOut } from "lucide-react";
 
 /**
  * Sidebar (desktop): seu perfil, navegação, meta da quinzena, líderes de vendas
  * e o card escuro com o próximo agendamento.
  */
-export async function Sidebar() {
+export async function Sidebar({ user }: { user: SafeUser }) {
+  if (user.role === "leader") {
+    return (
+      <aside className="panel fixed top-4 bottom-4 left-4 z-30 hidden w-60 flex-col overflow-hidden md:flex print:hidden">
+        <div className="px-5 pt-6 pb-5"><p className="truncate text-[17px] font-medium text-ink">{user.name}</p><p className="text-[12px] text-muted">Líder de vendas</p></div>
+        <nav aria-label="Principal" className="flex-1 px-3">
+          <NavLinks role="leader" />
+          <div className="mt-3 space-y-1 border-t border-line px-2 pt-3">
+            <p className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-faint">Minha agenda</p>
+            <Link href="/clientes?agenda=today" className="flex h-9 items-center gap-2.5 rounded-control px-2 text-[13px] text-ink-2 hover:bg-surface-2"><CalendarDays className="size-4" aria-hidden />Compromissos de hoje</Link>
+            <Link href="/clientes?agenda=week" className="flex h-9 items-center gap-2.5 rounded-control px-2 text-[13px] text-ink-2 hover:bg-surface-2"><CalendarRange className="size-4" aria-hidden />Esta semana</Link>
+          </div>
+        </nav>
+        <form action={logoutAction} className="p-3"><button type="submit" className="flex h-10 w-full items-center justify-center gap-2 rounded-control text-[13px] text-muted hover:bg-surface-2 hover:text-ink"><LogOut className="size-4" aria-hidden />Sair</button></form>
+      </aside>
+    );
+  }
   const db = await getDb();
   const now = new Date();
   const [settings, leaders, upcoming, weeks] = await Promise.all([getSettings(db), listLeaders(db), listUpcomingAppointments(db, now, 48), getWeeklyAppointments(db, now, 2)]);
@@ -37,7 +56,7 @@ export async function Sidebar() {
       </div>
 
       <nav aria-label="Principal" className="px-3">
-        <NavLinks />
+        <NavLinks role={user.role} />
       </nav>
 
       <div className="mt-4 flex-1 space-y-5 overflow-y-auto px-4 pb-2">
@@ -65,6 +84,9 @@ export async function Sidebar() {
       <div className="space-y-2 p-3">
         <NextUpCard next={next ? { clientId: next.clientId, clientName: next.client.name, kind: next.kind, scheduledAt: next.scheduledAt } : null} nowIso={now.toISOString()} />
         <ThemeToggle compact />
+        <form action={logoutAction}>
+          <button type="submit" className="flex h-9 w-full items-center justify-center gap-2 rounded-control text-[13px] text-muted hover:bg-surface-2 hover:text-ink"><LogOut className="size-4" aria-hidden />Sair · {user.name}</button>
+        </form>
       </div>
     </aside>
   );

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+vi.mock("@/features/auth/session", () => ({ requireAdmin: vi.fn(async () => ({ id: "admin", role: "admin" })) }));
 import type { Db } from "@/db/client";
 import { createTestDb } from "@/db/test-db";
 import { clientInputSchema } from "@/features/clients/schema";

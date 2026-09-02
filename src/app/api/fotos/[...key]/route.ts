@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { assertStorageKey, getStorage } from "@/lib/storage";
+import { apiAuth } from "@/features/auth/api";
 
 export const dynamic = "force-dynamic";
 
@@ -7,6 +8,7 @@ const CONTENT_TYPES: Record<string, string> = { jpg: "image/jpeg", png: "image/p
 
 /** Serve uma foto pela chave de armazenamento (`/api/fotos/lideres/<id>-<x>.jpg`). */
 export async function GET(_request: Request, context: RouteContext<"/api/fotos/[...key]">) {
+  const denied = await apiAuth(); if (denied) return denied;
   const { key: segments } = await context.params;
   const key = segments.join("/");
   try {

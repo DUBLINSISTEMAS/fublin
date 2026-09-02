@@ -158,13 +158,18 @@ export function formatRelativeDay(date: Date, now: Date = new Date()): string {
   return nearbyDayName(date, now) ?? formatDayShort(date);
 }
 
+/** "Hoje", "Amanhã" ou "Qua, 27 ago" — a parte do dia de um agendamento. */
+export function formatScheduleDay(date: Date, now: Date = new Date()): string {
+  return nearbyDayName(date, now) ?? formatWeekdayDay(date);
+}
+
 /**
  * Quando o cliente vem: "Hoje · 14:30", "Amanhã · 09:00", "Qua, 27 ago · 10:00".
  * Fora dos dias vizinhos o nome do dia da semana entra junto — dizer só "3 set"
  * obriga a abrir o calendário para saber se dá para atender.
  */
 export function formatSchedule(date: Date, now: Date = new Date()): string {
-  return `${nearbyDayName(date, now) ?? formatWeekdayDay(date)} · ${formatTime(date)}`;
+  return `${formatScheduleDay(date, now)} · ${formatTime(date)}`;
 }
 
 /** Hoje ou amanhã — o que já pede preparação e merece destaque forte na tela. */

@@ -10,16 +10,18 @@ import { Card, Section } from "@/components/ui/card";
 import { PeriodPicker } from "@/components/ui/period-picker";
 import { StatCard } from "@/components/ui/stat-card";
 import { getDb } from "@/db/client";
+import { requireAdmin } from "@/features/auth/session";
 import { AppointmentCard } from "@/features/appointments/components/appointment-card";
 import type { AppointmentVariant } from "@/features/appointments/components/variant";
 import { listAppointmentsForDay, listOverdueAppointments, type AppointmentWithClient } from "@/features/appointments/queries";
-import { countClientsByStatus, getDailySeries, getPeriodStats, listClientsNeedingAction, type ActionItem } from "@/features/clients/queries";
+import { countClientsByStatus, getCommercialBreakdown, getDailySeries, getPeriodStats, listClientsNeedingAction, type ActionItem, type ConversionItem } from "@/features/clients/queries";
 import { commissionCents } from "@/features/goals/commission";
 import { GoalHeroCard, PayoutCard } from "@/features/goals/components/goal-card";
 import { getCurrentPeriodProgress, getPeriodProgress } from "@/features/goals/queries";
 import { DEFAULT_SETTINGS } from "@/features/settings/schema";
 import { getSettings } from "@/features/settings/service";
 import { dayBounds, dayKey, formatDayLong, fromIso, REMINDER_GRACE_MINUTES, shiftDayKey } from "@/lib/dates";
+import { INTEREST_LABELS, SOURCE_LABELS } from "@/lib/domain";
 import { formatBRLCompact } from "@/lib/money";
 import { resolvePeriodFilter } from "@/lib/period-filter";
 import { periodFor, shiftPeriod } from "@/lib/quinzena";
@@ -42,6 +44,7 @@ function greeting(now: Date, name: string): string {
 }
 
 export default async function TodayPage(props: PageProps<"/">) {
+  await requireAdmin();
   const params = (await props.searchParams) as SearchParams;
   const db = await getDb();
   const now = new Date();
@@ -56,7 +59,7 @@ export default async function TodayPage(props: PageProps<"/">) {
   const seriesLastDay = period.range && period.range.end <= now ? shiftDayKey(dayKey(period.range.end), -1) : today;
   const seriesDays = Math.min(MAX_SERIES_DAYS, Math.max(1, differenceInCalendarDays(dayBounds(seriesLastDay).start, dayBounds(seriesFirstDay).start) + 1));
 
-  const [todayItems, tomorrowItems, overdue, stats, series, counts, goal, previousGoal, needs] = await Promise.all([
+  const [todayItems, tomorrowItems, overdue, stats, series, counts, goal, previousGoal, needs, breakdown] = await Promise.all([
     listAppointmentsForDay(db, today),
     listAppointmentsForDay(db, shiftDayKey(today, 1)),
     listOverdueAppointments(db, now),
@@ -66,6 +69,7 @@ export default async function TodayPage(props: PageProps<"/">) {
     getCurrentPeriodProgress(db, settings.period, now, settings.goals),
     getPeriodProgress(db, previousKey, settings.period, now, settings.goals),
     listClientsNeedingAction(db, now),
+    getCommercialBreakdown(db, period.range?.start, period.range?.end),
   ]);
 
   const graceStart = addMinutes(now, -REMINDER_GRACE_MINUTES);
@@ -181,8 +185,30 @@ export default async function TodayPage(props: PageProps<"/">) {
             </div>
           </Card>
         </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <ConversionCard title="Conversão por origem" items={breakdown.bySource} label={(key) => key === "nao_informada" ? "Não informada" : SOURCE_LABELS[key as keyof typeof SOURCE_LABELS]} />
+          <ConversionCard title="Conversão por interesse" items={breakdown.byInterest} label={(key) => INTEREST_LABELS[key as keyof typeof INTEREST_LABELS]} />
+        </div>
       </Section>
     </div>
+  );
+}
+
+function ConversionCard({ title, items, label }: { title: string; items: ConversionItem[]; label: (key: string) => string }) {
+  return (
+    <Card className="p-5">
+      <h3 className="text-[17px] font-normal text-ink">{title}</h3>
+      {items.length === 0 ? <p className="mt-3 text-[13px] text-muted">Sem dados no período.</p> : (
+        <div className="mt-3 space-y-3">
+          {items.slice(0, 6).map((item) => (
+            <div key={item.key}>
+              <div className="flex items-center justify-between gap-3 text-[13px]"><span className="truncate font-medium text-ink">{label(item.key)}</span><span className="shrink-0 tabular-nums text-muted">{item.closed}/{item.total} · <strong className="text-ink">{item.conversion}%</strong></span></div>
+              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-surface-3"><div className="h-full rounded-full bg-accent" style={{ width: `${item.conversion}%` }} /></div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
