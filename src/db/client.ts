@@ -50,8 +50,9 @@ export function getDb(): Promise<Db> {
   const db = (async () => {
     const config = resolveDatabaseConfig();
     const fresh = createDb(config.url, config.authToken);
-    // Em serverless, migração é uma etapa explícita do deploy para evitar corrida entre cold starts.
-    if (!process.env.VERCEL || process.env.AUTO_MIGRATE_DB === "true") await migrateDb(fresh);
+    // Uma instância nova precisa estar pronta antes da primeira consulta. O migrador é
+    // idempotente e este singleton garante uma execução por processo/cold start.
+    await migrateDb(fresh);
     return fresh;
   })().catch((error: unknown) => {
     globalForDb.__relacionadorDb = undefined;

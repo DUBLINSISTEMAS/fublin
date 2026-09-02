@@ -29,6 +29,8 @@ const SECURITY_HEADERS = [
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["@libsql/client"],
+  // O migrador lê estes SQLs em runtime; inclua-os no pacote de todas as rotas serverless.
+  outputFileTracingIncludes: { "/*": ["./drizzle/**/*"] },
   async headers() {
     return [{ source: "/:path*", headers: SECURITY_HEADERS }];
   },

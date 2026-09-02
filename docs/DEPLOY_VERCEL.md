@@ -21,7 +21,7 @@ Nunca salve esses valores no Git. Mudanças em variáveis só entram em vigor em
 
 ## 3. Migre e valide
 
-Com as variáveis de produção disponíveis em um terminal seguro, execute:
+O aplicativo aplica migrações pendentes automaticamente ao iniciar. Com as variáveis de produção disponíveis em um terminal seguro, você também pode validar antecipadamente:
 
 ```bash
 npm run db:migrate
