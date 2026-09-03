@@ -1,5 +1,5 @@
 import { relations } from "drizzle-orm";
-import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, integer, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import {
   ACTIVITY_TYPES,
   APPOINTMENT_KINDS,
@@ -90,6 +90,8 @@ export const clients = sqliteTable(
     /** Faixa de parcela que cabe no bolso do cliente, em centavos (só o "até" preenchido = parcela fixa). */
     installmentMinCents: integer("installment_min_cents"),
     installmentMaxCents: integer("installment_max_cents"),
+    /** Comissão desta venda, em % (0,5 = 0,5%). Vazio = usa a taxa padrão das configurações. */
+    commissionRatePercent: real("commission_rate_percent"),
     /** Primeiro atendimento pelo líder (visita ou reunião online). */
     firstVisitAt: text("first_visit_at"),
     analysisStartedAt: text("analysis_started_at"),

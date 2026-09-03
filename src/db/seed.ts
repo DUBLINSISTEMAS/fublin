@@ -136,7 +136,8 @@ async function main() {
   await setClientStatus(db, diego.id, "analise", daysAgo(18));
   await setClientStatus(db, diego.id, "aprovado", daysAgo(12));
   await setClientStatus(db, diego.id, "fechou", daysAgo(9));
-  await updateApproval(db, { id: diego.id, credit: 2500000, adesao: 180000, approvedDay: undefined, closedDay: undefined }, daysAgo(9));
+  // Diego vendeu bem: esta carta paga 0,5% em vez do padrão.
+  await updateApproval(db, { id: diego.id, credit: 2500000, adesao: 180000, approvedDay: undefined, closedDay: undefined, commissionRate: 0.5 }, daysAgo(9));
   await setClientStatus(db, gabriela.id, "analise", daysAgo(2));
   await setClientStatus(db, elaine.id, "perdido", daysAgo(4), { lostReason: "Fechou com concorrente" });
 

@@ -57,6 +57,13 @@
       "when": 1788441021208,
       "tag": "0007_early_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788464909775,
+      "tag": "0008_comissao_por_venda",
+      "breakpoints": true
     }
   ]
 }

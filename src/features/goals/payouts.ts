@@ -1,7 +1,7 @@
 import { addDays } from "date-fns";
 import { toIso } from "@/lib/dates";
 import { periodClock, periodTitle, type PeriodKey } from "@/lib/quinzena";
-import { commissionCents } from "./commission";
+import { dealsCommissionCents } from "./commission";
 import type { PeriodProgress } from "./queries";
 
 /** Situação da quinzena na planilha de recebimentos. */
@@ -31,7 +31,7 @@ function statusOf(progress: PeriodProgress, now: Date): PayoutStatus {
   return "Futura";
 }
 
-/** Uma linha por quinzena (na ordem recebida), com a comissão calculada pela taxa vigente. */
+/** Uma linha por quinzena (na ordem recebida); cada carta paga pela própria taxa ou, sem ela, pela taxa padrão. */
 export function buildPayoutRows(periods: readonly PeriodProgress[], ratePercent: number, now: Date): PayoutRow[] {
   return periods.map((progress) => ({
     periodKey: progress.period.key,
@@ -40,7 +40,7 @@ export function buildPayoutRows(periods: readonly PeriodProgress[], ratePercent:
     end: toIso(addDays(progress.period.end, -1)),
     closedCount: progress.closedCount,
     salesCents: progress.achievedCents,
-    commissionCents: commissionCents(progress.achievedCents, ratePercent),
+    commissionCents: dealsCommissionCents(progress.deals, ratePercent),
     status: statusOf(progress, now),
   }));
 }

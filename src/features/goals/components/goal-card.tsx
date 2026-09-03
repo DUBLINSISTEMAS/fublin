@@ -5,7 +5,7 @@ import { cn } from "@/lib/cn";
 import { formatBRL, formatBRLCompact } from "@/lib/money";
 import { periodDatesLabel, periodTitle } from "@/lib/quinzena";
 import { plural } from "@/lib/text";
-import { commissionCents, formatPercent } from "../commission";
+import { dealsCommissionCents, formatPercent } from "../commission";
 import { motivationFor } from "../motivation";
 import type { PeriodProgress } from "../queries";
 
@@ -91,7 +91,7 @@ export function GoalHeroCard({ progress, ratePercent, children }: HeroProps) {
           <dd className="text-[20px] font-light tabular-nums text-ink">{progress.targetCents ? formatBRLCompact(progress.remainingCents) : "—"}</dd>
           <dd className="text-[20px] font-light tabular-nums text-ink">{progress.clock.daysLeft}</dd>
           <dd className="text-[20px] font-light tabular-nums text-lime-ink" title={ratePercent !== undefined ? `${formatPercent(ratePercent)} das cartas fechadas` : undefined}>
-            {ratePercent !== undefined ? formatBRLCompact(commissionCents(progress.achievedCents, ratePercent)) : "—"}
+            {ratePercent !== undefined ? formatBRLCompact(dealsCommissionCents(progress.deals, ratePercent)) : "—"}
           </dd>
         </dl>
       </div>
@@ -118,7 +118,7 @@ export function GoalRow({ progress, ratePercent, href }: { progress: PeriodProgr
         <p className="font-medium text-ink">{formatBRL(progress.achievedCents)}</p>
         <p className="text-muted">
           {progress.targetCents ? `${progress.percent}% de ${formatBRLCompact(progress.targetCents)}` : "sem meta"}
-          {ratePercent !== undefined && progress.achievedCents ? ` · ${formatBRLCompact(commissionCents(progress.achievedCents, ratePercent))} de comissão` : ""}
+          {ratePercent !== undefined && progress.achievedCents ? ` · ${formatBRLCompact(dealsCommissionCents(progress.deals, ratePercent))} de comissão` : ""}
         </p>
       </div>
       {href ? <ArrowRight className="size-4 shrink-0 text-faint" aria-hidden /> : null}
@@ -138,8 +138,8 @@ type PayoutProps = { current: PeriodProgress; previous: PeriodProgress; ratePerc
 
 /** Recebimentos: comissão da quinzena atual e da anterior (a que cai no próximo pagamento). */
 export function PayoutCard({ current, previous, ratePercent }: PayoutProps) {
-  const now = commissionCents(current.achievedCents, ratePercent);
-  const last = commissionCents(previous.achievedCents, ratePercent);
+  const now = dealsCommissionCents(current.deals, ratePercent);
+  const last = dealsCommissionCents(previous.deals, ratePercent);
   return (
     <Card className="flex flex-col justify-between p-5">
       <div>

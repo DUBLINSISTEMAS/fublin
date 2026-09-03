@@ -24,6 +24,7 @@ export function makeClient(overrides: Partial<Client> = {}): Client {
     adesaoCents: null,
     installmentMinCents: null,
     installmentMaxCents: null,
+    commissionRatePercent: null,
     firstVisitAt: null,
     analysisStartedAt: null,
     approvedAt: null,

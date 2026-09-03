@@ -15,7 +15,7 @@ import { AppointmentCard } from "@/features/appointments/components/appointment-
 import type { AppointmentVariant } from "@/features/appointments/components/variant";
 import { listAppointmentsForDay, listOverdueAppointments, type AppointmentWithClient } from "@/features/appointments/queries";
 import { countClientsByStatus, getCommercialBreakdown, getDailySeries, getPeriodStats, listClientsNeedingAction, type ActionItem, type ConversionItem } from "@/features/clients/queries";
-import { commissionCents } from "@/features/goals/commission";
+import { dealsCommissionCents } from "@/features/goals/commission";
 import { GoalHeroCard, PayoutCard } from "@/features/goals/components/goal-card";
 import { getCurrentPeriodProgress, getPeriodProgress } from "@/features/goals/queries";
 import { DEFAULT_SETTINGS } from "@/features/settings/schema";
@@ -154,7 +154,7 @@ export default async function TodayPage(props: PageProps<"/">) {
           <StatCard label="Aprovados" value={String(stats.approved)} />
           <StatCard label="Fechados" value={String(stats.closed)} />
           <StatCard label="Cartas fechadas" value={formatBRLCompact(stats.creditCents)} compact />
-          <StatCard label="Comissão" value={formatBRLCompact(commissionCents(stats.creditCents, rate))} hint={`adesão ${formatBRLCompact(stats.adesaoCents)}`} compact />
+          <StatCard label="Comissão" value={formatBRLCompact(dealsCommissionCents(stats.closedDeals, rate))} hint={`adesão ${formatBRLCompact(stats.adesaoCents)}`} compact />
         </div>
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
           <Card className="p-5">

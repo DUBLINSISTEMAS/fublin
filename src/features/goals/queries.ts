@@ -15,7 +15,7 @@ export function defaultTargetFor(half: 1 | 2, defaults: DefaultTarget): number |
   return half === 1 ? defaults.defaultFirstCents : defaults.defaultSecondCents;
 }
 
-export type ClosedDeal = { id: string; name: string; creditCents: number | null; closedAt: string };
+export type ClosedDeal = { id: string; name: string; creditCents: number | null; /** Comissão própria desta venda (%); null = taxa padrão. */ ratePercent: number | null; closedAt: string };
 
 export type PeriodProgress = {
   period: Period;
@@ -38,7 +38,7 @@ export type PeriodProgress = {
 /** Cartas fechadas com `closedAt` dentro de [start, end). */
 export async function listClosedDeals(db: Db, start: Date, end: Date): Promise<ClosedDeal[]> {
   const rows = await db
-    .select({ id: clients.id, name: clients.name, creditCents: clients.creditCents, closedAt: clients.closedAt })
+    .select({ id: clients.id, name: clients.name, creditCents: clients.creditCents, ratePercent: clients.commissionRatePercent, closedAt: clients.closedAt })
     .from(clients)
     .where(and(eq(clients.status, "fechou"), gte(clients.closedAt, toIso(start)), lt(clients.closedAt, toIso(end))))
     .orderBy(desc(clients.closedAt));

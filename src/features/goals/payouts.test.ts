@@ -13,7 +13,7 @@ function progress(key: PeriodKey, deals: ClosedDeal[]): PeriodProgress {
   return summarize(period, periodClock(period, now), deals, null, true);
 }
 
-const deal = (id: string, creditCents: number | null): ClosedDeal => ({ id, name: `Cliente ${id}`, creditCents, closedAt: "" });
+const deal = (id: string, creditCents: number | null, ratePercent: number | null = null): ClosedDeal => ({ id, name: `Cliente ${id}`, creditCents, ratePercent, closedAt: "" });
 
 describe("buildPayoutRows", () => {
   it("maps a period to a row with title, inclusive end date, totals and commission", () => {
@@ -50,6 +50,13 @@ describe("buildPayoutRows", () => {
     expect(rows[0].closedCount).toBe(2);
     expect(rows[0].salesCents).toBe(12345);
     expect(rows[0].commissionCents).toBe(49); // 12345 × 0,4% = 49,38
+  });
+
+  it("pays each deal by its own rate when the owner set one", () => {
+    const rows = buildPayoutRows([progress("2026-09-1", [deal("a", 10_000_000, 0.5), deal("b", 10_000_000)])], RATE, now);
+
+    expect(rows[0].salesCents).toBe(20_000_000);
+    expect(rows[0].commissionCents).toBe(50_000 + 40_000); // 0,5% de R$ 100 mil + 0,4% de R$ 100 mil
   });
 
   it("returns no rows for no periods", () => {

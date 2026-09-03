@@ -163,6 +163,24 @@ describe("client lifecycle", () => {
     expect(detail?.activities.some((a) => a.content === "Aprovado em: sem data")).toBe(true);
   });
 
+  it("stores the sale's own commission rate, logs the change and clears it back to the default", async () => {
+    const c = await createClient(db, base, now);
+
+    const own = await updateApproval(db, { id: c.id, credit: 10_000_000, adesao: null, commissionRate: 0.5 }, now);
+    expect(own.commissionRatePercent).toBe(0.5);
+    let logs = (await getClientDetail(db, c.id))?.activities.map((a) => a.content) ?? [];
+    expect(logs).toContain("Comissão desta venda: 0,5%");
+
+    // Sem o campo: a taxa fica como está.
+    const untouched = await updateApproval(db, { id: c.id, credit: 10_000_000, adesao: null }, now);
+    expect(untouched.commissionRatePercent).toBe(0.5);
+
+    const cleared = await updateApproval(db, { id: c.id, credit: 10_000_000, adesao: null, commissionRate: null }, now);
+    expect(cleared.commissionRatePercent).toBeNull();
+    logs = (await getClientDetail(db, c.id))?.activities.map((a) => a.content) ?? [];
+    expect(logs).toContain("Comissão desta venda: padrão");
+  });
+
   it("adds notes and deletes (cascade)", async () => {
     const c = await createClient(db, base, now);
     await addClientNote(db, c.id, "Prefere contato à tarde", new Date(2026, 7, 27, 15, 0));
@@ -231,7 +249,7 @@ describe("listClients filters", () => {
     expect(counts.novo).toBe(1);
     expect(counts.fechou).toBe(1);
     const stats = await getPeriodStats(db, new Date(2026, 7, 1));
-    expect(stats).toEqual({ newClients: 2, visits: 0, approved: 1, closed: 1, creditCents: 0, adesaoCents: 150000 });
+    expect(stats).toEqual({ newClients: 2, visits: 0, approved: 1, closed: 1, creditCents: 0, adesaoCents: 150000, closedDeals: [{ creditCents: null, ratePercent: null }] });
     const previous = await getPeriodStats(db, new Date(2026, 6, 1), new Date(2026, 7, 1));
     expect(previous.newClients).toBe(0);
   });

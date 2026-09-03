@@ -1,5 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { clientInputSchema } from "./schema";
+import { approvalSchema, clientInputSchema } from "./schema";
+
+describe("approvalSchema — comissão desta venda", () => {
+  const base = { id: "c1", credit: "100.000", adesao: "" };
+
+  it("parses the rate with comma or dot and clears it with an empty field", () => {
+    expect(approvalSchema.parse({ ...base, commissionRate: "0,5" }).commissionRate).toBe(0.5);
+    expect(approvalSchema.parse({ ...base, commissionRate: "0.4" }).commissionRate).toBe(0.4);
+    expect(approvalSchema.parse({ ...base, commissionRate: "" }).commissionRate).toBeNull();
+  });
+
+  it("leaves the rate untouched when the field is not sent", () => {
+    expect(approvalSchema.parse(base).commissionRate).toBeUndefined();
+  });
+
+  it("rejects text and values outside 0–10%", () => {
+    expect(approvalSchema.safeParse({ ...base, commissionRate: "abc" }).success).toBe(false);
+    expect(approvalSchema.safeParse({ ...base, commissionRate: "11" }).success).toBe(false);
+    expect(approvalSchema.safeParse({ ...base, commissionRate: "-1" }).success).toBe(false);
+  });
+});
 
 const base = { name: "Ana Souza", phone: "11987654321", interest: "imovel" };
 const errorsOf = (input: Record<string, unknown>) => {

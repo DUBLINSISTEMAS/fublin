@@ -86,6 +86,24 @@ const clearableDay = z
   .refine((v) => v === "" || isValidDayKey(v), "Data inválida")
   .optional();
 
+/**
+ * Comissão desta venda em % ("0,5" ou "0.5"). "" = volta ao padrão das configurações (null);
+ * ausente = não mexe. Mesma distinção de `clearableDay`.
+ */
+const clearablePercent = z
+  .string()
+  .trim()
+  .transform((v, ctx) => {
+    if (v === "") return null;
+    const n = Number(v.replace(",", "."));
+    if (!Number.isFinite(n) || n < 0 || n > 10) {
+      ctx.addIssue({ code: "custom", message: "Use um valor entre 0 e 10" });
+      return z.NEVER;
+    }
+    return n;
+  })
+  .optional();
+
 /** Dados da aprovação/fechamento editados na página do cliente. */
 export const approvalSchema = z.object({
   id: z.string().min(1),
@@ -93,5 +111,6 @@ export const approvalSchema = z.object({
   adesao: money,
   approvedDay: clearableDay,
   closedDay: clearableDay,
+  commissionRate: clearablePercent,
 });
 export type ApprovalInput = z.output<typeof approvalSchema>;

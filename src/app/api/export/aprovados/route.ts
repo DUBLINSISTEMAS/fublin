@@ -1,5 +1,6 @@
 import { getDb } from "@/db/client";
 import { listApproved, type ApprovedItem } from "@/features/clients/queries";
+import { dealCommissionCents, formatPercent } from "@/features/goals/commission";
 import { getSettings } from "@/features/settings/service";
 import { ATTENDANCE_LABELS, CLIENT_STATUS_LABELS, INTEREST_LABELS } from "@/lib/domain";
 import { resolvePeriodFilter } from "@/lib/period-filter";
@@ -10,7 +11,8 @@ import { apiAuth } from "@/features/auth/api";
 
 export const dynamic = "force-dynamic";
 
-const COLUMNS: XlsxColumn<ApprovedItem>[] = [
+/** Colunas da planilha; a comissão de cada carta sai pela taxa própria ou, sem ela, pela padrão. */
+const columns = (defaultRatePercent: number): XlsxColumn<ApprovedItem>[] => [
   { label: "Cliente", type: "text", width: 28, get: (r) => r.name },
   { label: "Telefone", type: "text", width: 16, get: (r) => formatPhone(r.phone) },
   { label: "Líder de vendas", type: "text", width: 22, get: (r) => r.leader?.name },
@@ -19,6 +21,8 @@ const COLUMNS: XlsxColumn<ApprovedItem>[] = [
   { label: "Atendimento", type: "text", width: 14, get: (r) => ATTENDANCE_LABELS[r.attendance] },
   { label: "Carta (R$)", type: "money", get: (r) => r.creditCents },
   { label: "Adesão (R$)", type: "money", get: (r) => r.adesaoCents },
+  { label: "Comissão (%)", type: "text", width: 13, get: (r) => formatPercent(r.commissionRatePercent ?? defaultRatePercent) },
+  { label: "Comissão (R$)", type: "money", width: 14, get: (r) => (r.status === "fechou" ? dealCommissionCents({ creditCents: r.creditCents, ratePercent: r.commissionRatePercent }, defaultRatePercent) : null) },
   { label: "Situação", type: "text", width: 14, get: (r) => CLIENT_STATUS_LABELS[r.status] },
   { label: "1º atendimento", type: "date", width: 14, get: (r) => r.firstVisitAt },
   { label: "Em análise desde", type: "date", width: 16, get: (r) => r.analysisStartedAt },
@@ -39,7 +43,7 @@ export async function GET(request: Request) {
   const period = resolvePeriodFilter(params, settings.period, new Date());
 
   const rows = await listApproved(db, { periodStart: period.range?.start, periodEnd: period.range?.end, leaderId });
-  const buffer = await buildWorkbook({ sheetName: "Aprovados", columns: COLUMNS, rows });
+  const buffer = await buildWorkbook({ sheetName: "Aprovados", columns: columns(settings.commission.ratePercent), rows });
   const suffix = period.mode === "todos" ? "todos" : (period.key ?? "periodo");
   return xlsxResponse(buffer, `aprovados-${suffix}.xlsx`);
 }

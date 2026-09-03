@@ -7,7 +7,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Card, Section } from "@/components/ui/card";
 import { getDb } from "@/db/client";
 import { requireAdmin } from "@/features/auth/session";
-import { commissionCents, formatPercent } from "@/features/goals/commission";
+import { dealsCommissionCents, formatPercent } from "@/features/goals/commission";
 import { GoalHeroCard, GoalRow } from "@/features/goals/components/goal-card";
 import { GoalForm } from "@/features/goals/components/goal-form";
 import { PeriodNav } from "@/features/goals/components/period-nav";
@@ -43,7 +43,7 @@ function shareData(name: string, progress: PeriodProgress, ratePercent: number):
     targetCents: progress.targetCents,
     percent: progress.percent,
     closedCount: progress.closedCount,
-    commissionCents: commissionCents(progress.achievedCents, ratePercent),
+    commissionCents: dealsCommissionCents(progress.deals, ratePercent),
     headline: m.headline,
     footer,
   };
@@ -143,6 +143,11 @@ export default async function GoalsPage(props: PageProps<"/metas">) {
                       <Link href={`/clientes/${d.id}`} className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-2">
                         <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-ink">{d.name}</span>
                         <span className="text-[13px] tabular-nums text-muted">{d.closedAt ? formatDate(fromIso(d.closedAt)) : "—"}</span>
+                        {d.ratePercent !== null ? (
+                          <span className="rounded-full bg-lime px-2 py-0.5 text-[12px] font-medium tabular-nums text-lime-ink" title="Comissão própria desta venda">
+                            {formatPercent(d.ratePercent)}
+                          </span>
+                        ) : null}
                         <span className="w-32 text-right text-[14px] font-medium tabular-nums text-ink">{formatBRL(d.creditCents)}</span>
                       </Link>
                     </li>
@@ -163,10 +168,10 @@ export default async function GoalsPage(props: PageProps<"/metas">) {
             }
           >
             <Card className="p-4 sm:p-5">
-              <p className="text-[13px] text-muted">Comissão de {formatPercent(rate)} sobre as cartas fechadas em cada quinzena.</p>
+              <p className="text-[13px] text-muted">Comissão de {formatPercent(rate)} sobre as cartas fechadas em cada quinzena. Vendas com porcentagem própria contam pela delas.</p>
               <BarChart
                 className="mt-4"
-                points={earnings.map((p) => ({ key: p.period.key, label: periodShortLabel(p.period), value: commissionCents(p.achievedCents, rate), current: p.period.key === currentKey }))}
+                points={earnings.map((p) => ({ key: p.period.key, label: periodShortLabel(p.period), value: dealsCommissionCents(p.deals, rate), current: p.period.key === currentKey }))}
                 formatValue={formatBRLCompact}
                 ariaLabel="Comissão por quinzena"
               />

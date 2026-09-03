@@ -1,0 +1,1 @@
+ALTER TABLE `clients` ADD `commission_rate_percent` real;

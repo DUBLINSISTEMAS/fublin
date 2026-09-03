@@ -9,6 +9,7 @@ import { digitsOnly } from "@/lib/phone";
 import { DomainError } from "@/lib/result";
 import type { Storage } from "@/lib/storage";
 import { logActivity } from "@/features/activities/service";
+import { formatPercent } from "@/features/goals/commission";
 import type { ActivityActor, DbOrTx } from "@/features/activities/service";
 import type { ApprovalInput, ClientInput } from "./schema";
 
@@ -84,6 +85,8 @@ async function createClientTx(db: DbOrTx, input: ClientInput, now: Date): Promis
     closedAt: null,
     lostAt: null,
     lostReason: null,
+    // A taxa própria nasce na aprovação; no cadastro a venda ainda usa o padrão.
+    commissionRatePercent: null,
   } satisfies Client;
   const stamped = { ...row, ...statusStamps(row, input.status, now) };
   await db.insert(clients).values(stamped);
@@ -196,12 +199,17 @@ async function updateApprovalTx(db: DbOrTx, input: ApprovalInput, now: Date): Pr
       adesaoCents: input.adesao,
       approvedAt: dayPatch(input.approvedDay, before.approvedAt),
       closedAt: dayPatch(input.closedDay, before.closedAt),
+      commissionRatePercent: input.commissionRate === undefined ? before.commissionRatePercent : input.commissionRate,
       updatedAt: toIso(now),
     })
     .where(eq(clients.id, input.id))
     .returning();
   if (before.adesaoCents !== updated.adesaoCents) await logActivity(db, input.id, "cliente", `Adesão: ${formatBRL(updated.adesaoCents)}`, now);
   if (before.creditCents !== updated.creditCents) await logActivity(db, input.id, "cliente", `Carta: ${formatBRL(updated.creditCents)}`, now);
+  // A taxa muda quanto a venda paga: fica no histórico para o dono saber por que a comissão mudou.
+  if (before.commissionRatePercent !== updated.commissionRatePercent) {
+    await logActivity(db, input.id, "cliente", `Comissão desta venda: ${updated.commissionRatePercent === null ? "padrão" : formatPercent(updated.commissionRatePercent)}`, now);
+  }
   // As datas mandam no período em que a venda conta na meta: mexer nelas fica no histórico.
   if (before.approvedAt !== updated.approvedAt) await logActivity(db, input.id, "cliente", `Aprovado em: ${dateOrNever(updated.approvedAt)}`, now);
   if (before.closedAt !== updated.closedAt) await logActivity(db, input.id, "cliente", `Fechou em: ${dateOrNever(updated.closedAt)}`, now);

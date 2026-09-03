@@ -6,6 +6,7 @@ import { dayBounds, dayKey, formatWeekdayShort, fromIso, shiftDayKey, toIso, wee
 import { ATTENDANCE_KINDS, CLIENT_STATUSES, INTERESTS, OPEN_CLIENT_STATUSES, STATUS_RANK, type ActivityType, type ClientStatus, type Interest } from "@/lib/domain";
 import type { Source } from "@/lib/domain";
 import { countMeetings, countMeetingsDone, meetingNumber } from "@/features/appointments/sequence";
+import type { CommissionDeal } from "@/features/goals/commission";
 import { digitsOnly } from "@/lib/phone";
 import { pickParam, type SearchParams } from "@/lib/search-params";
 
@@ -145,7 +146,16 @@ export async function countClientsByStatus(db: Db, leaderId?: string): Promise<R
   return base;
 }
 
-export type PeriodStats = { newClients: number; visits: number; approved: number; closed: number; creditCents: number; adesaoCents: number };
+export type PeriodStats = {
+  newClients: number;
+  visits: number;
+  approved: number;
+  closed: number;
+  creditCents: number;
+  adesaoCents: number;
+  /** Cartas fechadas com a taxa própria de cada uma, para a comissão do período (`dealsCommissionCents`). */
+  closedDeals: CommissionDeal[];
+};
 
 export type ConversionItem = { key: string; total: number; closed: number; conversion: number; creditCents: number };
 export type CommercialBreakdown = { bySource: ConversionItem[]; byInterest: ConversionItem[] };
@@ -182,7 +192,7 @@ export async function getPeriodStats(db: Db, periodStart: Date, periodEnd?: Date
       .from(appointments)
       .where(and(inArray(appointments.kind, [...ATTENDANCE_KINDS]), eq(appointments.status, "realizado"), within(appointments.scheduledAt))),
     db.select({ approved: count() }).from(clients).where(within(clients.approvedAt)),
-    db.select({ credit: clients.creditCents, adesao: clients.adesaoCents }).from(clients).where(and(eq(clients.status, "fechou"), within(clients.closedAt))),
+    db.select({ credit: clients.creditCents, adesao: clients.adesaoCents, rate: clients.commissionRatePercent }).from(clients).where(and(eq(clients.status, "fechou"), within(clients.closedAt))),
   ]);
   return {
     newClients,
@@ -191,6 +201,7 @@ export async function getPeriodStats(db: Db, periodStart: Date, periodEnd?: Date
     closed: closedRows.length,
     creditCents: closedRows.reduce((sum, r) => sum + (r.credit ?? 0), 0),
     adesaoCents: closedRows.reduce((sum, r) => sum + (r.adesao ?? 0), 0),
+    closedDeals: closedRows.map((r) => ({ creditCents: r.credit, ratePercent: r.rate })),
   };
 }
 

@@ -93,7 +93,7 @@ describe("period progress", () => {
 describe("motivationFor", () => {
   const period = periodRange("2026-09-1", cuts);
   const make = (achieved: number, target: number | null, at = now): PeriodProgress => {
-    const deals = achieved ? [{ id: "1", name: "X", creditCents: achieved, closedAt: "" }] : [];
+    const deals = achieved ? [{ id: "1", name: "X", creditCents: achieved, ratePercent: null, closedAt: "" }] : [];
     return summarize(period, periodClock(period, at), deals, target, false);
   };
 

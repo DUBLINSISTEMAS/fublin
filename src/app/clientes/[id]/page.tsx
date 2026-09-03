@@ -22,6 +22,8 @@ import { MessageTemplates } from "@/features/clients/components/message-template
 import { StatusPicker } from "@/features/clients/components/status-picker";
 import { Timeline } from "@/features/clients/components/timeline";
 import { findClient, getClientDetail } from "@/features/clients/queries";
+import { formatPercent } from "@/features/goals/commission";
+import { getSettings } from "@/features/settings/service";
 import { formatDate, fromIso } from "@/lib/dates";
 import { ATTENDANCE_LABELS, CLIENT_PRIORITY_LABELS, labelOf, OPEN_CLIENT_STATUSES, SOURCE_LABELS } from "@/lib/domain";
 import { formatBRL } from "@/lib/money";
@@ -42,7 +44,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
   const user = await requireUser();
   const [{ id }, params] = await Promise.all([props.params, props.searchParams]);
   const db = await getDb();
-  const client = await getClientDetail(db, id);
+  const [client, settings] = await Promise.all([getClientDetail(db, id), getSettings(db)]);
   if (!client) notFound();
   if (!canAccessClient(user, client.leaderId)) redirect("/clientes");
 
@@ -74,6 +76,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
     ["Em análise desde", dateOrDash(client.analysisStartedAt)],
     ["Aprovado em", dateOrDash(client.approvedAt)],
     ["Fechou em", dateOrDash(client.closedAt)],
+    ...(user.role === "admin" ? [["Comissão", client.commissionRatePercent === null ? `${formatPercent(settings.commission.ratePercent)} (padrão)` : formatPercent(client.commissionRatePercent)] as [string, string]] : []),
     ["Cadastrado em", formatDate(fromIso(client.createdAt))],
   ];
 
@@ -192,7 +195,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
           </Section>
           {user.role === "admin" ? <Section title="Aprovação" action={needsAdesao ? <Badge tone="warning" className="h-6 text-[11px]">Falta a adesão</Badge> : undefined}>
             <Card className="p-4">
-              <ApprovalForm client={client} />
+              <ApprovalForm client={client} defaultRatePercent={settings.commission.ratePercent} />
             </Card>
           </Section> : null}
           <Section title="Dados">
