@@ -18,6 +18,8 @@ import {
   ATTENDANCES,
   CLIENT_STATUS_LABELS,
   CLIENT_STATUSES,
+  CLIENT_PRIORITIES,
+  CLIENT_PRIORITY_LABELS,
   INTEREST_LABELS,
   INTERESTS,
   SOURCE_LABELS,
@@ -115,6 +117,11 @@ export function ClientForm({ action, leaders, initial, initialSchedule, cancelHr
                   {SOURCE_LABELS[s]}
                 </option>
               ))}
+            </Select>
+          </Field>
+          <Field label="Prioridade" htmlFor="priority" error={errors.priority} hint="Use Urgente para o que precisa saltar aos olhos; Pode adiar para o que pode esperar.">
+            <Select id="priority" name="priority" defaultValue={value("priority", initial?.priority ?? "normal")}>
+              {CLIENT_PRIORITIES.map((priority) => <option key={priority} value={priority}>{CLIENT_PRIORITY_LABELS[priority]}</option>)}
             </Select>
           </Field>
         </div>

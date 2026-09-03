@@ -1,4 +1,4 @@
-import type { AppointmentKind, AppointmentStatus } from "@/lib/domain";
+import type { AppointmentKind, AppointmentStatus, ClientPriority } from "@/lib/domain";
 import type { AppointmentWithClient } from "../../queries";
 
 /** Agendamento achatado e serializável para os componentes cliente da agenda. */
@@ -6,6 +6,7 @@ export type CalendarEvent = {
   id: string;
   clientId: string;
   clientName: string;
+  priority: ClientPriority;
   phone: string;
   leaderName: string | null;
   leaderPhotoKey: string | null;
@@ -23,6 +24,7 @@ export function toCalendarEvent(a: AppointmentWithClient): CalendarEvent {
     id: a.id,
     clientId: a.clientId,
     clientName: a.client.name,
+    priority: a.client.priority,
     phone: a.client.phone,
     leaderName: a.client.leader?.name ?? null,
     leaderPhotoKey: a.client.leader?.photoKey ?? null,

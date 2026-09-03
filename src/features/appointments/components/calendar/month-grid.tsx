@@ -2,7 +2,7 @@ import Link from "next/link";
 import { cn } from "@/lib/cn";
 import { dayBounds, dayKey, formatTime, fromIso, type DayKey } from "@/lib/dates";
 import { plural } from "@/lib/text";
-import { KIND_DOT } from "./styles";
+import { PRIORITY_DOT } from "./styles";
 import type { CalendarEvent } from "./types";
 
 const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
@@ -50,13 +50,13 @@ export function MonthGrid({ days, month, events, today, hrefForDay }: Props) {
                 <>
                   <span className="flex flex-wrap gap-1 md:hidden" aria-label={plural(list.length, "agendamento")}>
                     {list.slice(0, 4).map((e) => (
-                      <span key={e.id} className={cn("size-1.5 rounded-full", KIND_DOT[e.kind], e.status !== "agendado" && "opacity-40")} />
+                      <span key={e.id} className={cn("size-1.5 rounded-full", PRIORITY_DOT[e.priority], e.status !== "agendado" && "opacity-40")} />
                     ))}
                   </span>
                   <span className="hidden flex-col gap-1 md:flex">
                     {list.slice(0, MAX_PILLS).map((e) => (
                       <span key={e.id} className={cn("flex items-center gap-1.5 truncate rounded-md bg-surface-2 px-1.5 py-0.5 text-[11px] text-ink", e.status !== "agendado" && "opacity-60")}>
-                        <span className={cn("size-1.5 shrink-0 rounded-full", KIND_DOT[e.kind])} aria-hidden />
+                        <span className={cn("size-1.5 shrink-0 rounded-full", PRIORITY_DOT[e.priority])} aria-hidden />
                         <span className="tabular-nums text-muted">{formatTime(fromIso(e.start))}</span>
                         <span className="truncate">{e.clientName}</span>
                       </span>

@@ -16,6 +16,7 @@ export function makeClient(overrides: Partial<Client> = {}): Client {
     interest: "imovel",
     interestNotes: "Apto na zona sul",
     status: "novo",
+    priority: "normal",
     source: null,
     leaderId: null,
     attendance: "presencial",

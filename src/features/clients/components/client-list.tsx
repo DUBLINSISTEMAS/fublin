@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronRight, UserPlus, Users } from "lucide-react";
-import { ClientStatusBadge, InterestChip } from "@/components/ui/badge";
+import { ClientPriorityBadge, ClientStatusBadge, InterestChip } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -44,6 +44,7 @@ export function ClientList({ items, now, hasFilters }: Props) {
                     <span className="truncate text-[16px] font-medium text-ink">{c.name}</span>
                     <InterestChip interest={c.interest} notes={c.interestNotes} className="h-6 text-[12px]" />
                     <ClientStatusBadge status={c.status} className="h-6 text-[12px]" />
+                    <ClientPriorityBadge priority={c.priority} className="h-6 text-[12px]" />
                   </span>
                   {meta ? <span className="mt-0.5 block truncate text-[13px] text-muted">{meta}</span> : null}
                   {next && NextIcon ? (

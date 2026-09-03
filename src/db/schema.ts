@@ -6,6 +6,7 @@ import {
   APPOINTMENT_STATUSES,
   ATTACHMENT_KINDS,
   ATTENDANCES,
+  CLIENT_PRIORITIES,
   CLIENT_STATUSES,
   DEFAULT_DURATION_MINUTES,
   DEFAULT_REMINDER_MINUTES,
@@ -76,6 +77,8 @@ export const clients = sqliteTable(
     interest: text("interest", { enum: INTERESTS }).notNull(),
     interestNotes: text("interest_notes"),
     status: text("status", { enum: CLIENT_STATUSES }).notNull().default("novo"),
+    /** Urgência operacional; clientes antigos entram como normal pela migração. */
+    priority: text("priority", { enum: CLIENT_PRIORITIES }).notNull().default("normal"),
     source: text("source", { enum: SOURCES }),
     leaderId: text("leader_id").references(() => leaders.id, { onDelete: "set null" }),
     /** Presencial (vem à loja) ou online (cliente de longe). */

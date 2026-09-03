@@ -8,11 +8,14 @@ import {
   ATTACHMENT_KIND_LABELS,
   CLIENT_STATUS_LABELS,
   CLIENT_STATUS_TONE,
+  CLIENT_PRIORITY_LABELS,
+  CLIENT_PRIORITY_TONE,
   describeInterest,
   type AppointmentKind,
   type AppointmentStatus,
   type AttachmentKind,
   type ClientStatus,
+  type ClientPriority,
   type Interest,
   type Tone,
 } from "@/lib/domain";
@@ -64,6 +67,10 @@ export function ClientStatusBadge({ status, className }: { status: ClientStatus;
       {CLIENT_STATUS_LABELS[status]}
     </Badge>
   );
+}
+
+export function ClientPriorityBadge({ priority, className }: { priority: ClientPriority; className?: string }) {
+  return <Badge tone={CLIENT_PRIORITY_TONE[priority]} className={className}>{CLIENT_PRIORITY_LABELS[priority]}</Badge>;
 }
 
 export function AppointmentStatusBadge({ status, className }: { status: AppointmentStatus; className?: string }) {

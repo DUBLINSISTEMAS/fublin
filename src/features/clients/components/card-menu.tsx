@@ -9,14 +9,15 @@ import { toast } from "@/components/ui/toast";
 import type { Leader } from "@/db/schema";
 import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/cn";
-import { CLIENT_STATUS_LABELS, CLIENT_STATUSES, type ClientStatus } from "@/lib/domain";
+import { CLIENT_PRIORITIES, CLIENT_PRIORITY_LABELS, CLIENT_STATUS_LABELS, CLIENT_STATUSES, type ClientPriority, type ClientStatus } from "@/lib/domain";
 import { whatsappUrl } from "@/lib/phone";
 import { OK } from "@/lib/result";
-import { assignLeaderAction, deleteClientAction } from "../actions";
+import { assignLeaderAction, deleteClientAction, setClientPriorityAction } from "../actions";
 
 type Props = {
   clientId: string;
   status: ClientStatus;
+  priority: ClientPriority;
   leaderId: string | null;
   leaders: Pick<Leader, "id" | "name">[];
   /** Quem contém o card decide como mover (o kanban aplica otimista e chama o servidor). */
@@ -35,7 +36,7 @@ const LABEL = "block px-2 pb-1 text-[11px] font-medium uppercase tracking-wide t
  * Menu "…" do card: mover de etapa (alternativa acessível ao arrastar),
  * trocar o líder de vendas e atalhos. Fecha com Esc ou clique fora.
  */
-export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted = false, canManage = true, confirmation = null, phone }: Props) {
+export function CardMenu({ clientId, status, priority, leaderId, leaders, onMove, tinted = false, canManage = true, confirmation = null, phone }: Props) {
   const [open, setOpen] = useState(false);
 
   async function copyConfirmation() {
@@ -46,6 +47,7 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted =
     setOpen(false);
   }
   const [leaderState, assignLeader] = useActionState(assignLeaderAction, OK);
+  const [priorityState, assignPriority] = useActionState(setClientPriorityAction, OK);
   const [deleteState, deleteClient] = useActionState(deleteClientAction, OK);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -97,6 +99,15 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted =
               </option>
             ))}
           </select>
+
+          {canManage ? <><label htmlFor={`${id}-priority`} className={cn(LABEL, "pt-3")}>Prioridade</label>
+          <form action={assignPriority}>
+            <input type="hidden" name="id" value={clientId} />
+            <select id={`${id}-priority`} key={priority} name="priority" defaultValue={priority} onChange={(e) => e.currentTarget.form?.requestSubmit()} className={SELECT}>
+              {CLIENT_PRIORITIES.map((value) => <option key={value} value={value}>{CLIENT_PRIORITY_LABELS[value]}</option>)}
+            </select>
+            <ActionError state={priorityState} className="px-2 pt-2 text-[12px]" />
+          </form></> : null}
 
           {canManage ? <><label htmlFor={`${id}-leader`} className={cn(LABEL, "pt-3")}>
             Líder de vendas

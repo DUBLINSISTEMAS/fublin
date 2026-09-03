@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isValidDayKey, isValidTime } from "@/lib/dates";
-import { ATTENDANCES, CLIENT_STATUSES, INTERESTS, SOURCES } from "@/lib/domain";
+import { ATTENDANCES, CLIENT_PRIORITIES, CLIENT_STATUSES, INTERESTS, SOURCES } from "@/lib/domain";
 import { digitsOnly } from "@/lib/phone";
 import { moneyField as money, optionalString } from "@/lib/validation";
 
@@ -26,6 +26,7 @@ export const clientInputSchema = z
     installmentMax: money,
     attendance: z.enum(ATTENDANCES).default("presencial"),
     status: z.enum(CLIENT_STATUSES).default("novo"),
+    priority: z.enum(CLIENT_PRIORITIES).default("normal"),
     source: optionalString(z.enum(SOURCES, { error: "Origem inválida" })),
     leaderId: optionalString(z.string().max(64)),
     firstVisitDay: optionalString(z.string().refine(isValidDayKey, "Data inválida")),
@@ -68,6 +69,11 @@ export const clientContactSchema = z.object({
 export const assignLeaderSchema = z.object({
   id: z.string().min(1),
   leaderId: optionalString(z.string().max(64)),
+});
+
+export const clientPrioritySchema = z.object({
+  id: z.string().min(1),
+  priority: z.enum(CLIENT_PRIORITIES, { error: "Prioridade inválida" }),
 });
 
 /**

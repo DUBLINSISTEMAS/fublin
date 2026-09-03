@@ -29,12 +29,11 @@ export default async function ClientsPage(props: PageProps<"/clientes">) {
   const requestedView = pickParam(params, "view");
   const db = await getDb();
   const now = new Date();
-  const [items, leaders, counts, alerts, profile] = await Promise.all([
+  const [items, leaders, counts, alerts] = await Promise.all([
     listClients(db, filters, now),
     listLeaders(db, { includeInactive: true }),
     countClientsByStatus(db, user.role === "leader" ? user.leaderId ?? NO_LEADER : undefined),
     getSetting(db, "alerts"),
-    getSetting(db, "profile"),
   ]);
   const hasFilters = Boolean(filters.q || filters.status || filters.interest || filters.leaderId || filters.priority || filters.schedule);
   const visibleLeaders = user.role === "admin" ? leaders : leaders.filter((leader) => leader.id === user.leaderId);
@@ -69,7 +68,7 @@ export default async function ClientsPage(props: PageProps<"/clientes">) {
           <ClientFilters leaders={visibleLeaders} filters={filters} showLeader={user.role === "admin"} />
         </Suspense>
       </div>
-      {items.length === 0 ? <ClientList items={items} now={now} hasFilters={hasFilters} /> : view === "funil" ? <Pipeline items={items} leaders={visibleLeaders.filter((l) => l.active)} now={now} moveSound={alerts.kanbanSound} canManage={user.role === "admin"} consultantName={profile.name} /> : <ClientList items={items} now={now} hasFilters={hasFilters} />}
+      {items.length === 0 ? <ClientList items={items} now={now} hasFilters={hasFilters} /> : view === "funil" ? <Pipeline items={items} leaders={visibleLeaders.filter((l) => l.active)} now={now} moveSound={alerts.kanbanSound} canManage={user.role === "admin"} /> : <ClientList items={items} now={now} hasFilters={hasFilters} />}
       <Fab href="/clientes/novo" label="Novo cliente" />
     </div>
   );

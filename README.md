@@ -69,6 +69,8 @@ Em **Config → Perfil** coloque seu nome e sua foto (aparecem no topo do menu).
 
 Mova o cliente **arrastando o card** no kanban (mouse, toque com pressão longa ou teclado), pelo menu "…" do card ("Mover para"), ou pelo seletor na página do cliente. Automatismos que ajudam:
 
+- cada cliente tem prioridade **Pode adiar, Normal, Alta ou Urgente**; ela pode ser trocada no menu do card, ordena o acompanhamento e usa a mesma cor na agenda;
+
 - agendar para um cliente **Novo** o marca como **Agendado**;
 - marcar uma **visita** ou **reunião online** como **Realizado** registra o 1º atendimento e avança para **Atendido**.
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, CalendarPlus, MessageCircle, Pencil, Phone, Store, Video } from "lucide-react";
-import { Badge, ClientStatusBadge, InterestChip } from "@/components/ui/badge";
+import { Badge, ClientPriorityBadge, ClientStatusBadge, InterestChip } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Card, Section } from "@/components/ui/card";
 import { ConfirmButton } from "@/components/ui/confirm-button";
@@ -16,7 +16,6 @@ import { ConfirmationMessage } from "@/features/clients/components/confirmation-
 import { ContactForm } from "@/features/clients/components/contact-form";
 import { buildConfirmationMessage } from "@/features/clients/confirmation";
 import { installmentRangeLong } from "@/features/clients/values";
-import { getSetting } from "@/features/settings/service";
 import { pickParam } from "@/lib/search-params";
 import { NoteForm } from "@/features/clients/components/note-form";
 import { MessageTemplates } from "@/features/clients/components/message-templates";
@@ -24,7 +23,7 @@ import { StatusPicker } from "@/features/clients/components/status-picker";
 import { Timeline } from "@/features/clients/components/timeline";
 import { findClient, getClientDetail } from "@/features/clients/queries";
 import { formatDate, fromIso } from "@/lib/dates";
-import { ATTENDANCE_LABELS, labelOf, OPEN_CLIENT_STATUSES, SOURCE_LABELS } from "@/lib/domain";
+import { ATTENDANCE_LABELS, CLIENT_PRIORITY_LABELS, labelOf, OPEN_CLIENT_STATUSES, SOURCE_LABELS } from "@/lib/domain";
 import { formatBRL } from "@/lib/money";
 import { formatPhone, telUrl, whatsappUrl } from "@/lib/phone";
 import { initials, plural } from "@/lib/text";
@@ -43,7 +42,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
   const user = await requireUser();
   const [{ id }, params] = await Promise.all([props.params, props.searchParams]);
   const db = await getDb();
-  const [client, profile] = await Promise.all([getClientDetail(db, id), getSetting(db, "profile")]);
+  const client = await getClientDetail(db, id);
   if (!client) notFound();
   if (!canAccessClient(user, client.leaderId)) redirect("/clientes");
 
@@ -57,7 +56,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
   const missingNextStep = (OPEN_CLIENT_STATUSES as readonly string[]).includes(client.status) && pending.length === 0;
   const dateOrDash = (iso: string | null) => (iso ? formatDate(fromIso(iso)) : "—");
   const confirmation = pending[0]
-    ? buildConfirmationMessage({ consultantName: profile.name, clientName: client.name, attendance: client.attendance, when: fromIso(pending[0].scheduledAt), interest: client.interest, interestNotes: client.interestNotes, leaderName: client.leader?.name })
+    ? buildConfirmationMessage({ clientName: client.name, attendance: client.attendance, when: fromIso(pending[0].scheduledAt), interest: client.interest, interestNotes: client.interestNotes, leaderName: client.leader?.name })
     : null;
 
   const facts: [string, string][] = [
@@ -66,6 +65,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
     ["Adesão (entrada)", client.adesaoCents ? formatBRL(client.adesaoCents) : "Não combinada"],
     ["Parcela", installmentRangeLong(client)],
     ["Atendimento", ATTENDANCE_LABELS[client.attendance]],
+    ["Prioridade", CLIENT_PRIORITY_LABELS[client.priority]],
     ["Origem", labelOf(SOURCE_LABELS, client.source)],
     ["Líder de vendas", client.leader?.name ?? "—"],
     ["1º atendimento", client.firstVisitAt ? formatDate(fromIso(client.firstVisitAt)) : "Ainda não"],
@@ -91,6 +91,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
                 <ClientStatusBadge status={client.status} />
+                <ClientPriorityBadge priority={client.priority} />
                 <InterestChip interest={client.interest} notes={client.interestNotes} />
                 <span className="inline-flex h-7 items-center gap-1 rounded-chip bg-surface-2 px-2 text-[12px] text-muted">
                   <AttendanceIcon className="size-3.5" aria-hidden />

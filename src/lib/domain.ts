@@ -66,6 +66,22 @@ export const PIPELINE_STATUSES: readonly ClientStatus[] = ["novo", "agendado", "
 /** Ordem numérica do funil, para saber se um status é "depois" de outro. */
 export const STATUS_RANK: Record<ClientStatus, number> = Object.fromEntries(CLIENT_STATUSES.map((s, i) => [s, i])) as Record<ClientStatus, number>;
 
+/** Prioridade operacional: independente da etapa do funil e refletida também na agenda. */
+export const CLIENT_PRIORITIES = ["adiavel", "normal", "alta", "urgente"] as const;
+export type ClientPriority = (typeof CLIENT_PRIORITIES)[number];
+export const CLIENT_PRIORITY_LABELS: Record<ClientPriority, string> = {
+  adiavel: "Pode adiar",
+  normal: "Normal",
+  alta: "Alta",
+  urgente: "Urgente",
+};
+export const CLIENT_PRIORITY_TONE: Record<ClientPriority, Tone> = {
+  adiavel: "neutral",
+  normal: "info",
+  alta: "warning",
+  urgente: "danger",
+};
+
 export const ATTENDANCES = ["presencial", "online"] as const;
 export type Attendance = (typeof ATTENDANCES)[number];
 export const ATTENDANCE_LABELS: Record<Attendance, string> = {

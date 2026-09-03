@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { CalendarDays, MessagesSquare, Store, Video } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import { InterestChip } from "@/components/ui/badge";
+import { ClientPriorityBadge, InterestChip } from "@/components/ui/badge";
 import type { Leader } from "@/db/schema";
 import { APPOINTMENT_KIND_ICON } from "@/features/appointments/components/kind-icon";
 import { meetingLabel, meetingOrdinal } from "@/features/appointments/sequence";
@@ -27,8 +27,6 @@ type Props = {
   /** Cor da borda enquanto arrasta (a da coluna sob o card). */
   ringClass?: string;
   canManage?: boolean;
-  /** Nome do relacionador na mensagem de confirmação (menu "…"). */
-  consultantName?: string;
 };
 
 /** O último fato relevante do cliente (rodapé do card), do mais urgente ao mais antigo. */
@@ -83,7 +81,7 @@ function NextMeeting({ next, now, tinted }: { next: NextAppointment; now: Date; 
 }
 
 /** Card do funil: chip de interesse, nome, carta, líder, quando o cliente vem e atendimentos. */
-export function ClientCard({ client, now, leaders, onMove, highlight = false, dragging = false, ringClass = "ring-accent", canManage = true, consultantName = "Relacionador" }: Props) {
+export function ClientCard({ client, now, leaders, onMove, highlight = false, dragging = false, ringClass = "ring-accent", canManage = true }: Props) {
   // Com "Outro", o detalhe já é o chip; repetir embaixo só ocuparia espaço.
   const description = client.interest === "outro" ? client.notes : (client.interestNotes ?? client.notes);
   const AttendanceIcon = client.attendance === "online" ? Video : Store;
@@ -93,7 +91,6 @@ export function ClientCard({ client, now, leaders, onMove, highlight = false, dr
   const daysInStage = Math.max(0, differenceInCalendarDays(now, fromIso(client.statusSince)));
   const confirmation = client.nextAppointment
     ? buildConfirmationMessage({
-        consultantName,
         clientName: client.name,
         attendance: client.attendance,
         when: fromIso(client.nextAppointment.scheduledAt),
@@ -115,6 +112,7 @@ export function ClientCard({ client, now, leaders, onMove, highlight = false, dr
       <div className="flex items-start justify-between gap-2">
         <span className="flex flex-wrap items-center gap-1.5">
           <InterestChip interest={client.interest} notes={client.interestNotes} />
+          <ClientPriorityBadge priority={client.priority} />
           <span
             className={cn("inline-flex h-7 items-center gap-1 rounded-chip px-2 text-[12px]", highlight ? "bg-white/60 text-ink-2" : "bg-surface-2 text-muted")}
             title={client.attendance === "online" ? "Atendimento online" : "Atendimento presencial"}
@@ -128,7 +126,7 @@ export function ClientCard({ client, now, leaders, onMove, highlight = false, dr
             </span>
           ) : null}
         </span>
-        <CardMenu clientId={client.id} status={client.status} leaderId={client.leaderId} leaders={leaders} onMove={onMove} tinted={highlight} canManage={canManage} confirmation={confirmation} phone={client.phone} />
+        <CardMenu clientId={client.id} status={client.status} priority={client.priority} leaderId={client.leaderId} leaders={leaders} onMove={onMove} tinted={highlight} canManage={canManage} confirmation={confirmation} phone={client.phone} />
       </div>
 
       <Link href={`/clientes/${client.id}`} className="mt-3 block text-[17px] font-medium leading-tight text-ink hover:underline" onPointerDown={(e) => e.stopPropagation()}>

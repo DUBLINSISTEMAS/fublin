@@ -1,0 +1,1 @@
+ALTER TABLE `clients` ADD `priority` text DEFAULT 'normal' NOT NULL;

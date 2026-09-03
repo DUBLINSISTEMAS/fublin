@@ -83,7 +83,6 @@ type Props = {
   moveSound?: boolean;
   canManage?: boolean;
   /** Nome do relacionador na mensagem de confirmação (menu do card). */
-  consultantName: string;
 };
 
 /**
@@ -91,7 +90,7 @@ type Props = {
  * ou teclado) ou use o menu "…"; a mudança é otimista e desfeita se o servidor recusar.
  * No desktop, arrastar o fundo rola o quadro; as setas nas bordas fazem o mesmo.
  */
-export function Pipeline({ items, leaders, now, moveSound = true, canManage = true, consultantName }: Props) {
+export function Pipeline({ items, leaders, now, moveSound = true, canManage = true }: Props) {
   const [clients, setClients] = useState(items);
   const [seenItems, setSeenItems] = useState(items);
   /** Movimentos ainda em voo: o refresh de outra ação não pode "puxar de volta" estes cards. */
@@ -217,7 +216,7 @@ export function Pipeline({ items, leaders, now, moveSound = true, canManage = tr
               {clients
                 .filter((c) => c.status === status)
                 .map((c) => (
-                  <DraggableCard key={c.id} client={c} now={now} leaders={leaders} highlight={soon.has(c.id)} settled={settledId === c.id} onMove={(s) => applyMove(c.id, s)} canManage={canManage} consultantName={consultantName} />
+                  <DraggableCard key={c.id} client={c} now={now} leaders={leaders} highlight={soon.has(c.id)} settled={settledId === c.id} onMove={(s) => applyMove(c.id, s)} canManage={canManage} />
                 ))}
             </Column>
           ))}
@@ -232,7 +231,7 @@ export function Pipeline({ items, leaders, now, moveSound = true, canManage = tr
             <DragOverlay dropAnimation={DROP_ANIMATION}>
               {active ? (
                 <div style={{ zoom: readZoom() }}>
-                  <ClientCard client={active} now={now} leaders={leaders} highlight={soon.has(active.id)} onMove={(s) => applyMove(active.id, s)} dragging ringClass={COLUMN_RING[overStatus ?? active.status]} canManage={canManage} consultantName={consultantName} />
+                  <ClientCard client={active} now={now} leaders={leaders} highlight={soon.has(active.id)} onMove={(s) => applyMove(active.id, s)} dragging ringClass={COLUMN_RING[overStatus ?? active.status]} canManage={canManage} />
                 </div>
               ) : null}
             </DragOverlay>,
@@ -301,10 +300,9 @@ type DraggableCardProps = {
   settled: boolean;
   onMove: (s: ClientStatus) => void;
   canManage: boolean;
-  consultantName: string;
 };
 
-function DraggableCard({ client, now, leaders, highlight, settled, onMove, canManage, consultantName }: DraggableCardProps) {
+function DraggableCard({ client, now, leaders, highlight, settled, onMove, canManage }: DraggableCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({ id: client.id, data: { status: client.status } });
   return (
     <div
@@ -318,7 +316,7 @@ function DraggableCard({ client, now, leaders, highlight, settled, onMove, canMa
       {...listeners}
       {...attributes}
     >
-      <ClientCard client={client} now={now} leaders={leaders} highlight={highlight} onMove={onMove} canManage={canManage} consultantName={consultantName} />
+      <ClientCard client={client} now={now} leaders={leaders} highlight={highlight} onMove={onMove} canManage={canManage} />
     </div>
   );
 }

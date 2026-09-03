@@ -13,7 +13,7 @@ import { rescheduleAppointmentAction } from "../../actions";
 import { EventChooser } from "./event-chooser";
 import { EventPanel } from "./event-panel";
 import { GRID_HEIGHT_PX, gridDate, HOUR_HEIGHT_PX, HOURS, layoutEvents, minutesFromGridStart, PX_PER_MINUTE, type Positioned } from "./layout";
-import { KIND_BORDER } from "./styles";
+import { PRIORITY_BORDER } from "./styles";
 import type { CalendarEvent } from "./types";
 import { useEventDrag, type EventDragHandlers } from "./use-event-drag";
 
@@ -220,7 +220,7 @@ function EventBlock({ positioned: p, dragging, handlers }: BlockProps) {
       title={stacked ? "Mais de um cliente neste horário: clique para escolher" : "Clique para abrir, arraste para remarcar (no toque, segure)"}
       className={cn(
         "absolute cursor-grab overflow-hidden rounded-[10px] border border-line border-l-4 bg-surface p-1.5 text-left shadow-card transition-shadow select-none hover:shadow-float active:cursor-grabbing",
-        missed ? "border-l-rose-ink" : cancelled ? "border-l-line-strong" : KIND_BORDER[event.kind],
+        missed ? "border-l-rose-ink" : cancelled ? "border-l-line-strong" : PRIORITY_BORDER[event.priority],
         (done || cancelled) && "opacity-60",
         cancelled && "line-through",
         stacked && "ring-1 ring-line-strong/60",

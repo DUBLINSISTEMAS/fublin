@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { MessageCircle, Pencil, Phone } from "lucide-react";
-import { AppointmentKindChip, AppointmentStatusBadge, Chip } from "@/components/ui/badge";
+import { AppointmentKindChip, AppointmentStatusBadge, Chip, ClientPriorityBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { formatCountdown, formatRelativeDay, formatTime, fromIso } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS, APPOINTMENT_KIND_SHORT } from "@/lib/domain";
@@ -66,6 +66,7 @@ export function AppointmentRow({ appointment, now, variant = "default", showDay 
               {meeting.ordinal}
             </Chip>
           ) : null}
+          {!hideClient ? <ClientPriorityBadge priority={client.priority} className="h-6 text-[12px]" /> : null}
         </div>
         {subtitle ? <p className="mt-0.5 truncate text-[13px] text-muted">{subtitle}</p> : null}
         <div className="mt-2 flex flex-wrap items-center gap-1.5">

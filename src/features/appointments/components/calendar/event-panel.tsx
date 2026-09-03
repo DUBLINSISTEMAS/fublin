@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect } from "react";
 import { Clock, MessageCircle, Pencil, Phone, UserRound, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import { AppointmentKindChip, AppointmentStatusBadge } from "@/components/ui/badge";
+import { AppointmentKindChip, AppointmentStatusBadge, ClientPriorityBadge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { formatDate, formatTime, formatWeekdayShort, fromIso } from "@/lib/dates";
 import { telUrl, whatsappUrl } from "@/lib/phone";
@@ -39,6 +39,7 @@ export function EventPanel({ event, onClose }: Props) {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
               <AppointmentKindChip kind={event.kind} />
+              <ClientPriorityBadge priority={event.priority} />
               {!pending ? <AppointmentStatusBadge status={event.status} /> : null}
             </div>
             <h2 className="mt-2 truncate text-[22px] font-medium tracking-tight text-ink">{event.clientName}</h2>

@@ -3,8 +3,6 @@ import { ATTENDANCE_LABELS, describeInterest, type Attendance, type Interest } f
 import { capitalize } from "@/lib/text";
 
 export type ConfirmationInput = {
-  /** Nome do relacionador (perfil em Configurações). */
-  consultantName: string;
   clientName: string;
   attendance: Attendance;
   /** Início do agendamento. */
@@ -26,14 +24,14 @@ export function buildConfirmationMessage(input: ConfirmationInput): string {
     "*Agendamento*",
     ATTENDANCE_LABELS[input.attendance],
     "",
-    `Consultor: ${input.consultantName.trim()}`,
+    "Consultor: Anderson Felipe",
     `Nome: ${input.clientName.trim()}`,
     `Data: ${capitalize(formatDayLong(input.when))} (${formatDate(input.when)})`,
     `Horário: ${formatTime(input.when)}`,
     ...(input.leaderName?.trim() ? [`Líder de vendas: ${input.leaderName.trim()}`] : []),
     `Observação: ${observation}${detail}`,
     "",
-    "Me confirma por aqui, por favor.",
+    "Me confirma com um OK, por favor. 👌",
   ];
   return lines.join("\n");
 }

@@ -50,6 +50,13 @@
       "when": 1788381804725,
       "tag": "0006_login_attempts",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1788441021208,
+      "tag": "0007_early_goblin_queen",
+      "breakpoints": true
     }
   ]
 }

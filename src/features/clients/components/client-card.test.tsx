@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import { makeLeader, makeListItem, makeNextAppointment, NOW } from "@/test/fixtures";
 import { cardFooter, ClientCard } from "./client-card";
 
-vi.mock("../actions", () => ({ assignLeaderAction: vi.fn(), deleteClientAction: vi.fn(), moveClientAction: vi.fn() }));
+vi.mock("../actions", () => ({ assignLeaderAction: vi.fn(), deleteClientAction: vi.fn(), moveClientAction: vi.fn(), setClientPriorityAction: vi.fn() }));
 
 describe("cardFooter", () => {
   it("names the kind of the next appointment, then closing, approval, first attendance, and a placeholder", () => {
@@ -77,6 +77,11 @@ describe("ClientCard", () => {
   it("flags a client without adesão while the sale is still open", () => {
     render1({ adesaoCents: null });
     expect(screen.getByText("Sem adesão combinada")).toBeInTheDocument();
+  });
+
+  it("shows the operational priority on the card", () => {
+    render1({ priority: "urgente" });
+    expect(screen.getByText("Urgente")).toBeInTheDocument();
   });
 
   it("uses the custom interest as the chip when the interest is “outro”", () => {

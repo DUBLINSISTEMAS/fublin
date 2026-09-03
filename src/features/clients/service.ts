@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { attachments, clients, leaders, type Client } from "@/db/schema";
 import { dayBounds, formatDate, fromIso, toIso } from "@/lib/dates";
-import { CLIENT_STATUS_LABELS, STATUS_RANK, type ClientStatus } from "@/lib/domain";
+import { CLIENT_PRIORITY_LABELS, CLIENT_STATUS_LABELS, STATUS_RANK, type ClientPriority, type ClientStatus } from "@/lib/domain";
 import { newId } from "@/lib/ids";
 import { formatBRL } from "@/lib/money";
 import { digitsOnly } from "@/lib/phone";
@@ -28,6 +28,7 @@ function toRow(input: ClientInput) {
     installmentMaxCents: input.installmentMax,
     attendance: input.attendance,
     status: input.status,
+    priority: input.priority,
     source: input.source ?? null,
     leaderId: input.leaderId ?? null,
     firstVisitAt: input.firstVisitDay ? toIso(dayBounds(input.firstVisitDay).start) : null,
@@ -147,6 +148,17 @@ async function setClientStatusTx(
 /** Troca o líder de vendas responsável (ou tira o líder). */
 export async function assignLeader(db: Db, id: string, leaderId: string | null, now: Date = new Date()): Promise<Client> {
   return db.transaction((tx) => assignLeaderTx(tx, id, leaderId, now));
+}
+
+/** Troca a prioridade sem alterar a etapa do funil e registra a decisão na timeline. */
+export async function setClientPriority(db: Db, id: string, priority: ClientPriority, now: Date = new Date()): Promise<Client> {
+  return db.transaction(async (tx) => {
+    const before = await getClient(tx, id);
+    if (before.priority === priority) return before;
+    const [updated] = await tx.update(clients).set({ priority, updatedAt: toIso(now) }).where(eq(clients.id, id)).returning();
+    await logActivity(tx, id, "cliente", `Prioridade: ${CLIENT_PRIORITY_LABELS[priority]}`, now);
+    return updated;
+  });
 }
 
 async function assignLeaderTx(db: DbOrTx, id: string, leaderId: string | null, now: Date): Promise<Client> {

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { CalendarDays, MessageCircle, MoreHorizontal, Phone } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
-import { AppointmentKindChip, AppointmentStatusBadge, Chip } from "@/components/ui/badge";
+import { AppointmentKindChip, AppointmentStatusBadge, Chip, ClientPriorityBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { formatCountdown, formatScheduleDay, formatTime, fromIso } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS } from "@/lib/domain";
@@ -42,6 +42,7 @@ export function AppointmentCard({ appointment, now, variant = "default" }: Props
               {meeting.ordinal}
             </Chip>
           ) : null}
+          <ClientPriorityBadge priority={client.priority} />
         </span>
         <Link href={`/agenda/${appointment.id}/editar`} className="icon-btn -mt-1 -mr-1 size-8" aria-label="Editar agendamento">
           <MoreHorizontal className="size-4" aria-hidden />

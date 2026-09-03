@@ -11,7 +11,9 @@ import { createDb, migrateDb, type Db } from "./client";
  * serviços usam para gravar registro + timeline juntos, não enxergaria as tabelas.
  * Com arquivo a transação é real (commit e rollback de verdade).
  */
-const root = path.join(os.tmpdir(), `relacionador-tests-${process.pid}`);
+// Cada worker do Vitest ganha uma pasta realmente exclusiva. Workers em threads
+// compartilham o PID e reiniciam seus contadores, portanto PID sozinho colidia.
+const root = fs.mkdtempSync(path.join(os.tmpdir(), `relacionador-tests-${process.pid}-`));
 let cleanupArmed = false;
 let counter = 0;
 

@@ -9,8 +9,8 @@ import { actionError, formError, formSuccess, OK, type ActionResult, type FormSt
 import { getStorage } from "@/lib/storage";
 import { idSchema, parseForm } from "@/lib/validation";
 import { createClientWithSchedule, updateClientWithSchedule, type OnboardingResult } from "./onboarding";
-import { approvalSchema, assignLeaderSchema, clientContactSchema, clientInputSchema, clientNoteSchema, clientStatusSchema } from "./schema";
-import { addClientContact, addClientNote, assignLeader, deleteClient, findDuplicatePhone, setClientStatus, updateApproval } from "./service";
+import { approvalSchema, assignLeaderSchema, clientContactSchema, clientInputSchema, clientNoteSchema, clientPrioritySchema, clientStatusSchema } from "./schema";
+import { addClientContact, addClientNote, assignLeader, deleteClient, findDuplicatePhone, setClientPriority, setClientStatus, updateApproval } from "./service";
 
 const INVALID = "Confira os campos destacados.";
 
@@ -107,6 +107,16 @@ export async function assignLeaderAction(_prev: ActionResult, formData: FormData
   } catch (error) {
     return actionError(errorMessage(error));
   }
+  revalidateClient(parsed.data.id);
+  return OK;
+}
+
+export async function setClientPriorityAction(_prev: ActionResult, formData: FormData): Promise<ActionResult> {
+  await requireAdmin();
+  const parsed = parseForm(clientPrioritySchema, formData);
+  if (!parsed.ok) return actionError("Prioridade inválida.");
+  try { await setClientPriority(await getDb(), parsed.data.id, parsed.data.priority); }
+  catch (error) { return actionError(errorMessage(error)); }
   revalidateClient(parsed.data.id);
   return OK;
 }

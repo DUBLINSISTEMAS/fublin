@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { Layers, X } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { ClientPriorityBadge } from "@/components/ui/badge";
 import { cn } from "@/lib/cn";
 import { formatTime, fromIso } from "@/lib/dates";
 import { APPOINTMENT_KIND_LABELS } from "@/lib/domain";
@@ -49,6 +50,7 @@ export function EventChooser({ events, onPick, onClose }: Props) {
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-medium text-ink">{e.clientName}</span>
+                    <ClientPriorityBadge priority={e.priority} className="mt-1 h-5 px-1.5 text-[10px]" />
                     <span className="block truncate text-[12px] text-muted">
                       {APPOINTMENT_KIND_LABELS[e.kind]}
                       {e.leaderName ? ` · ${e.leaderName}` : ""}

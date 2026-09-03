@@ -4,7 +4,7 @@ import { createTestDb } from "@/db/test-db";
 import { createLeader } from "@/features/leaders/service";
 import { clientInputSchema } from "./schema";
 import { countClientsByStatus, getClientDetail, getDailySeries, getLeaderStats, getPeriodStats, listApproved, listClients, listClientsNeedingAction, parseClientFilters } from "./queries";
-import { addClientContact, addClientNote, assignLeader, createClient, deleteClient, findDuplicatePhone, getClient, registerAttendance, setClientStatus, STATUS_ARROW, updateApproval, updateClient } from "./service";
+import { addClientContact, addClientNote, assignLeader, createClient, deleteClient, findDuplicatePhone, getClient, registerAttendance, setClientPriority, setClientStatus, STATUS_ARROW, updateApproval, updateClient } from "./service";
 
 const now = new Date(2026, 7, 27, 14, 0);
 
@@ -26,6 +26,7 @@ describe("clientInputSchema", () => {
     expect(r.leaderId).toBeUndefined();
     expect(r.status).toBe("novo");
     expect(r.attendance).toBe("presencial");
+    expect(r.priority).toBe("normal");
     expect(r.credit).toBe(30000000);
     expect(clientInputSchema.parse({ ...base, credit: "" }).credit).toBeNull();
   });
@@ -121,6 +122,14 @@ describe("client lifecycle", () => {
     await expect(assignLeader(db, c.id, "nope", now)).rejects.toThrow("Líder não encontrado");
     const logs = (await getClientDetail(db, c.id))?.activities.filter((a) => a.type === "lider").map((a) => a.content);
     expect(logs).toEqual(["Sem líder de vendas", "Líder de vendas: Bia"]);
+  });
+
+  it("changes priority independently and records it in the timeline", async () => {
+    const client = await createClient(db, base, now);
+    expect(client.priority).toBe("normal");
+    const urgent = await setClientPriority(db, client.id, "urgente", now);
+    expect(urgent.priority).toBe("urgente");
+    expect((await getClientDetail(db, client.id))?.activities[0].content).toBe("Prioridade: Urgente");
   });
 
   it("updates approval values and dates", async () => {

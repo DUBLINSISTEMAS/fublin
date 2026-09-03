@@ -88,7 +88,8 @@ export async function listClients(db: Db, filters: ClientFilters = {}, now: Date
     : null;
   const rows = await db.query.clients.findMany({
     where: conditions.length ? and(...conditions) : undefined,
-    orderBy: [desc(clients.updatedAt)],
+    // Dentro de cada coluna, o que exige atenção aparece primeiro.
+    orderBy: [sql`CASE ${clients.priority} WHEN 'urgente' THEN 0 WHEN 'alta' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END`, desc(clients.updatedAt)],
     with: {
       leader: true,
       appointments: { columns: LIGHT_APPOINTMENT_COLUMNS, orderBy: [asc(appointments.scheduledAt)] },
