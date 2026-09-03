@@ -12,7 +12,9 @@ import { formatDayShort, formatSchedule, formatScheduleDay, formatTime, fromIso,
 import { APPOINTMENT_KIND_LABELS, CLIENT_STATUS_LABELS, type ClientStatus } from "@/lib/domain";
 import { formatBRLCompact } from "@/lib/money";
 import { differenceInCalendarDays } from "date-fns";
+import { buildConfirmationMessage } from "../confirmation";
 import type { ClientListItem, NextAppointment } from "../queries";
+import { valuesLine } from "../values";
 import { CardMenu } from "./card-menu";
 
 type Props = {
@@ -25,6 +27,8 @@ type Props = {
   /** Cor da borda enquanto arrasta (a da coluna sob o card). */
   ringClass?: string;
   canManage?: boolean;
+  /** Nome do relacionador na mensagem de confirmação (menu "…"). */
+  consultantName?: string;
 };
 
 /** O último fato relevante do cliente (rodapé do card), do mais urgente ao mais antigo. */
@@ -79,12 +83,25 @@ function NextMeeting({ next, now, tinted }: { next: NextAppointment; now: Date; 
 }
 
 /** Card do funil: chip de interesse, nome, carta, líder, quando o cliente vem e atendimentos. */
-export function ClientCard({ client, now, leaders, onMove, highlight = false, dragging = false, ringClass = "ring-accent", canManage = true }: Props) {
-  const description = client.interestNotes ?? client.notes;
+export function ClientCard({ client, now, leaders, onMove, highlight = false, dragging = false, ringClass = "ring-accent", canManage = true, consultantName = "Relacionador" }: Props) {
+  // Com "Outro", o detalhe já é o chip; repetir embaixo só ocuparia espaço.
+  const description = client.interest === "outro" ? client.notes : (client.interestNotes ?? client.notes);
   const AttendanceIcon = client.attendance === "online" ? Video : Store;
   const footer = cardFooter(client);
+  const values = valuesLine(client);
   const meetingsTitle = `${client.meetingsCount} de ${client.meetingsTotal} ${client.meetingsTotal === 1 ? "encontro marcado" : "encontros marcados"} já realizados`;
   const daysInStage = Math.max(0, differenceInCalendarDays(now, fromIso(client.statusSince)));
+  const confirmation = client.nextAppointment
+    ? buildConfirmationMessage({
+        consultantName,
+        clientName: client.name,
+        attendance: client.attendance,
+        when: fromIso(client.nextAppointment.scheduledAt),
+        interest: client.interest,
+        interestNotes: client.interestNotes,
+        leaderName: client.leader?.name,
+      })
+    : null;
 
   return (
     <article
@@ -97,7 +114,7 @@ export function ClientCard({ client, now, leaders, onMove, highlight = false, dr
     >
       <div className="flex items-start justify-between gap-2">
         <span className="flex flex-wrap items-center gap-1.5">
-          <InterestChip interest={client.interest} />
+          <InterestChip interest={client.interest} notes={client.interestNotes} />
           <span
             className={cn("inline-flex h-7 items-center gap-1 rounded-chip px-2 text-[12px]", highlight ? "bg-white/60 text-ink-2" : "bg-surface-2 text-muted")}
             title={client.attendance === "online" ? "Atendimento online" : "Atendimento presencial"}
@@ -111,7 +128,7 @@ export function ClientCard({ client, now, leaders, onMove, highlight = false, dr
             </span>
           ) : null}
         </span>
-        <CardMenu clientId={client.id} status={client.status} leaderId={client.leaderId} leaders={leaders} onMove={onMove} tinted={highlight} canManage={canManage} />
+        <CardMenu clientId={client.id} status={client.status} leaderId={client.leaderId} leaders={leaders} onMove={onMove} tinted={highlight} canManage={canManage} confirmation={confirmation} phone={client.phone} />
       </div>
 
       <Link href={`/clientes/${client.id}`} className="mt-3 block text-[17px] font-medium leading-tight text-ink hover:underline" onPointerDown={(e) => e.stopPropagation()}>
@@ -123,6 +140,13 @@ export function ClientCard({ client, now, leaders, onMove, highlight = false, dr
           {client.creditCents && description ? " · " : null}
           {description}
         </p>
+      ) : null}
+      {values ? (
+        <p className={cn("mt-1 text-[12px] font-medium tabular-nums", highlight ? "text-ink-2" : "text-ink-2")} title="Adesão (entrada) e parcela que cabe no bolso">
+          {values}
+        </p>
+      ) : client.status !== "fechou" && client.status !== "perdido" ? (
+        <p className="mt-1 text-[12px] text-sun-ink" title="Combine a adesão (entrada) com o cliente">Sem adesão combinada</p>
       ) : null}
 
       {client.nextAppointment ? <NextMeeting next={client.nextAppointment} now={now} tinted={highlight} /> : null}

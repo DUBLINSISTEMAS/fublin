@@ -5,9 +5,10 @@ import { usePathname } from "next/navigation";
 import { useSearchParams } from "next/navigation";
 import { BriefcaseBusiness, CalendarDays, CalendarRange } from "lucide-react";
 import { cn } from "@/lib/cn";
+import type { UserRole } from "@/lib/domain";
 import { isNavActive, MOBILE_TABS } from "./nav";
 
-export function BottomTabs({ role = "admin" }: { role?: "admin" | "leader" }) {
+export function BottomTabs({ role = "admin" }: { role?: UserRole }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   if (role === "leader") {

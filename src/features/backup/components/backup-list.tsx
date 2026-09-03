@@ -18,6 +18,10 @@ const KIND_TONE: Record<BackupKind, Tone> = { auto: "info", manual: "success", s
 
 export const RESTORE_QUESTION = "Restaurar este backup? O que está no sistema agora será guardado num backup de segurança antes.";
 
+/** Cópia bruta do arquivo (o snapshot limpo falhou): pode ter pegado o banco no meio de uma escrita. */
+export const DEGRADED_LABEL = "Cópia simples";
+export const DEGRADED_HINT = "O snapshot limpo do banco falhou e o arquivo foi copiado com o sistema em uso. Prefira um backup sem este aviso.";
+
 export function BackupList({ backups }: { backups: BackupInfo[] }) {
   if (backups.length === 0) {
     return <p className="text-[13px] text-muted">Nenhum backup ainda. O primeiro é feito sozinho meio minuto depois de abrir o sistema — ou clique em “Fazer backup agora”.</p>;
@@ -43,10 +47,16 @@ function BackupRow({ backup }: { backup: BackupInfo }) {
           <Badge tone={KIND_TONE[backup.kind]} className="h-6 text-[12px]">
             {BACKUP_KIND_LABELS[backup.kind]}
           </Badge>
+          {backup.degraded ? (
+            <Badge tone="warning" className="h-6 text-[12px]">
+              {DEGRADED_LABEL}
+            </Badge>
+          ) : null}
         </p>
         <p className="mt-0.5 text-[13px] text-muted">
           <span className="tabular-nums">{formatBytes(backup.sizeBytes)}</span> · <span className="font-mono text-[12px]">{backup.id}</span>
         </p>
+        {backup.degraded ? <p className="mt-0.5 text-[12px] text-rose-ink">{DEGRADED_HINT}</p> : null}
       </div>
       <a href={`/api/backup/${backup.id}`} className={buttonClasses("ghost", "sm")}>
         <Download className="size-4" aria-hidden />

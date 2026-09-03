@@ -1,5 +1,29 @@
 import type { NextConfig } from "next";
 
+const isProduction = process.env.NODE_ENV === "production";
+
+/**
+ * Por que `script-src` ainda tem 'unsafe-inline' — e por que trocá-lo pelo hash do
+ * `APPEARANCE_SCRIPT` (`src/lib/theme.ts`) não resolve:
+ *
+ * O script de aparência não é o único inline da página. O App Router entrega o payload RSC
+ * em scripts inline que o próprio Next gera (`self.__next_f.push(...)`, `self.__next_r=...`),
+ * com conteúdo diferente a cada requisição — impossível de fixar num hash. E, pela regra do
+ * CSP, "'unsafe-inline' is ignored if either a hash or nonce value is present": basta
+ * declarar um hash para os scripts do Next serem bloqueados e a página não hidratar
+ * (medido no navegador: três scripts inline bloqueados e o RSC nunca chega).
+ *
+ * O caminho certo é um nonce por requisição em `src/proxy.ts`: o Next lê o nonce do
+ * cabeçalho CSP e o repassa para as tags que emite, incluindo a do <head>. Com isso
+ * `script-src` vira `'self' 'nonce-…'` e o 'unsafe-inline' cai de vez.
+ *
+ * Em desenvolvimento sobra o 'unsafe-eval', que o React usa para reconstruir pilhas de erro.
+ */
+const scriptSrc = isProduction ? "script-src 'self' 'unsafe-inline'" : "script-src 'self' 'unsafe-inline' 'unsafe-eval'";
+
+// ws:/wss: existem só para o socket do HMR; o app em produção não abre WebSocket nenhum.
+const connectSrc = isProduction ? "connect-src 'self'" : "connect-src 'self' ws: wss:";
+
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -8,11 +32,10 @@ const CONTENT_SECURITY_POLICY = [
   "object-src 'none'",
   "img-src 'self' data: blob:",
   "font-src 'self'",
-  // O script mínimo de aparência roda antes da hidratação; não processa entrada externa.
-  "script-src 'self' 'unsafe-inline'",
+  scriptSrc,
   // Next/Tailwind aplicam estilos inline durante renderização e desenvolvimento.
   "style-src 'self' 'unsafe-inline'",
-  "connect-src 'self' ws: wss:",
+  connectSrc,
   "worker-src 'self' blob:",
 ].join("; ");
 

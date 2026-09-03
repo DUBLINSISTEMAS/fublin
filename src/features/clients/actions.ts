@@ -8,8 +8,9 @@ import { errorMessage } from "@/lib/actions";
 import { actionError, formError, formSuccess, OK, type ActionResult, type FormState } from "@/lib/result";
 import { getStorage } from "@/lib/storage";
 import { idSchema, parseForm } from "@/lib/validation";
+import { createClientWithSchedule, updateClientWithSchedule, type OnboardingResult } from "./onboarding";
 import { approvalSchema, assignLeaderSchema, clientContactSchema, clientInputSchema, clientNoteSchema, clientStatusSchema } from "./schema";
-import { addClientContact, addClientNote, assignLeader, createClient, deleteClient, findDuplicatePhone, setClientStatus, updateApproval, updateClient } from "./service";
+import { addClientContact, addClientNote, assignLeader, deleteClient, findDuplicatePhone, setClientStatus, updateApproval } from "./service";
 
 const INVALID = "Confira os campos destacados.";
 
@@ -22,37 +23,43 @@ function revalidateClient(id?: string) {
   if (id) revalidatePath(`/clientes/${id}`);
 }
 
+/** Página do cliente; se o agendamento falhou depois de salvar, ela avisa e pede para marcar de novo. */
+function clientDestination(result: OnboardingResult): string {
+  return result.scheduleError ? `/clientes/${result.client.id}?aviso=agendamento` : `/clientes/${result.client.id}`;
+}
+
 export async function createClientAction(_prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = parseForm(clientInputSchema, formData);
   if (!parsed.ok) return formError(INVALID, parsed.fieldErrors, parsed.values);
-  let id: string;
+  let result: OnboardingResult;
   try {
     const db = await getDb();
     const duplicate = await findDuplicatePhone(db, parsed.data.phone);
     if (duplicate) return formError(`Este telefone já pertence a ${duplicate.name}. Abra o cadastro existente.`, { phone: ["Telefone já cadastrado"] }, parsed.values);
-    id = (await createClient(db, parsed.data)).id;
+    result = await createClientWithSchedule(db, parsed.data);
   } catch (error) {
     return formError(errorMessage(error), undefined, parsed.values);
   }
-  revalidateClient(id);
-  redirect(`/clientes/${id}`);
+  revalidateClient(result.client.id);
+  redirect(clientDestination(result));
 }
 
 export async function updateClientAction(id: string, _prev: FormState, formData: FormData): Promise<FormState> {
   await requireAdmin();
   const parsed = parseForm(clientInputSchema, formData);
   if (!parsed.ok) return formError(INVALID, parsed.fieldErrors, parsed.values);
+  let result: OnboardingResult;
   try {
     const db = await getDb();
     const duplicate = await findDuplicatePhone(db, parsed.data.phone, id);
     if (duplicate) return formError(`Este telefone já pertence a ${duplicate.name}.`, { phone: ["Telefone já cadastrado"] }, parsed.values);
-    await updateClient(db, id, parsed.data);
+    result = await updateClientWithSchedule(db, id, parsed.data);
   } catch (error) {
     return formError(errorMessage(error), undefined, parsed.values);
   }
   revalidateClient(id);
-  redirect(`/clientes/${id}`);
+  redirect(clientDestination(result));
 }
 
 /**

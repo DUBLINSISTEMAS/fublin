@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Toaster } from "@/components/ui/toast";
 import type { ActionResult } from "@/lib/result";
 import type { BackupInfo } from "../schema";
+import { DEGRADED_HINT, DEGRADED_LABEL } from "./backup-list";
 import { BackupPanel } from "./backup-panel";
 
 type QuickAction = (prev: ActionResult, formData: FormData) => Promise<ActionResult>;
@@ -19,8 +20,8 @@ vi.mock("../actions", () => ({ createBackupAction: mocks.createBackupAction, res
 const BACKUP_DIR = "C:\\crm\\data\\backups";
 
 const backups: BackupInfo[] = [
-  { id: "2026-08-27_1430", createdAt: new Date(2026, 7, 27, 14, 30).toISOString(), sizeBytes: 2 * 1024 * 1024, kind: "manual" },
-  { id: "2026-08-26_0000", createdAt: new Date(2026, 7, 26, 0, 0).toISOString(), sizeBytes: 1536, kind: "auto" },
+  { id: "2026-08-27_1430", createdAt: new Date(2026, 7, 27, 14, 30).toISOString(), sizeBytes: 2 * 1024 * 1024, kind: "manual", degraded: false },
+  { id: "2026-08-26_0000", createdAt: new Date(2026, 7, 26, 0, 0).toISOString(), sizeBytes: 1536, kind: "auto", degraded: false },
 ];
 
 afterEach(() => {
@@ -37,6 +38,13 @@ describe("BackupPanel", () => {
     expect(screen.getByText("Automático")).toBeInTheDocument();
     const links = screen.getAllByRole("link", { name: /Baixar/ });
     expect(links.map((a) => a.getAttribute("href"))).toEqual(["/api/backup/2026-08-27_1430", "/api/backup/2026-08-26_0000"]);
+    expect(screen.queryByText(DEGRADED_LABEL)).not.toBeInTheDocument();
+  });
+
+  it("warns on a backup made with the raw file copy", () => {
+    render(<BackupPanel backups={[{ ...backups[0], degraded: true }]} backupDir={BACKUP_DIR} />);
+    expect(screen.getByText(DEGRADED_LABEL)).toBeInTheDocument();
+    expect(screen.getByText(DEGRADED_HINT)).toBeInTheDocument();
   });
 
   it("creates a backup on demand", async () => {

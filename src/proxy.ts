@@ -8,6 +8,11 @@ export function proxy(request: NextRequest) {
   return NextResponse.next();
 }
 
+/**
+ * Tudo passa pelo proxy, menos a API (cada rota confere a sessão), os estáticos do Next
+ * e os arquivos que o navegador busca sem cookie (manifest do PWA, ícones). As exceções
+ * terminam em "/" ou no nome completo para não abrir brecha em rotas parecidas.
+ */
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|icon.svg|apple-icon|icons).*)"],
+  matcher: ["/((?!api/|_next/|favicon.ico|icon.svg|apple-icon|icons/|manifest.webmanifest|robots.txt|sitemap.xml).*)"],
 };

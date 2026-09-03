@@ -15,13 +15,18 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
       <EmptyState
         icon={CircleAlert}
         title="Algo deu errado"
-        description="Tente de novo. Se continuar, reinicie o app pelo terminal."
+        description="Tente de novo. Se continuar, reinicie o app pelo terminal ou veja o log do servidor."
         action={
           <Button onClick={reset} variant="secondary">
             Tentar novamente
           </Button>
         }
       />
+      {error.digest ? (
+        <p className="mt-4 text-center text-[12px] text-muted">
+          Código do erro: <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono">{error.digest}</code> — procure por ele no log do servidor.
+        </p>
+      ) : null}
     </div>
   );
 }

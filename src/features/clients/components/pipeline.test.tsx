@@ -23,7 +23,7 @@ describe("Pipeline", () => {
   const items = [makeListItem({ id: "c1", name: "Ana Souza", status: "novo" }), makeListItem({ id: "c2", name: "Bruno Lima", status: "atendido" })];
 
   it("groups clients by column", () => {
-    render(<Pipeline items={items} leaders={[]} now={NOW} />);
+    render(<Pipeline items={items} leaders={[]} now={NOW} consultantName="Anderson" />);
     expect(column("Novo").getByText("Ana Souza")).toBeInTheDocument();
     expect(column("Atendido").getByText("Bruno Lima")).toBeInTheDocument();
     expect(column("Perdido").getByText("Arraste aqui quem desistiu.")).toBeInTheDocument();
@@ -32,7 +32,7 @@ describe("Pipeline", () => {
   it("moves optimistically through the card menu and calls the server once", async () => {
     let resolve!: (v: { ok: true }) => void;
     actions.moveClientAction.mockImplementation(() => new Promise((r) => (resolve = r)));
-    render(<Pipeline items={items} leaders={[]} now={NOW} />);
+    render(<Pipeline items={items} leaders={[]} now={NOW} consultantName="Anderson" />);
 
     openMenuAndMove("Ana Souza", "analise");
     // Antes da resposta do servidor o card já está na coluna nova.
@@ -48,7 +48,7 @@ describe("Pipeline", () => {
 
   it("rolls back and shows the error when the server refuses", async () => {
     actions.moveClientAction.mockResolvedValue({ ok: false, error: "Cliente não encontrado." });
-    render(<Pipeline items={items} leaders={[]} now={NOW} />);
+    render(<Pipeline items={items} leaders={[]} now={NOW} consultantName="Anderson" />);
 
     openMenuAndMove("Bruno Lima", "fechou");
     await screen.findByRole("alert");
@@ -58,7 +58,7 @@ describe("Pipeline", () => {
   });
 
   it("ignores a move to the same column", () => {
-    render(<Pipeline items={items} leaders={[]} now={NOW} />);
+    render(<Pipeline items={items} leaders={[]} now={NOW} consultantName="Anderson" />);
     openMenuAndMove("Ana Souza", "novo");
     expect(actions.moveClientAction).not.toHaveBeenCalled();
   });

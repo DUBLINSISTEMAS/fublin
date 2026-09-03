@@ -27,17 +27,23 @@ async function main() {
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const daysAgo = (n: number) => subDays(today, n);
+  /** Adesão e parcela ainda não combinadas (os exemplos abaixo preenchem quando faz sentido). */
+  const semValores = { adesao: null, installmentMin: null, installmentMax: null };
 
   const carlos = await createLeader(db, { name: "Carlos Menezes", phone: "11987650001" });
   const juliana = await createLeader(db, { name: "Juliana Prado", phone: "11987650002" });
 
   const ana = await createClient(db, {
+    ...semValores,
     name: "Ana Paula Souza",
     phone: "11998877001",
     email: "ana.souza@email.com",
     interest: "imovel",
     interestNotes: "Apto na zona sul",
     credit: 30000000,
+    adesao: 1500000,
+    installmentMin: 180000,
+    installmentMax: 250000,
     attendance: "presencial",
     status: "novo",
     source: "indicacao",
@@ -45,6 +51,7 @@ async function main() {
     notes: "Indicada pela Marcia. Prefere contato à tarde.",
   });
   const bruno = await createClient(db, {
+    ...semValores,
     name: "Bruno Lima",
     phone: "11998877002",
     interest: "automovel",
@@ -57,6 +64,7 @@ async function main() {
     firstVisitDay: dayKey(daysAgo(3)),
   });
   const carla = await createClient(db, {
+    ...semValores,
     name: "Carla Nogueira",
     phone: "11998877003",
     interest: "imovel",
@@ -69,6 +77,7 @@ async function main() {
     firstVisitDay: dayKey(daysAgo(10)),
   });
   const diego = await createClient(db, {
+    ...semValores,
     name: "Diego Ferreira",
     phone: "11998877004",
     interest: "moto",
@@ -80,6 +89,7 @@ async function main() {
     firstVisitDay: dayKey(daysAgo(20)),
   }, daysAgo(22));
   const elaine = await createClient(db, {
+    ...semValores,
     name: "Elaine Castro",
     phone: "11998877005",
     interest: "pesados",
@@ -91,6 +101,7 @@ async function main() {
     notes: "Mora em Campinas; atendimento por videochamada.",
   }, daysAgo(15));
   const felipe = await createClient(db, {
+    ...semValores,
     name: "Felipe Andrade",
     phone: "11998877006",
     interest: "servicos",
@@ -101,6 +112,7 @@ async function main() {
     source: "indicacao",
   });
   const gabriela = await createClient(db, {
+    ...semValores,
     name: "Gabriela Rocha",
     phone: "11998877007",
     interest: "imovel",

@@ -129,8 +129,10 @@ npm run db:generate    # gera migração após alterar src/db/schema.ts
 
 ## Limites desta versão
 
-- Um usuário, sem login. Os dados ficam só neste computador (`data/app.db` + `data/uploads/`), com backup diário em `data/backups/`.
-- Notificação com o app **fechado** (push) e deploy na nuvem ficam para uma próxima versão; a arquitetura já está pronta para isso (basta trocar o SQLite local por Turso/libSQL remoto e adicionar autenticação).
+- Login por usuário e senha: o relacionador é o administrador e cria os acessos dos líderes (cada líder vê só a própria carteira). Não há redefinição de senha pelo app ainda.
+- No computador, os dados ficam em `data/app.db` + `data/uploads/`, com backup diário em `data/backups/`. Na nuvem (Vercel + Turso + Blob privado), siga `docs/DEPLOY_VERCEL.md`.
+- Notificação com o app **fechado** (push) fica para uma próxima versão.
+- Rodando `npm start` à mão na rede local (HTTP), defina `LOCAL_NETWORK_HTTP=1`; o instalador do Windows já faz isso.
 
 Decisões de design: `docs/superpowers/specs/2026-08-27-relacionador-crm-design.md`.
 

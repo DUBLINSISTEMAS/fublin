@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/cn";
+import type { UserRole } from "@/lib/domain";
 import { isNavActive, NAV_ITEMS } from "./nav";
 
 /** Lista de navegação da sidebar (client só para saber a rota ativa). */
-export function NavLinks({ role = "admin" }: { role?: "admin" | "leader" }) {
+export function NavLinks({ role = "admin" }: { role?: UserRole }) {
   const pathname = usePathname();
   const items = role === "leader" ? NAV_ITEMS.filter((item) => item.href === "/clientes") : NAV_ITEMS;
   return (

@@ -21,7 +21,11 @@ Nunca salve esses valores no Git. Mudanças em variáveis só entram em vigor em
 
 ## 3. Migre e valide
 
-O aplicativo aplica migrações pendentes automaticamente ao iniciar. Com as variáveis de produção disponíveis em um terminal seguro, você também pode validar antecipadamente:
+Na Vercel as migrações rodam **no build** (`npm run vercel-build` = `db:migrate` + `next build`), uma vez por deploy, antes de qualquer requisição. Por isso `TURSO_DATABASE_URL` e `TURSO_AUTH_TOKEN` precisam estar disponíveis no build (marque Production e Preview ao cadastrar). Se faltarem, o build falha com a mensagem "Banco não configurado" em vez de o site abrir quebrado.
+
+Se mesmo assim a tela de entrar mostrar "Banco de dados indisponível", a mensagem exibida é a causa real; ela também aparece nos Runtime Logs do deploy.
+
+Com as variáveis de produção disponíveis em um terminal seguro, você também pode validar antecipadamente:
 
 ```bash
 npm run db:migrate

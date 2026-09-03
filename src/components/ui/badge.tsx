@@ -8,7 +8,7 @@ import {
   ATTACHMENT_KIND_LABELS,
   CLIENT_STATUS_LABELS,
   CLIENT_STATUS_TONE,
-  INTEREST_LABELS,
+  describeInterest,
   type AppointmentKind,
   type AppointmentStatus,
   type AttachmentKind,
@@ -31,6 +31,7 @@ const INTEREST_TONE: Record<Interest, string> = {
   imovel: "bg-accent text-white",
   automovel: "bg-lime text-lime-ink",
   moto: "bg-sun text-sun-ink",
+  reforma: "bg-lime-soft text-lime-ink",
   servicos: "bg-sky text-sky-ink",
   pesados: "bg-dark text-white",
   outro: "bg-surface-3 text-ink-2",
@@ -73,8 +74,9 @@ export function AppointmentStatusBadge({ status, className }: { status: Appointm
   );
 }
 
-export function InterestChip({ interest, className }: { interest: Interest; className?: string }) {
-  return <Chip className={cn(INTEREST_TONE[interest], className)}>{INTEREST_LABELS[interest]}</Chip>;
+/** `notes` deixa "Outro" mostrar o interesse personalizado ("Investimento"). */
+export function InterestChip({ interest, notes, className }: { interest: Interest; notes?: string | null; className?: string }) {
+  return <Chip className={cn(INTEREST_TONE[interest], "max-w-44 truncate", className)}>{describeInterest(interest, notes)}</Chip>;
 }
 
 export function AppointmentKindChip({ kind, className }: { kind: AppointmentKind; className?: string }) {

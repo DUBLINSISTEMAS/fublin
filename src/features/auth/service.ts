@@ -1,11 +1,11 @@
 import { createHash, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import { promisify } from "node:util";
-import { and, count, eq, gt, lt } from "drizzle-orm";
+import { and, count, eq, gt, gte, lt, ne, sql } from "drizzle-orm";
 import type { Db } from "@/db/client";
 import { sessions, users, type User } from "@/db/schema";
 import { newId } from "@/lib/ids";
 import { DomainError } from "@/lib/result";
-import type { LoginInput, SetupInput, UserInput } from "./schema";
+import type { LoginInput, PasswordChangeInput, ResetPasswordInput, SetupInput, UserInput } from "./schema";
 
 const scrypt = promisify(scryptCallback);
 const SESSION_DAYS = 30;
@@ -13,12 +13,24 @@ const MAX_LOGIN_FAILURES = 5;
 const LOGIN_LOCK_MINUTES = 15;
 
 export type SafeUser = Omit<User, "passwordHash" | "failedLoginCount" | "lockedUntil">;
+
+/**
+ * Usuário pronto para sair do servidor. Os campos são listados um a um de
+ * propósito: uma coluna nova em `users` entra em `SafeUser` (que é `Omit` de
+ * três campos) e some deste objeto — o TypeScript acusa o campo faltando e
+ * obriga a decidir se ela pode ou não aparecer na UI.
+ */
 export function safeUser(value: User): SafeUser {
-  const user: Partial<User> = { ...value };
-  delete user.passwordHash;
-  delete user.failedLoginCount;
-  delete user.lockedUntil;
-  return user as SafeUser;
+  const { id, name, login, role, leaderId, active, createdAt, updatedAt } = value;
+  return { id, name, login, role, leaderId, active, createdAt, updatedAt };
+}
+
+/** Usuário na tela de acessos: o administrador precisa enxergar o bloqueio para poder liberar. */
+export type ManagedUser = SafeUser & { lockedUntil: string | null };
+
+/** `true` enquanto o bloqueio por senha errada ainda vale. */
+export function isLocked(lockedUntil: string | null, now = new Date()): boolean {
+  return Boolean(lockedUntil && lockedUntil > now.toISOString());
 }
 
 async function hashPassword(password: string): Promise<string> {
@@ -27,7 +39,7 @@ async function hashPassword(password: string): Promise<string> {
   return `scrypt$${salt}$${derived.toString("hex")}`;
 }
 
-async function verifyPassword(password: string, stored: string): Promise<boolean> {
+export async function verifyPassword(password: string, stored: string): Promise<boolean> {
   const [algorithm, salt, expectedHex] = stored.split("$");
   if (algorithm !== "scrypt" || !salt || !expectedHex) return false;
   const expected = Buffer.from(expectedHex, "hex");
@@ -36,6 +48,9 @@ async function verifyPassword(password: string, stored: string): Promise<boolean
 }
 
 const tokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
+
+/** Hash "de mentira" para gastar o mesmo tempo quando o login não existe (não dá para descobrir usuários pelo relógio). */
+const DUMMY_HASH = `scrypt$${"0".repeat(32)}$${"0".repeat(128)}`;
 
 export async function hasUsers(db: Db): Promise<boolean> {
   const [row] = await db.select({ total: count() }).from(users);
@@ -61,14 +76,22 @@ export async function createUser(db: Db, input: UserInput, now = new Date()): Pr
 
 export async function authenticate(db: Db, input: LoginInput, now = new Date()): Promise<SafeUser | null> {
   const user = await db.query.users.findFirst({ where: eq(users.login, input.login.trim().toLowerCase()) });
-  if (!user || !user.active) return null;
+  if (!user || !user.active) {
+    await verifyPassword(input.password, DUMMY_HASH);
+    return null;
+  }
   if (user.lockedUntil && user.lockedUntil > now.toISOString()) return null;
   if (!(await verifyPassword(input.password, user.passwordHash))) {
-    const failures = user.failedLoginCount + 1;
-    const lockedUntil = failures >= MAX_LOGIN_FAILURES
-      ? new Date(now.getTime() + LOGIN_LOCK_MINUTES * 60_000).toISOString()
-      : null;
-    await db.update(users).set({ failedLoginCount: lockedUntil ? 0 : failures, lockedUntil, updatedAt: now.toISOString() }).where(eq(users.id, user.id));
+    // Incremento no próprio banco: tentativas simultâneas não "leem 0 e gravam 1" todas juntas.
+    const [after] = await db
+      .update(users)
+      .set({ failedLoginCount: sql`${users.failedLoginCount} + 1`, updatedAt: now.toISOString() })
+      .where(eq(users.id, user.id))
+      .returning({ failures: users.failedLoginCount });
+    if (after && after.failures >= MAX_LOGIN_FAILURES) {
+      const lockedUntil = new Date(now.getTime() + LOGIN_LOCK_MINUTES * 60_000).toISOString();
+      await db.update(users).set({ failedLoginCount: 0, lockedUntil }).where(and(eq(users.id, user.id), gte(users.failedLoginCount, MAX_LOGIN_FAILURES)));
+    }
     return null;
   }
   if (user.failedLoginCount || user.lockedUntil) {
@@ -98,8 +121,49 @@ export async function deleteSession(db: Db, token: string): Promise<void> {
   await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash(token)));
 }
 
-export async function listUsers(db: Db): Promise<SafeUser[]> {
-  return (await db.query.users.findMany({ orderBy: (u, { asc }) => [asc(u.name)] })).map(safeUser);
+export async function listUsers(db: Db): Promise<ManagedUser[]> {
+  const rows = await db.query.users.findMany({ orderBy: (u, { asc }) => [asc(u.name)] });
+  return rows.map((row) => ({ ...safeUser(row), lockedUntil: row.lockedUntil }));
+}
+
+/**
+ * Troca da própria senha. Exige a senha atual e derruba as outras sessões:
+ * se alguém entrou com a senha antiga, sai na hora. A sessão de quem trocou
+ * (`keepToken`) continua valendo para a pessoa não ser deslogada do próprio app.
+ */
+export async function changePassword(db: Db, userId: string, input: PasswordChangeInput, keepToken: string | null, now = new Date()): Promise<void> {
+  const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
+  if (!user) throw new DomainError("Usuário não encontrado.");
+  if (!(await verifyPassword(input.currentPassword, user.passwordHash))) throw new DomainError("A senha atual está incorreta.");
+  await db.update(users).set({ passwordHash: await hashPassword(input.password), failedLoginCount: 0, lockedUntil: null, updatedAt: now.toISOString() }).where(eq(users.id, userId));
+  const mine = and(eq(sessions.userId, userId), keepToken ? ne(sessions.tokenHash, tokenHash(keepToken)) : undefined);
+  await db.delete(sessions).where(mine);
+}
+
+/**
+ * Redefinição feita pelo administrador para outra pessoa: derruba todas as
+ * sessões dela e libera o bloqueio. Para a própria senha existe `changePassword`,
+ * que pede a senha atual — o administrador não escapa dessa conferência.
+ */
+export async function resetUserPassword(db: Db, input: ResetPasswordInput, currentUserId: string, now = new Date()): Promise<void> {
+  if (input.id === currentUserId) throw new DomainError("Para trocar a sua própria senha, use “Sua conta” nas configurações.");
+  const changed = await db
+    .update(users)
+    .set({ passwordHash: await hashPassword(input.password), failedLoginCount: 0, lockedUntil: null, updatedAt: now.toISOString() })
+    .where(eq(users.id, input.id))
+    .returning({ id: users.id });
+  if (!changed.length) throw new DomainError("Usuário não encontrado.");
+  await db.delete(sessions).where(eq(sessions.userId, input.id));
+}
+
+/** Libera quem ficou bloqueado por errar a senha, sem esperar os 15 minutos. */
+export async function unlockUser(db: Db, id: string, now = new Date()): Promise<void> {
+  const changed = await db
+    .update(users)
+    .set({ failedLoginCount: 0, lockedUntil: null, updatedAt: now.toISOString() })
+    .where(eq(users.id, id))
+    .returning({ id: users.id });
+  if (!changed.length) throw new DomainError("Usuário não encontrado.");
 }
 
 export async function setUserActive(db: Db, id: string, active: boolean, currentUserId: string, now = new Date()): Promise<void> {

@@ -50,12 +50,15 @@ export function getDb(): Promise<Db> {
   const db = (async () => {
     const config = resolveDatabaseConfig();
     const fresh = createDb(config.url, config.authToken);
-    // Uma instância nova precisa estar pronta antes da primeira consulta. O migrador é
-    // idempotente e este singleton garante uma execução por processo/cold start.
-    await migrateDb(fresh);
+    // Local: migra na primeira chamada (o app é o único processo). Na Vercel, não: várias
+    // funções sobem ao mesmo tempo e disputariam o CREATE TABLE; lá a migração roda no
+    // build (`vercel-build` → `npm run db:migrate`), uma vez, antes de qualquer requisição.
+    if (!process.env.VERCEL) await migrateDb(fresh);
     return fresh;
   })().catch((error: unknown) => {
     globalForDb.__relacionadorDb = undefined;
+    // A tela de erro genérica esconde a causa; o log do servidor é onde ela precisa aparecer.
+    console.error("[db] não foi possível abrir o banco", error);
     throw error;
   });
   globalForDb.__relacionadorDb = { db, schema };

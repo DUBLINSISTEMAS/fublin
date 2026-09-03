@@ -10,6 +10,7 @@ import { formatSchedule, fromIso } from "@/lib/dates";
 import { formatPhone } from "@/lib/phone";
 import { initials } from "@/lib/text";
 import type { ClientListItem } from "../queries";
+import { valuesLine } from "../values";
 
 type Props = { items: ClientListItem[]; now: Date; hasFilters: boolean };
 
@@ -31,7 +32,7 @@ export function ClientList({ items, now, hasFilters }: Props) {
     <Card>
       <ul className="divide-y divide-line">
         {items.map((c) => {
-          const meta = [c.interestNotes, c.leader?.name].filter(Boolean).join(" · ");
+          const meta = [c.interest === "outro" ? null : c.interestNotes, c.leader?.name, valuesLine(c)].filter(Boolean).join(" · ");
           const next = c.nextAppointment;
           const NextIcon = next ? APPOINTMENT_KIND_ICON[next.kind] : null;
           return (
@@ -41,7 +42,7 @@ export function ClientList({ items, now, hasFilters }: Props) {
                 <span className="min-w-0 flex-1">
                   <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
                     <span className="truncate text-[16px] font-medium text-ink">{c.name}</span>
-                    <InterestChip interest={c.interest} className="h-6 text-[12px]" />
+                    <InterestChip interest={c.interest} notes={c.interestNotes} className="h-6 text-[12px]" />
                     <ClientStatusBadge status={c.status} className="h-6 text-[12px]" />
                   </span>
                   {meta ? <span className="mt-0.5 block truncate text-[13px] text-muted">{meta}</span> : null}

@@ -2,7 +2,7 @@
 
 import { useState, type ComponentProps } from "react";
 import { cn } from "@/lib/cn";
-import { parseBRL, centsToInput } from "@/lib/money";
+import { parseBRL, centsToInput, isInvalidMoney } from "@/lib/money";
 import { Input } from "./field";
 
 /**
@@ -22,7 +22,9 @@ export function maskMoney(raw: string): string {
 /** Ao sair do campo, completa os centavos: "700.000" → "700.000,00". */
 export function settleMoney(text: string): string {
   const cents = parseBRL(text);
-  return cents === null ? "" : centsToInput(cents);
+  if (cents === null) return "";
+  // Texto ilegível: devolve o que a pessoa digitou para ela ver e corrigir (o servidor recusa com "Valor inválido").
+  return isInvalidMoney(cents) ? text : centsToInput(cents);
 }
 
 type Props = Omit<ComponentProps<typeof Input>, "defaultValue" | "value" | "onChange" | "type" | "inputMode"> & {

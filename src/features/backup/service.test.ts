@@ -67,12 +67,22 @@ describe("createBackup / listBackups", () => {
     expect(await listBackups(backupDir)).toEqual([info]);
   });
 
-  it("falls back to copying the file when VACUUM INTO fails", async () => {
+  it("falls back to copying the file when VACUUM INTO fails and marks the backup as degraded", async () => {
     const broken = { run: vi.fn().mockRejectedValue(new Error("no vacuum")) } as unknown as Db;
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const info = await createBackup({ db: broken, dataDir, backupDir, now: NOW });
     expect(warn).toHaveBeenCalledTimes(1);
     expect(await leaderNames(openDb(path.join(backupDir, info.id, "app.db")))).toEqual(["Carlos"]);
+    // O aviso precisa sobreviver ao manifest: é o que a tela mostra para o dono.
+    expect(info.degraded).toBe(true);
+    expect(JSON.parse(await fs.readFile(path.join(backupDir, info.id, "manifest.json"), "utf8"))).toMatchObject({ degraded: true });
+    expect((await listBackups(backupDir))[0].degraded).toBe(true);
+  });
+
+  it("a clean snapshot is never marked as degraded", async () => {
+    const info = await createBackup({ db, dataDir, backupDir, now: NOW });
+    expect(info.degraded).toBe(false);
+    expect(JSON.parse(await fs.readFile(path.join(backupDir, info.id, "manifest.json"), "utf8"))).toMatchObject({ degraded: false });
   });
 
   it("never overwrites a backup made in the same minute", async () => {
@@ -128,13 +138,17 @@ describe("restoreBackup", () => {
     expect(await fs.readdir(dataDir)).toEqual(["app.db", "uploads"]);
   });
 
-  it("keeps the current uploads untouched when copying the backup's uploads fails", async () => {
+  it("keeps the current uploads untouched and points at the safety backup when the copy fails", async () => {
     const backup = await createBackup({ db, dataDir, backupDir, now: NOW });
     await fs.writeFile(uploadsFile("lideres", "novo.png"), PNG);
     const realCp = fs.cp;
     vi.spyOn(fs, "cp").mockImplementation((src, dest, options) => (String(dest).endsWith(".novo") ? Promise.reject(new Error("disco cheio")) : realCp(src, dest, options)));
+    const error = vi.spyOn(console, "error").mockImplementation(() => undefined);
 
-    await expect(restoreBackup({ db, dataDir, backupDir, id: backup.id, now: LATER })).rejects.toThrow("disco cheio");
+    // As tabelas já foram trocadas quando os anexos falham: a mensagem diz qual backup desfaz isso.
+    await expect(restoreBackup({ db, dataDir, backupDir, id: backup.id, now: LATER })).rejects.toThrow(/2026-08-27_1500-seguranca/);
+    await expect(restoreBackup({ db, dataDir, backupDir, id: backup.id, now: LATER })).rejects.toThrow(DomainError);
+    expect(error).toHaveBeenCalled();
     expect(await fs.readFile(uploadsFile("lideres", "novo.png"))).toEqual(Buffer.from(PNG));
     expect(await fs.readFile(uploadsFile("lideres", "carlos.png"))).toEqual(Buffer.from(PNG));
     expect(await fs.readdir(dataDir)).toEqual(["app.db", "uploads"]);
@@ -226,6 +240,19 @@ describe("runScheduledBackupIfDue / pruneBackups", () => {
     const next = await runScheduledBackupIfDue({ db, dataDir, backupDir, now: new Date(2026, 7, 28, 0, 1), keep: 1 });
     expect(next).toBe("2026-08-28_0001");
     expect(await listBackups(backupDir)).toMatchObject([{ id: next, kind: "auto" }]);
+  });
+
+  it("treats only a missing marker as 'never ran' and lets other read errors surface", async () => {
+    const marker = path.join(backupDir, ".last");
+    // Sem marcador: é o primeiro backup do dia.
+    expect(await runScheduledBackupIfDue({ db, dataDir, backupDir, now: NOW })).toBe("2026-08-27_1430");
+
+    // Marcador ilegível (aqui, uma pasta no lugar do arquivo): parar é melhor do que
+    // refazer o backup a cada checagem sem ninguém ficar sabendo.
+    await fs.rm(marker);
+    await fs.mkdir(marker);
+    await expect(runScheduledBackupIfDue({ db, dataDir, backupDir, now: new Date(2026, 7, 28, 0, 1) })).rejects.toThrow(/EISDIR|EACCES|EPERM/);
+    expect(await ids()).toEqual(["2026-08-27_1430"]);
   });
 
   it("pruneBackups keeps the newest N", async () => {

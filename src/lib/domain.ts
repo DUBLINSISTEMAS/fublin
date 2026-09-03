@@ -5,16 +5,22 @@
 
 export type Tone = "neutral" | "info" | "accent" | "warning" | "success" | "danger";
 
-export const INTERESTS = ["imovel", "automovel", "moto", "servicos", "pesados", "outro"] as const;
+export const INTERESTS = ["imovel", "automovel", "moto", "reforma", "servicos", "pesados", "outro"] as const;
 export type Interest = (typeof INTERESTS)[number];
 export const INTEREST_LABELS: Record<Interest, string> = {
   imovel: "Imóvel",
   automovel: "Automóvel",
   moto: "Moto",
+  reforma: "Reforma",
   servicos: "Serviços",
   pesados: "Pesados",
   outro: "Outro",
 };
+/** Interesse personalizado: "Outro" com detalhe vira o próprio detalhe ("Investimento", "Terreno"). */
+export function describeInterest(interest: Interest, notes: string | null | undefined): string {
+  const custom = notes?.trim();
+  return interest === "outro" && custom ? custom : INTEREST_LABELS[interest];
+}
 
 /**
  * Funil do cliente, na ordem da rotina do relacionador:
@@ -65,6 +71,11 @@ export type Attendance = (typeof ATTENDANCES)[number];
 export const ATTENDANCE_LABELS: Record<Attendance, string> = {
   presencial: "Presencial",
   online: "Online",
+};
+/** Agendar no cadastro: presencial marca visita à loja, online marca reunião online. */
+export const ATTENDANCE_APPOINTMENT_KIND: Record<Attendance, AppointmentKind> = {
+  presencial: "visita",
+  online: "reuniao",
 };
 
 export const SOURCES = ["indicacao", "redes_sociais", "telefone", "abordagem", "outro"] as const;
@@ -137,6 +148,17 @@ export const APPOINTMENT_STATUS_TONE: Record<AppointmentStatus, Tone> = {
 
 export const ACTIVITY_TYPES = ["nota", "status", "agendamento", "cliente", "anexo", "lider"] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
+
+/**
+ * Quem entra no sistema: o dono (administrador) vê tudo; o líder vê somente
+ * os clientes atribuídos a ele. Única fonte — DB, Zod e navegação importam daqui.
+ */
+export const USER_ROLES = ["admin", "leader"] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+  admin: "Administrador",
+  leader: "Líder",
+};
 
 export const ATTACHMENT_KINDS = ["proposta", "documento", "comprovante", "outro"] as const;
 export type AttachmentKind = (typeof ATTACHMENT_KINDS)[number];

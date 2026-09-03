@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { DensityToggle, ThemeToggle } from "@/components/layout/theme-toggle";
 import { Card, Section } from "@/components/ui/card";
 import { getDb } from "@/db/client";
+import { AccountForm } from "@/features/auth/components/account-form";
 import { requireAdmin } from "@/features/auth/session";
 import { BackupPanel } from "@/features/backup/components/backup-panel";
 import { ClientImport } from "@/features/clients/components/client-import";
@@ -35,7 +36,7 @@ const EXPORTS = [
 ];
 
 export default async function ConfigPage() {
-  await requireAdmin();
+  const user = await requireAdmin();
   const port = process.env.PORT ?? "3000";
   const addresses = lanAddresses();
   const backupDir = resolveBackupDir();
@@ -50,6 +51,14 @@ export default async function ConfigPage() {
           <Card className="p-4 sm:p-5">
             <ProfileForm profile={settings.profile} />
           </Card>
+        </Section>
+
+        <Section title="Sua conta" className="scroll-mt-24">
+          <div id="senha">
+            <Card className="p-4 sm:p-5">
+              <AccountForm name={user.name} login={user.login} />
+            </Card>
+          </div>
         </Section>
 
         <Section title="Quinzenas, metas e comissão" className="scroll-mt-24">

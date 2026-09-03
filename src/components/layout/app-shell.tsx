@@ -26,7 +26,8 @@ export async function AppShell({ children }: { children: ReactNode }) {
         <main className="px-4 pt-4 pb-28 sm:px-5 md:px-0 md:pt-4 md:pb-8 print:p-0">{children}</main>
       </div>
       <BottomTabs role={user.role} />
-      <ReminderWatcher />
+      {/* Os lembretes (rota só do admin) ficam com quem agenda; um líder não ficaria batendo num 403 a cada 30 s. */}
+      {user.role === "admin" ? <ReminderWatcher userId={user.id} /> : null}
       <LiveRefresh />
       <Shortcuts />
       <Toaster />

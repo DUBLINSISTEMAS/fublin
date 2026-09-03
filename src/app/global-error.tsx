@@ -13,7 +13,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
         <main style={{ display: "grid", minHeight: "100vh", placeItems: "center", padding: 24 }}>
           <section style={{ maxWidth: 440, textAlign: "center" }}>
             <h1 style={{ fontSize: 24, marginBottom: 8 }}>O aplicativo não conseguiu abrir</h1>
-            <p style={{ lineHeight: 1.5, marginBottom: 20 }}>Tente novamente. Seus dados continuam salvos neste computador.</p>
+            <p style={{ lineHeight: 1.5, marginBottom: 20 }}>Tente novamente. Seus dados continuam salvos.</p>
             <button
               type="button"
               onClick={reset}

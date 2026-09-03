@@ -14,7 +14,8 @@ import { toast } from "@/components/ui/toast";
 
 const POLL_MS = 30_000;
 const SNOOZE_MS = 5 * 60_000;
-const STORAGE_KEY = "relacionador:alerts";
+/** Uma chave por usuário: no mesmo navegador, o que um dispensou não some para o outro. */
+export const storageKey = (userId: string) => `relacionador:alerts:${userId}`;
 const KEEP_MS = 2 * 24 * 60 * 60 * 1000;
 /** Disparado pelo botão "Testar alerta" em Config: mostra um alerta de mentira com som e notificação. */
 export const TEST_ALERT_EVENT = "relacionador:test-alert";
@@ -23,9 +24,9 @@ type Memory = { dismissed: Record<string, number>; snoozed: Record<string, numbe
 type AlertPrefs = { repeatMinutes: number; sound: SoundId };
 type Payload = { now: string; items: ReminderItem[]; alerts: AlertPrefs };
 
-function readMemory(): Memory {
+function readMemory(key: string): Memory {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(key);
     const parsed: Partial<Memory> = raw ? JSON.parse(raw) : {};
     const cutoff = Date.now() - KEEP_MS;
     const keep = (map: Record<string, number> | undefined) => Object.fromEntries(Object.entries(map ?? {}).filter(([, ts]) => ts > cutoff));
@@ -35,11 +36,13 @@ function readMemory(): Memory {
   }
 }
 
-function writeMemory(memory: Memory) {
+function writeMemory(key: string, memory: Memory) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(memory));
-  } catch {
-    /* armazenamento indisponível: seguimos só com o aviso in-app */
+    localStorage.setItem(key, JSON.stringify(memory));
+  } catch (error) {
+    // Sem armazenamento (aba anônima, cota cheia) o aviso continua na tela, mas
+    // volta no próximo ciclo: quem der suporte precisa ver isso no console.
+    console.error("[alertas] não deu para lembrar o que foi dispensado", error);
   }
 }
 
@@ -67,13 +70,16 @@ function notify(item: ReminderItem, onOpen: () => void) {
  * lembrete, mostra um alerta que fica na tela (e repete som/notificação no intervalo
  * configurado) até você dispensar, adiar 5 min ou dar baixa.
  */
-export function ReminderWatcher() {
+export function ReminderWatcher({ userId }: { userId: string }) {
   const router = useRouter();
+  const key = storageKey(userId);
   const [alerts, setAlerts] = useState<ReminderItem[]>([]);
   const [now, setNow] = useState(() => new Date());
   const memory = useRef<Memory>({ dismissed: {}, snoozed: {} });
   const lastFired = useRef<Record<string, number>>({});
   const prefs = useRef<AlertPrefs>({ repeatMinutes: 2, sound: "suave" });
+  /** Já avisou que a sessão caiu (um toast, não um a cada 30 s). */
+  const sessionWarned = useRef(false);
 
   const fire = useCallback(
     (item: ReminderItem) => {
@@ -84,11 +90,25 @@ export function ReminderWatcher() {
     [router],
   );
 
-  const check = useCallback(async () => {
+  const check = useCallback(async (signal: AbortSignal) => {
     try {
-      const res = await fetch("/api/reminders", { cache: "no-store" });
+      const res = await fetch("/api/reminders", { cache: "no-store", signal });
+      if (signal.aborted) return;
+      if (res.status === 401 || res.status === 403) {
+        // Sessão expirou: parar de tentar e avisar, senão os alertas morrem em silêncio.
+        if (!sessionWarned.current) {
+          sessionWarned.current = true;
+          toast.error("Sua sessão expirou. Entre de novo para continuar recebendo os alertas.");
+        }
+        return;
+      }
       if (!res.ok) return;
       const data: Payload = await res.json();
+      if (signal.aborted) return;
+      if (!data || !Array.isArray(data.items) || !data.alerts || typeof data.alerts.repeatMinutes !== "number") {
+        console.error("[alertas] resposta inesperada de /api/reminders", data);
+        return;
+      }
       prefs.current = data.alerts;
       const stamp = Date.now();
       const active = data.items.filter((i) => i.due && !memory.current.dismissed[i.id] && (memory.current.snoozed[i.id] ?? 0) <= stamp);
@@ -99,16 +119,20 @@ export function ReminderWatcher() {
         const last = lastFired.current[item.id];
         if (last === undefined || (repeatMs > 0 && stamp - last >= repeatMs)) fire(item);
       }
-    } catch {
-      /* rede indisponível: tenta de novo no próximo ciclo */
+    } catch (error) {
+      // `abort` no desmonte é esperado; o resto é rede indisponível e volta no próximo ciclo.
+      if (!signal.aborted) console.debug("[alertas] /api/reminders indisponível", error);
     }
   }, [fire]);
 
   useEffect(() => {
-    memory.current = readMemory();
-    void check();
-    const timer = window.setInterval(check, POLL_MS);
-    const onVisible = () => document.visibilityState === "visible" && void check();
+    // Aborta no desmonte: nada de `setState` numa tela que não existe mais.
+    const controller = new AbortController();
+    const run = () => void check(controller.signal);
+    memory.current = readMemory(key);
+    run();
+    const timer = window.setInterval(run, POLL_MS);
+    const onVisible = () => document.visibilityState === "visible" && run();
     document.addEventListener("visibilitychange", onVisible);
     // O som só pode tocar depois de um gesto: o primeiro clique/tecla libera o áudio.
     const unlock = () => void unlockAudio();
@@ -122,13 +146,14 @@ export function ReminderWatcher() {
     };
     window.addEventListener(TEST_ALERT_EVENT, onTest);
     return () => {
+      controller.abort();
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("pointerdown", unlock);
       window.removeEventListener("keydown", unlock);
       window.removeEventListener(TEST_ALERT_EVENT, onTest);
     };
-  }, [check, fire]);
+  }, [check, fire, key]);
 
   // Título da aba mostra quantos alertas estão esperando.
   useEffect(() => {
@@ -139,7 +164,7 @@ export function ReminderWatcher() {
   /** Tira o alerta da tela e lembra disso: dispensado (para sempre) ou adiado (até `until`). */
   function remove(id: string, bucket: keyof Memory, until: number) {
     memory.current = { ...memory.current, [bucket]: { ...memory.current[bucket], [id]: until } };
-    writeMemory(memory.current);
+    writeMemory(key, memory.current);
     setAlerts((prev) => prev.filter((a) => a.id !== id));
   }
 

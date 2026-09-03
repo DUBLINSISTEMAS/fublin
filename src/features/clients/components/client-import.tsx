@@ -14,8 +14,10 @@ export function ClientImport() {
       const body = new FormData(); body.set("file", file);
       const response = await fetch("/api/import/clientes", { method: "POST", body });
       const data = await response.json() as { imported?: number; skipped?: number; errors?: string[]; error?: string };
+      // Nada foi lido: só a mensagem de erro. 207 = importou em parte e parou no meio.
       if (!response.ok) throw new Error(data.error ?? "Falha na importação.");
       toast.success(`${data.imported ?? 0} clientes importados${data.skipped ? ` · ${data.skipped} ignorados` : ""}.`);
+      if (data.error) toast.error(`A importação parou no meio: ${data.error}`);
       if (data.errors?.length) toast.error(data.errors.slice(0, 3).join(" "));
     } catch (error) { toast.error(error instanceof Error ? error.message : "Falha na importação."); }
     finally { setBusy(false); if (input.current) input.current.value = ""; }

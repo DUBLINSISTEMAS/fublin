@@ -83,6 +83,8 @@ function Get-LinhasCmdServidor([string]$Raiz, [string]$NodeExe, [string]$Log) {
     "cd /d ""$Raiz""",
     'set NODE_ENV=production',
     'set NEXT_TELEMETRY_DISABLED=1',
+    'rem Rede local sem HTTPS: cookie de sessao sem "secure" e primeiro acesso sem chave de instalacao.',
+    'set LOCAL_NETWORK_HTTP=1',
     'echo [%date% %time%] iniciando o servidor >> "%LOG%"',
     """%NODE%"" ""$nextBin"" start -H 0.0.0.0 -p $Porta >> ""%LOG%"" 2>&1",
     'echo [%date% %time%] servidor encerrado com codigo %errorlevel% >> "%LOG%"'

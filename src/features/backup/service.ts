@@ -76,11 +76,12 @@ async function backupFolder(backupDir: string, id: string): Promise<string> {
 
 /* ---------- manifest ---------- */
 
-const toInfo = (id: string, m: BackupManifest): BackupInfo => ({ id, createdAt: m.createdAt, sizeBytes: m.appDbBytes + m.uploadsBytes, kind: m.kind });
+const toInfo = (id: string, m: BackupManifest): BackupInfo => ({ id, createdAt: m.createdAt, sizeBytes: m.appDbBytes + m.uploadsBytes, kind: m.kind, degraded: m.degraded });
 
-async function writeManifest(dir: string, id: string, meta: { createdAt: string; kind: BackupKind }): Promise<BackupInfo> {
+async function writeManifest(dir: string, id: string, meta: { createdAt: string; kind: BackupKind; degraded?: boolean }): Promise<BackupInfo> {
   const manifest: BackupManifest = {
     version: MANIFEST_VERSION,
+    degraded: false,
     ...meta,
     appDbBytes: (await fs.stat(path.join(dir, APP_DB))).size,
     uploadsBytes: await dirSize(path.join(dir, UPLOADS)),
@@ -109,19 +110,22 @@ export async function createBackup({ db, dataDir, backupDir, now = new Date(), k
   const id = await uniqueBackupId(backupDir, kind === "seguranca" ? `${stamp(now)}-seguranca` : stamp(now));
   const dir = path.join(backupDir, id);
   await fs.mkdir(dir);
-  await snapshotDatabase(db, path.join(dataDir, APP_DB), path.join(dir, APP_DB));
+  const degraded = await snapshotDatabase(db, path.join(dataDir, APP_DB), path.join(dir, APP_DB));
   const uploads = path.join(dataDir, UPLOADS);
   if (await exists(uploads)) await fs.cp(uploads, path.join(dir, UPLOADS), { recursive: true });
-  return writeManifest(dir, id, { createdAt: toIso(now), kind });
+  return writeManifest(dir, id, { createdAt: toIso(now), kind, degraded });
 }
 
-async function snapshotDatabase(db: Db, sourceFile: string, target: string): Promise<void> {
+/** `true` quando caiu na cópia bruta do arquivo: o snapshot pode ter pegado o banco no meio de uma escrita. */
+async function snapshotDatabase(db: Db, sourceFile: string, target: string): Promise<boolean> {
   try {
     const literal = posixPath(path.resolve(target)).replace(/'/g, "''");
     await db.run(sql.raw(`VACUUM INTO '${literal}'`));
+    return false;
   } catch (error) {
     console.warn("[backup] VACUUM INTO falhou; copiando o arquivo do banco.", error);
     await fs.copyFile(sourceFile, target);
+    return true;
   }
 }
 
@@ -184,8 +188,15 @@ export async function restoreBackup({ db, dataDir, backupDir, id, now = new Date
   const dumps = await readBackupTables(path.join(dir, APP_DB));
   if (dumps.length === 0) throw new DomainError("Este backup não tem dados do Relacionador.");
   const safety = await createBackup({ db, dataDir, backupDir, now, kind: "seguranca" });
-  await replaceTables(db, dumps);
-  await replaceUploads(dataDir, dir);
+  try {
+    await replaceTables(db, dumps);
+    await replaceUploads(dataDir, dir);
+  } catch (error) {
+    // A partir daqui os dados podem estar pela metade: a mensagem precisa dizer,
+    // com nome e sobrenome, qual backup devolve o estado de antes.
+    console.error("[backup] a restauração falhou depois de começar a trocar os dados", error);
+    throw new DomainError(`A restauração parou no meio e os dados podem estar incompletos. O estado anterior está no backup de segurança "${safety.id}": restaure esse backup para voltar como estava.`);
+  }
   return safety.id;
 }
 
@@ -382,10 +393,26 @@ export type ScheduledBackupInput = { db: Db; dataDir: string; backupDir: string;
 export async function runScheduledBackupIfDue({ db, dataDir, backupDir, now = new Date(), keep = DEFAULT_KEEP }: ScheduledBackupInput): Promise<string | null> {
   const today = dayKey(now);
   const marker = path.join(backupDir, LAST_MARKER);
-  const last = await fs.readFile(marker, "utf8").then((s) => s.trim(), () => null);
+  const last = await readDayMarker(marker);
   if (last === today) return null;
   const { id } = await createBackup({ db, dataDir, backupDir, now, kind: "auto" });
   await fs.writeFile(marker, today);
   await pruneBackups(backupDir, keep);
   return id;
+}
+
+const isNotFound = (error: unknown) => (error as NodeJS.ErrnoException | null)?.code === "ENOENT";
+
+/**
+ * Data do último backup automático. Arquivo ausente = ainda não houve nenhum.
+ * Qualquer outro erro (permissão, disco) sobe: dizer "não tem marcador" nesse caso
+ * faria o agendador refazer o backup em toda checagem, sem ninguém ficar sabendo.
+ */
+async function readDayMarker(marker: string): Promise<string | null> {
+  try {
+    return (await fs.readFile(marker, "utf8")).trim();
+  } catch (error) {
+    if (isNotFound(error)) return null;
+    throw error;
+  }
 }

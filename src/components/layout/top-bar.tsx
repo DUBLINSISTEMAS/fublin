@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { CalendarPlus, LogOut, Plus, Search } from "lucide-react";
 import { SEARCH_INPUT_ID } from "./shortcuts";
 import { logoutAction } from "@/features/auth/actions";
+import type { UserRole } from "@/lib/domain";
 
 const DEBOUNCE_MS = 300;
 
@@ -13,7 +14,7 @@ const DEBOUNCE_MS = 300;
  * Barra superior: busca global de clientes + ação principal.
  * Na lista de clientes a busca atualiza a URL; nas outras telas leva para /clientes?q=.
  */
-export function TopBar({ role = "admin" }: { role?: "admin" | "leader" }) {
+export function TopBar({ role = "admin" }: { role?: UserRole }) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();

@@ -68,6 +68,23 @@ describe("ClientCard", () => {
     expect(screen.getByText("Ligação")).toBeInTheDocument();
   });
 
+  it("shows adesão and the installment range, and warns when no adesão was agreed", () => {
+    render1({ adesaoCents: 500000, installmentMinCents: 80000, installmentMaxCents: 120000 });
+    expect(screen.getByTitle("Adesão (entrada) e parcela que cabe no bolso")).toHaveTextContent(/Adesão R\$\s?5 mil · Parcela R\$\s?800 a R\$\s?1,2 mil/);
+    expect(screen.queryByText("Sem adesão combinada")).not.toBeInTheDocument();
+  });
+
+  it("flags a client without adesão while the sale is still open", () => {
+    render1({ adesaoCents: null });
+    expect(screen.getByText("Sem adesão combinada")).toBeInTheDocument();
+  });
+
+  it("uses the custom interest as the chip when the interest is “outro”", () => {
+    render1({ interest: "outro", interestNotes: "Investimento" });
+    expect(screen.getByText("Investimento")).toBeInTheDocument();
+    expect(screen.queryByText("Outro")).not.toBeInTheDocument();
+  });
+
   it("asks the owner to assign a leader when there is none", () => {
     render(<ClientCard client={makeListItem()} now={NOW} leaders={[]} onMove={() => undefined} />);
     expect(screen.getByText("Sem líder")).toBeInTheDocument();

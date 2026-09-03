@@ -9,7 +9,7 @@ import { digitsOnly } from "@/lib/phone";
 import { DomainError } from "@/lib/result";
 import type { Storage } from "@/lib/storage";
 import { logActivity } from "@/features/activities/service";
-import type { ActivityActor } from "@/features/activities/service";
+import type { ActivityActor, DbOrTx } from "@/features/activities/service";
 import type { ApprovalInput, ClientInput } from "./schema";
 
 /** Seta usada nos registros de mudança de status. */
@@ -23,6 +23,9 @@ function toRow(input: ClientInput) {
     interest: input.interest,
     interestNotes: input.interestNotes ?? null,
     creditCents: input.credit,
+    adesaoCents: input.adesao,
+    installmentMinCents: input.installmentMin,
+    installmentMaxCents: input.installmentMax,
     attendance: input.attendance,
     status: input.status,
     source: input.source ?? null,
@@ -59,12 +62,22 @@ function statusStamps(before: Client, status: ClientStatus, now: Date, lostReaso
   return patch;
 }
 
+/**
+ * Toda escrita de cliente vem acompanhada de pelo menos uma linha de timeline
+ * (e às vezes de um segundo UPDATE). Numa base multiusuário, gravar isso solto
+ * deixaria cliente sem histórico — ou histórico sem cliente — se a segunda
+ * escrita falhasse; por isso cada operação abre uma transação e as funções
+ * `*Tx` fazem o trabalho dentro dela.
+ */
 export async function createClient(db: Db, input: ClientInput, now: Date = new Date()): Promise<Client> {
+  return db.transaction((tx) => createClientTx(tx, input, now));
+}
+
+async function createClientTx(db: DbOrTx, input: ClientInput, now: Date): Promise<Client> {
   const iso = toIso(now);
   const base = { id: newId(), ...toRow(input), createdAt: iso, updatedAt: iso };
   const row = {
     ...base,
-    adesaoCents: null,
     analysisStartedAt: null,
     approvedAt: null,
     closedAt: null,
@@ -78,13 +91,17 @@ export async function createClient(db: Db, input: ClientInput, now: Date = new D
   return stamped;
 }
 
-export async function getClient(db: Db, id: string): Promise<Client> {
+export async function getClient(db: DbOrTx, id: string): Promise<Client> {
   const row = await db.query.clients.findFirst({ where: eq(clients.id, id) });
   if (!row) throw new DomainError("Cliente não encontrado.");
   return row;
 }
 
 export async function updateClient(db: Db, id: string, input: ClientInput, now: Date = new Date()): Promise<Client> {
+  return db.transaction((tx) => updateClientTx(tx, id, input, now));
+}
+
+async function updateClientTx(db: DbOrTx, id: string, input: ClientInput, now: Date): Promise<Client> {
   const before = await getClient(db, id);
   const [updated] = await db
     .update(clients)
@@ -104,6 +121,17 @@ export async function setClientStatus(
   options: { lostReason?: string | null } = {},
   actor?: ActivityActor,
 ): Promise<Client> {
+  return db.transaction((tx) => setClientStatusTx(tx, id, status, now, options, actor));
+}
+
+async function setClientStatusTx(
+  db: DbOrTx,
+  id: string,
+  status: ClientStatus,
+  now: Date,
+  options: { lostReason?: string | null },
+  actor?: ActivityActor,
+): Promise<Client> {
   const before = await getClient(db, id);
   if (before.status === status && !options.lostReason) return before;
   const [updated] = await db
@@ -118,6 +146,10 @@ export async function setClientStatus(
 
 /** Troca o líder de vendas responsável (ou tira o líder). */
 export async function assignLeader(db: Db, id: string, leaderId: string | null, now: Date = new Date()): Promise<Client> {
+  return db.transaction((tx) => assignLeaderTx(tx, id, leaderId, now));
+}
+
+async function assignLeaderTx(db: DbOrTx, id: string, leaderId: string | null, now: Date): Promise<Client> {
   const before = await getClient(db, id);
   if (leaderId) {
     const leader = await db.query.leaders.findFirst({ where: eq(leaders.id, leaderId) });
@@ -140,6 +172,10 @@ function dayPatch(day: string | undefined, current: string | null): string | nul
 
 /** Valores e datas da aprovação/fechamento, editados à mão na página do cliente. */
 export async function updateApproval(db: Db, input: ApprovalInput, now: Date = new Date()): Promise<Client> {
+  return db.transaction((tx) => updateApprovalTx(tx, input, now));
+}
+
+async function updateApprovalTx(db: DbOrTx, input: ApprovalInput, now: Date): Promise<Client> {
   const before = await getClient(db, input.id);
   const [updated] = await db
     .update(clients)
@@ -162,13 +198,13 @@ export async function updateApproval(db: Db, input: ApprovalInput, now: Date = n
 
 const dateOrNever = (iso: string | null) => (iso ? formatDate(fromIso(iso)) : "sem data");
 
-export async function addClientNote(db: Db, id: string, content: string, now: Date = new Date(), actor?: ActivityActor) {
+export async function addClientNote(db: DbOrTx, id: string, content: string, now: Date = new Date(), actor?: ActivityActor) {
   await getClient(db, id);
   return logActivity(db, id, "nota", content, now, actor);
 }
 
 /** Telefone identifica a pessoa no CRM; formatação diferente não cria outro cliente. */
-export async function findDuplicatePhone(db: Db, phone: string, ignoreId?: string): Promise<{ id: string; name: string } | null> {
+export async function findDuplicatePhone(db: DbOrTx, phone: string, ignoreId?: string): Promise<{ id: string; name: string } | null> {
   const wanted = digitsOnly(phone);
   const rows = await db.select({ id: clients.id, name: clients.name, phone: clients.phone }).from(clients);
   const duplicate = rows.find((row) => row.id !== ignoreId && digitsOnly(row.phone) === wanted);
@@ -179,7 +215,7 @@ export type ContactKind = "whatsapp" | "ligacao" | "email" | "outro";
 const CONTACT_LABELS: Record<ContactKind, string> = { whatsapp: "WhatsApp", ligacao: "Ligação", email: "E-mail", outro: "Contato" };
 
 /** Registra uma tentativa/conversa sem obrigar a criar um agendamento. */
-export async function addClientContact(db: Db, id: string, kind: ContactKind, summary: string, now: Date = new Date(), actor?: ActivityActor) {
+export async function addClientContact(db: DbOrTx, id: string, kind: ContactKind, summary: string, now: Date = new Date(), actor?: ActivityActor) {
   await getClient(db, id);
   return logActivity(db, id, "nota", `${CONTACT_LABELS[kind]}: ${summary}`, now, actor);
 }
@@ -212,6 +248,11 @@ export async function removeFilesQuietly(storage: Storage, keys: string[]): Prom
  * não mexem no status — quem decide se virou negociação é o relacionador.
  */
 export async function registerAttendance(db: Db, id: string, attendedAt: Date, now: Date = new Date()): Promise<Client> {
+  return db.transaction((tx) => registerAttendanceTx(tx, id, attendedAt, now));
+}
+
+/** Mesma coisa, mas dentro de uma transação já aberta (a baixa do agendamento usa esta). */
+export async function registerAttendanceTx(db: DbOrTx, id: string, attendedAt: Date, now: Date): Promise<Client> {
   const before = await getClient(db, id);
   const advances = before.status === "novo" || before.status === "agendado";
   const [updated] = await db
@@ -229,18 +270,23 @@ export async function registerAttendance(db: Db, id: string, attendedAt: Date, n
 
 /** Ao agendar, cliente "novo" passa a "agendado". */
 export async function markScheduled(db: Db, id: string, now: Date = new Date()): Promise<void> {
+  return db.transaction((tx) => markScheduledTx(tx, id, now));
+}
+
+/** Mesma coisa, mas dentro de uma transação já aberta (criar agendamento usa esta). */
+export async function markScheduledTx(db: DbOrTx, id: string, now: Date): Promise<void> {
   const before = await getClient(db, id);
   if (before.status !== "novo") return;
   await db.update(clients).set({ status: "agendado", updatedAt: toIso(now) }).where(eq(clients.id, id));
   await logStatusChange(db, id, "novo", "agendado", now);
 }
 
-async function logStatusChange(db: Db, id: string, from: ClientStatus, to: ClientStatus, now: Date, actor?: ActivityActor) {
+async function logStatusChange(db: DbOrTx, id: string, from: ClientStatus, to: ClientStatus, now: Date, actor?: ActivityActor) {
   const content = `Status: ${CLIENT_STATUS_LABELS[from]} ${STATUS_ARROW} ${CLIENT_STATUS_LABELS[to]}`;
   await logActivity(db, id, "status", content, now, actor);
 }
 
-async function logLeader(db: Db, id: string, leaderId: string | null, now: Date) {
+async function logLeader(db: DbOrTx, id: string, leaderId: string | null, now: Date) {
   const leader = leaderId ? await db.query.leaders.findFirst({ where: eq(leaders.id, leaderId) }) : null;
   await logActivity(db, id, "lider", leader ? `Líder de vendas: ${leader.name}` : "Sem líder de vendas", now);
 }

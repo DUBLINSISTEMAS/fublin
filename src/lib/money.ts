@@ -16,13 +16,33 @@ export function formatBRLCompact(cents: number | null | undefined): string {
 }
 
 /**
- * Aceita o que o usuário digita: "300.000", "300000,50", "R$ 1.234,56", "1234.56".
- * Devolve centavos ou null se vazio; NaN nunca escapa.
+ * Texto que não dá para ler como dinheiro ("abc", "12-3"). É diferente de vazio:
+ * campo em branco é `null` (o dono não informou), isto aqui é erro de digitação e
+ * precisa virar mensagem na tela — nunca ser tratado como "sem valor".
  */
-export function parseBRL(input: string | null | undefined): number | null {
+export const INVALID_MONEY = Symbol("dinheiro inválido");
+
+/** Centavos, `null` (nada digitado) ou `INVALID_MONEY` (texto ilegível). */
+export type ParsedMoney = number | null | typeof INVALID_MONEY;
+
+export function isInvalidMoney(value: ParsedMoney): value is typeof INVALID_MONEY {
+  return value === INVALID_MONEY;
+}
+
+/** Só dígitos e separadores, com sinal opcional: barra "abc", "1o0", "12-3" e "R$". */
+const MONEY_TEXT = /^-?[\d.,]+$/;
+
+/**
+ * Aceita o que o usuário digita: "300.000", "300000,50", "R$ 1.234,56", "1234.56".
+ * Devolve centavos, `null` se o campo está vazio ou `INVALID_MONEY` se o texto não
+ * é um número; NaN nunca escapa.
+ */
+export function parseBRL(input: string | null | undefined): ParsedMoney {
   if (input === null || input === undefined) return null;
-  const raw = input.replace(/[^\d,.-]/g, "").trim();
+  // `\s` já cobre o espaço fino (NBSP) que o Intl usa em "R$ 300.000,00".
+  const raw = input.replace(/\s/g, "").replace(/^r\$/i, "");
   if (!raw) return null;
+  if (!MONEY_TEXT.test(raw) || !/\d/.test(raw)) return INVALID_MONEY;
   const negative = raw.startsWith("-");
   const digits = raw.replace("-", "");
   // Último separador decide: vírgula = decimal (pt-BR); ponto só é decimal se não houver vírgula e vier seguido de 1–2 dígitos.
@@ -39,7 +59,7 @@ export function parseBRL(input: string | null | undefined): number | null {
   }
   const whole = Number(integerPart.replace(/[.,]/g, "") || "0");
   const cents = Number((fraction.replace(/\D/g, "") + "00").slice(0, 2));
-  if (!Number.isFinite(whole) || !Number.isFinite(cents)) return null;
+  if (!Number.isFinite(whole) || !Number.isFinite(cents)) return INVALID_MONEY;
   const total = whole * 100 + cents;
   return negative ? -total : total;
 }

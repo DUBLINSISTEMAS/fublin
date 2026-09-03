@@ -28,38 +28,68 @@ function imageExtension(bytes: Uint8Array): string {
   return ext;
 }
 
-/** Grava a foto, aponta o registro para ela e apaga a anterior. Devolve a nova chave. */
+/**
+ * Grava a foto, aponta o registro para ela e só então apaga a anterior.
+ *
+ * Ordem importa: arquivo novo → registro → apagar o antigo. Se o registro não
+ * entrar, o arquivo recém-gravado é desfeito (nada de lixo sem dono) e a foto
+ * antiga continua no lugar. Devolve a nova chave.
+ */
 export async function savePhoto(db: Db, storage: Storage, input: PhotoInput): Promise<string> {
   const ext = imageExtension(input.bytes);
   if (input.kind === "lider") {
     if (!input.id) throw new DomainError("Líder não informado.");
-    const leader = await db.query.leaders.findFirst({ where: eq(leaders.id, input.id) });
-    if (!leader) throw new DomainError("Líder não encontrado.");
-    const key = `lideres/${leader.id}-${stamp()}.${ext}`;
+    const leaderId = input.id;
+    const key = `lideres/${leaderId}-${stamp()}.${ext}`;
     await storage.write(key, input.bytes);
-    await db.update(leaders).set({ photoKey: key }).where(eq(leaders.id, leader.id));
-    if (leader.photoKey) await removeFilesQuietly(storage, [leader.photoKey]);
+    const previous = await pointLeaderPhoto(db, storage, leaderId, key);
+    if (previous) await removeFilesQuietly(storage, [previous]);
     return key;
   }
   const key = `perfil/avatar-${stamp()}.${ext}`;
-  const previous = (await getSetting(db, "profile")).photoKey;
   await storage.write(key, input.bytes);
-  await patchSetting(db, "profile", { photoKey: key });
+  const previous = await pointProfilePhoto(db, storage, key);
   if (previous) await removeFilesQuietly(storage, [previous]);
   return key;
 }
 
-/** Remove a foto (registro + arquivo). */
+/** Aponta o líder para `key` e devolve a chave anterior; desfaz o arquivo novo se o banco recusar. */
+async function pointLeaderPhoto(db: Db, storage: Storage, leaderId: string, key: string | null): Promise<string | null> {
+  try {
+    return await db.transaction(async (tx) => {
+      const leader = await tx.query.leaders.findFirst({ where: eq(leaders.id, leaderId) });
+      if (!leader) throw new DomainError("Líder não encontrado.");
+      await tx.update(leaders).set({ photoKey: key }).where(eq(leaders.id, leaderId));
+      return leader.photoKey;
+    });
+  } catch (error) {
+    if (key) await removeFilesQuietly(storage, [key]);
+    throw error;
+  }
+}
+
+/** Idem para a foto do perfil (settings). Lê e grava na mesma transação: nada de update perdido. */
+async function pointProfilePhoto(db: Db, storage: Storage, key: string | null): Promise<string | null> {
+  try {
+    return await db.transaction(async (tx) => {
+      const previous = (await getSetting(tx, "profile")).photoKey;
+      await patchSetting(tx, "profile", { photoKey: key });
+      return previous;
+    });
+  } catch (error) {
+    if (key) await removeFilesQuietly(storage, [key]);
+    throw error;
+  }
+}
+
+/** Remove a foto (registro + arquivo). O arquivo só some depois que o banco confirma. */
 export async function removePhoto(db: Db, storage: Storage, kind: PhotoKind, id?: string): Promise<void> {
   if (kind === "lider") {
     if (!id) throw new DomainError("Líder não informado.");
-    const leader = await db.query.leaders.findFirst({ where: eq(leaders.id, id) });
-    if (!leader) throw new DomainError("Líder não encontrado.");
-    await db.update(leaders).set({ photoKey: null }).where(eq(leaders.id, id));
-    if (leader.photoKey) await removeFilesQuietly(storage, [leader.photoKey]);
+    const previous = await pointLeaderPhoto(db, storage, id, null);
+    if (previous) await removeFilesQuietly(storage, [previous]);
     return;
   }
-  const previous = (await getSetting(db, "profile")).photoKey;
-  await patchSetting(db, "profile", { photoKey: null });
+  const previous = await pointProfilePhoto(db, storage, null);
   if (previous) await removeFilesQuietly(storage, [previous]);
 }

@@ -2,12 +2,15 @@
 
 import Link from "next/link";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
-import { CalendarPlus, MoreHorizontal, Pencil, Trash2, UserRound } from "lucide-react";
+import { CalendarPlus, Copy, MessageCircle, MoreHorizontal, Pencil, Trash2, UserRound } from "lucide-react";
 import { ActionError } from "@/components/ui/action-error";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { toast } from "@/components/ui/toast";
 import type { Leader } from "@/db/schema";
+import { copyText } from "@/lib/clipboard";
 import { cn } from "@/lib/cn";
 import { CLIENT_STATUS_LABELS, CLIENT_STATUSES, type ClientStatus } from "@/lib/domain";
+import { whatsappUrl } from "@/lib/phone";
 import { OK } from "@/lib/result";
 import { assignLeaderAction, deleteClientAction } from "../actions";
 
@@ -20,6 +23,9 @@ type Props = {
   onMove: (status: ClientStatus) => void;
   tinted?: boolean;
   canManage?: boolean;
+  /** Mensagem de confirmação pronta (só quando há próximo agendamento). */
+  confirmation?: string | null;
+  phone?: string;
 };
 
 const SELECT = "h-9 w-full rounded-[8px] bg-surface-2 px-2 text-[13px] text-ink focus:outline-none focus:ring-2 focus:ring-accent/30";
@@ -29,8 +35,16 @@ const LABEL = "block px-2 pb-1 text-[11px] font-medium uppercase tracking-wide t
  * Menu "…" do card: mover de etapa (alternativa acessível ao arrastar),
  * trocar o líder de vendas e atalhos. Fecha com Esc ou clique fora.
  */
-export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted = false, canManage = true }: Props) {
+export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted = false, canManage = true, confirmation = null, phone }: Props) {
   const [open, setOpen] = useState(false);
+
+  async function copyConfirmation() {
+    if (!confirmation) return;
+    const ok = await copyText(confirmation);
+    if (ok) toast.success("Mensagem de confirmação copiada.");
+    else toast.error("Não consegui copiar. Abra o cliente e copie de lá.");
+    setOpen(false);
+  }
   const [leaderState, assignLeader] = useActionState(assignLeaderAction, OK);
   const [deleteState, deleteClient] = useActionState(deleteClientAction, OK);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -100,6 +114,22 @@ export function CardMenu({ clientId, status, leaderId, leaders, onMove, tinted =
             </select>
             <ActionError state={leaderState} className="px-2 pt-2 text-[12px]" />
           </form></> : null}
+
+          {confirmation ? (
+            <div className="mt-2 border-t border-line pt-2">
+              <span className={LABEL}>Confirmação do agendamento</span>
+              <button type="button" onClick={copyConfirmation} className="flex h-9 w-full items-center gap-2 rounded-[8px] px-2 text-left text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink">
+                <Copy className="size-4" aria-hidden />
+                Copiar mensagem
+              </button>
+              {phone ? (
+                <a href={whatsappUrl(phone, confirmation)} target="_blank" rel="noreferrer" onClick={() => setOpen(false)} className="flex h-9 w-full items-center gap-2 rounded-[8px] px-2 text-lime-ink transition-colors hover:bg-lime-soft">
+                  <MessageCircle className="size-4" aria-hidden />
+                  Enviar no WhatsApp
+                </a>
+              ) : null}
+            </div>
+          ) : null}
 
           <div className="mt-2 border-t border-line pt-2">
             <MenuLink href={`/clientes/${clientId}`} icon={<UserRound className="size-4" aria-hidden />} label="Abrir cliente" />

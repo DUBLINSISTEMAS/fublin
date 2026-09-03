@@ -6,7 +6,8 @@ import { APPOINTMENT_KIND_LABELS, APPOINTMENT_STATUS_LABELS, ATTENDANCE_KINDS, t
 import { newId } from "@/lib/ids";
 import { DomainError } from "@/lib/result";
 import { logActivity } from "@/features/activities/service";
-import { getClient, markScheduled, registerAttendance } from "@/features/clients/service";
+import type { DbOrTx } from "@/features/activities/service";
+import { getClient, markScheduledTx, registerAttendanceTx } from "@/features/clients/service";
 import type { AppointmentInput } from "./schema";
 
 function describe(kind: Appointment["kind"], when: Date): string {
@@ -14,18 +15,27 @@ function describe(kind: Appointment["kind"], when: Date): string {
 }
 
 /** Agendamento por id, ou `null` (páginas usam para responder 404). */
-export async function findAppointment(db: Db, id: string): Promise<Appointment | null> {
+export async function findAppointment(db: DbOrTx, id: string): Promise<Appointment | null> {
   return (await db.query.appointments.findFirst({ where: eq(appointments.id, id) })) ?? null;
 }
 
 /** Como `findAppointment`, mas lança erro de domínio (serviços e ações). */
-export async function getAppointment(db: Db, id: string): Promise<Appointment> {
+export async function getAppointment(db: DbOrTx, id: string): Promise<Appointment> {
   const row = await findAppointment(db, id);
   if (!row) throw new DomainError("Agendamento não encontrado.");
   return row;
 }
 
+/**
+ * Mexer num agendamento escreve em duas ou três tabelas (agendamento, timeline e,
+ * às vezes, o status do cliente). Tudo entra numa transação para o histórico nunca
+ * divergir do que está na agenda.
+ */
 export async function createAppointment(db: Db, input: AppointmentInput, now: Date = new Date()): Promise<Appointment> {
+  return db.transaction((tx) => createAppointmentTx(tx, input, now));
+}
+
+async function createAppointmentTx(db: DbOrTx, input: AppointmentInput, now: Date): Promise<Appointment> {
   await getClient(db, input.clientId);
   const when = fromLocalInput(input.day, input.time);
   const iso = toIso(now);
@@ -43,11 +53,15 @@ export async function createAppointment(db: Db, input: AppointmentInput, now: Da
   };
   await db.insert(appointments).values(row);
   await logActivity(db, row.clientId, "agendamento", `Agendou: ${describe(row.kind, when)}`, now);
-  await markScheduled(db, row.clientId, now);
+  await markScheduledTx(db, row.clientId, now);
   return row;
 }
 
 export async function updateAppointment(db: Db, id: string, input: AppointmentInput, now: Date = new Date()): Promise<Appointment> {
+  return db.transaction((tx) => updateAppointmentTx(tx, id, input, now));
+}
+
+async function updateAppointmentTx(db: DbOrTx, id: string, input: AppointmentInput, now: Date): Promise<Appointment> {
   const before = await getAppointment(db, id);
   const when = fromLocalInput(input.day, input.time);
   const [updated] = await db
@@ -71,6 +85,10 @@ export async function updateAppointment(db: Db, id: string, input: AppointmentIn
 
 /** Muda só o horário (arrastar na agenda): mantém tipo, duração e lembrete. */
 export async function rescheduleAppointment(db: Db, id: string, when: Date, now: Date = new Date()): Promise<Appointment> {
+  return db.transaction((tx) => rescheduleAppointmentTx(tx, id, when, now));
+}
+
+async function rescheduleAppointmentTx(db: DbOrTx, id: string, when: Date, now: Date): Promise<Appointment> {
   const before = await getAppointment(db, id);
   const scheduledAt = toIso(when);
   if (before.scheduledAt === scheduledAt) return before;
@@ -81,6 +99,10 @@ export async function rescheduleAppointment(db: Db, id: string, when: Date, now:
 
 /** Dá baixa no agendamento e reflete no funil do cliente. */
 export async function setAppointmentStatus(db: Db, id: string, status: AppointmentStatus, now: Date = new Date()): Promise<Appointment> {
+  return db.transaction((tx) => setAppointmentStatusTx(tx, id, status, now));
+}
+
+async function setAppointmentStatusTx(db: DbOrTx, id: string, status: AppointmentStatus, now: Date): Promise<Appointment> {
   const before = await getAppointment(db, id);
   if (before.status === status) return before;
   const [updated] = await db
@@ -90,7 +112,7 @@ export async function setAppointmentStatus(db: Db, id: string, status: Appointme
     .returning();
   const when = fromIso(updated.scheduledAt);
   await logActivity(db, updated.clientId, "agendamento", `${APPOINTMENT_STATUS_LABELS[status]}: ${describe(updated.kind, when)}`, now);
-  if (status === "realizado" && ATTENDANCE_KINDS.includes(updated.kind)) await registerAttendance(db, updated.clientId, when, now);
+  if (status === "realizado" && ATTENDANCE_KINDS.includes(updated.kind)) await registerAttendanceTx(db, updated.clientId, when, now);
   return updated;
 }
 

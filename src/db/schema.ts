@@ -11,6 +11,7 @@ import {
   DEFAULT_REMINDER_MINUTES,
   INTERESTS,
   SOURCES,
+  USER_ROLES,
 } from "../lib/domain";
 
 export const leaders = sqliteTable("leaders", {
@@ -30,7 +31,7 @@ export const users = sqliteTable(
     name: text("name").notNull(),
     login: text("login").notNull().unique(),
     passwordHash: text("password_hash").notNull(),
-    role: text("role", { enum: ["admin", "leader"] as const }).notNull(),
+    role: text("role", { enum: USER_ROLES }).notNull(),
     leaderId: text("leader_id").references(() => leaders.id, { onDelete: "cascade" }),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     failedLoginCount: integer("failed_login_count").notNull().default(0),
@@ -53,6 +54,18 @@ export const sessions = sqliteTable(
   (t) => [index("sessions_token_idx").on(t.tokenHash), index("sessions_user_idx").on(t.userId)],
 );
 
+/**
+ * Contador de tentativas de login por janela de tempo. Fica no banco (e não na
+ * memória) porque na Vercel cada requisição pode cair em uma função diferente:
+ * um contador em memória não veria as tentativas das outras.
+ * `key` é "ip:<ip>" ou "login:<usuario>".
+ */
+export const loginAttempts = sqliteTable("login_attempts", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  windowStartedAt: text("window_started_at").notNull(),
+});
+
 export const clients = sqliteTable(
   "clients",
   {
@@ -69,8 +82,11 @@ export const clients = sqliteTable(
     attendance: text("attendance", { enum: ATTENDANCES }).notNull().default("presencial"),
     /** Valor da carta/crédito pretendido, em centavos. */
     creditCents: integer("credit_cents"),
-    /** Valor da adesão paga, em centavos (preenchido na aprovação/fechamento). */
+    /** Adesão (valor de entrada), em centavos: combinada no cadastro e confirmada na aprovação. */
     adesaoCents: integer("adesao_cents"),
+    /** Faixa de parcela que cabe no bolso do cliente, em centavos (só o "até" preenchido = parcela fixa). */
+    installmentMinCents: integer("installment_min_cents"),
+    installmentMaxCents: integer("installment_max_cents"),
     /** Primeiro atendimento pelo líder (visita ou reunião online). */
     firstVisitAt: text("first_visit_at"),
     analysisStartedAt: text("analysis_started_at"),
@@ -207,3 +223,4 @@ export type Setting = typeof settings.$inferSelect;
 export type Goal = typeof goals.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
+export type LoginAttempt = typeof loginAttempts.$inferSelect;

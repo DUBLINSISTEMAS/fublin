@@ -25,7 +25,7 @@ export function ConfirmButton({ action, hidden, label, confirmLabel }: Props) {
     );
   }
   return (
-    <form action={formAction} className="flex flex-wrap items-center gap-2">
+    <form action={formAction} data-confirming className="flex flex-wrap items-center gap-2">
       {Object.entries(hidden).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}

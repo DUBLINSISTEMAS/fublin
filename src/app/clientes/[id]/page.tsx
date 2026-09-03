@@ -12,7 +12,12 @@ import { meetingNumber } from "@/features/appointments/sequence";
 import { AttachmentsPanel } from "@/features/attachments/components/attachments-panel";
 import { deleteClientAction } from "@/features/clients/actions";
 import { ApprovalForm } from "@/features/clients/components/approval-form";
+import { ConfirmationMessage } from "@/features/clients/components/confirmation-message";
 import { ContactForm } from "@/features/clients/components/contact-form";
+import { buildConfirmationMessage } from "@/features/clients/confirmation";
+import { installmentRangeLong } from "@/features/clients/values";
+import { getSetting } from "@/features/settings/service";
+import { pickParam } from "@/lib/search-params";
 import { NoteForm } from "@/features/clients/components/note-form";
 import { MessageTemplates } from "@/features/clients/components/message-templates";
 import { StatusPicker } from "@/features/clients/components/status-picker";
@@ -36,13 +41,14 @@ export async function generateMetadata(props: PageProps<"/clientes/[id]">) {
 
 export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
   const user = await requireUser();
-  const { id } = await props.params;
+  const [{ id }, params] = await Promise.all([props.params, props.searchParams]);
   const db = await getDb();
-  const client = await getClientDetail(db, id);
+  const [client, profile] = await Promise.all([getClientDetail(db, id), getSetting(db, "profile")]);
   if (!client) notFound();
   if (!canAccessClient(user, client.leaderId)) redirect("/clientes");
 
   const now = new Date();
+  const scheduleFailed = pickParam(params, "aviso") === "agendamento";
   const withClient = client.appointments.map((a) => ({ ...a, client, meetingNumber: meetingNumber(client.appointments, a.id) }));
   const pending = withClient.filter((a) => a.status === "agendado").sort((a, b) => a.scheduledAt.localeCompare(b.scheduledAt));
   const past = withClient.filter((a) => a.status !== "agendado");
@@ -50,10 +56,15 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
   const needsAdesao = (client.status === "aprovado" || client.status === "fechou") && !client.adesaoCents;
   const missingNextStep = (OPEN_CLIENT_STATUSES as readonly string[]).includes(client.status) && pending.length === 0;
   const dateOrDash = (iso: string | null) => (iso ? formatDate(fromIso(iso)) : "—");
+  const confirmation = pending[0]
+    ? buildConfirmationMessage({ consultantName: profile.name, clientName: client.name, attendance: client.attendance, when: fromIso(pending[0].scheduledAt), interest: client.interest, interestNotes: client.interestNotes, leaderName: client.leader?.name })
+    : null;
 
   const facts: [string, string][] = [
     ["Telefone", formatPhone(client.phone)],
     ["E-mail", client.email ?? "—"],
+    ["Adesão (entrada)", client.adesaoCents ? formatBRL(client.adesaoCents) : "Não combinada"],
+    ["Parcela", installmentRangeLong(client)],
     ["Atendimento", ATTENDANCE_LABELS[client.attendance]],
     ["Origem", labelOf(SOURCE_LABELS, client.source)],
     ["Líder de vendas", client.leader?.name ?? "—"],
@@ -80,7 +91,7 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5">
                 <ClientStatusBadge status={client.status} />
-                <InterestChip interest={client.interest} />
+                <InterestChip interest={client.interest} notes={client.interestNotes} />
                 <span className="inline-flex h-7 items-center gap-1 rounded-chip bg-surface-2 px-2 text-[12px] text-muted">
                   <AttendanceIcon className="size-3.5" aria-hidden />
                   {ATTENDANCE_LABELS[client.attendance]}
@@ -90,8 +101,8 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
               <h1 className="mt-1.5 text-[26px] font-medium tracking-tight text-ink md:text-[30px]">{client.name}</h1>
               <p className="text-[14px] text-muted">
                 {client.creditCents ? <span className="font-medium text-ink">Carta de {formatBRL(client.creditCents)}</span> : null}
-                {client.creditCents && client.interestNotes ? " · " : null}
-                {client.interestNotes}
+                {client.creditCents && client.interestNotes && client.interest !== "outro" ? " · " : null}
+                {client.interest !== "outro" ? client.interestNotes : null}
                 {client.meetingsCount ? ` · ${plural(client.meetingsCount, "atendimento")}` : null}
               </p>
             </div>
@@ -117,11 +128,24 @@ export default async function ClientPage(props: PageProps<"/clientes/[id]">) {
         </div>
       </Card>
 
-      {missingNextStep && user.role === "admin" ? (
+      {scheduleFailed && user.role === "admin" ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-rose p-4 text-rose-ink">
+          <div><p className="font-semibold">O cadastro foi salvo, mas o agendamento não</p><p className="text-[13px]">Marque o dia e o horário de novo pela agenda.</p></div>
+          <ButtonLink href={`/agenda/novo?cliente=${client.id}`} variant="dark"><CalendarPlus className="size-4" aria-hidden />Agendar agora</ButtonLink>
+        </div>
+      ) : missingNextStep && user.role === "admin" ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-card bg-sun p-4 text-sun-ink">
           <div><p className="font-semibold">Este cliente está sem próximo passo</p><p className="text-[13px]">Marque uma ligação, retorno, visita ou reunião para ele não sair do radar.</p></div>
           <ButtonLink href={`/agenda/novo?cliente=${client.id}`} variant="dark"><CalendarPlus className="size-4" aria-hidden />Definir próxima ação</ButtonLink>
         </div>
+      ) : null}
+
+      {confirmation ? (
+        <Section title="Confirmação do agendamento">
+          <Card className="p-4 sm:p-5">
+            <ConfirmationMessage text={confirmation} phone={client.phone} />
+          </Card>
+        </Section>
       ) : null}
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">

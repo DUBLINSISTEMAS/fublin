@@ -5,6 +5,8 @@ import { apiAuth } from "@/features/auth/api";
 export const dynamic = "force-dynamic";
 
 const CONTENT_TYPES: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp", heic: "image/heic" };
+/** Só fotos de líder e de perfil moram aqui; anexos de cliente têm a rota própria, restrita ao admin. */
+const PHOTO_PREFIXES = ["lideres/", "perfil/"];
 
 /** Serve uma foto pela chave de armazenamento (`/api/fotos/lideres/<id>-<x>.jpg`). */
 export async function GET(_request: Request, context: RouteContext<"/api/fotos/[...key]">) {
@@ -13,6 +15,7 @@ export async function GET(_request: Request, context: RouteContext<"/api/fotos/[
   const key = segments.join("/");
   try {
     assertStorageKey(key);
+    if (!PHOTO_PREFIXES.some((prefix) => key.startsWith(prefix))) throw new Error("Não é uma foto.");
   } catch {
     return NextResponse.json({ error: "Foto não encontrada." }, { status: 404 });
   }

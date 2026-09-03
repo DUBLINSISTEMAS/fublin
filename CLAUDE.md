@@ -2,8 +2,10 @@
 
 # Relacionador CRM — guia para quem mexe no código
 
-CRM pessoal, single-user, para um **relacionador** de consórcio (traz o cliente; o **líder de vendas** fecha).
-Roda local (`npm run dev`, acessível na rede Wi-Fi), sem login. Textos da UI em pt-BR.
+CRM para um **relacionador** de consórcio (traz o cliente; o **líder de vendas** fecha). O relacionador é o **admin**;
+cada líder pode ter um acesso **leader** que enxerga só a própria carteira. Login por usuário/senha (`features/auth`).
+Roda local (`npm run dev` ou instalador, acessível na rede Wi-Fi, SQLite em `data/app.db`) ou na Vercel (Turso + Vercel Blob,
+ver `docs/DEPLOY_VERCEL.md`). Textos da UI em pt-BR.
 
 ## Comandos
 
@@ -19,7 +21,7 @@ Roda local (`npm run dev`, acessível na rede Wi-Fi), sem login. Textos da UI em
 src/lib/          utilidades puras: domain.ts (enums + rótulos), dates, quinzena (períodos), period-filter, money (centavos), xlsx (planilhas), sounds, theme, brand (logo), result, validation
 src/db/           schema Drizzle (SQLite via @libsql/client), conexão singleton, seed, test-db (:memory:)
 src/features/<x>/ schema.ts (Zod) · service.ts (regras, lança DomainError) · queries.ts (leitura) · actions.ts ("use server") · components/
-                  clients · appointments (calendar/ = agenda dia/semana/mês) · leaders · attachments · activities · goals (metas, recebimentos, tendência) · settings · photos · backup
+                  auth (sessão, papéis, proxy.ts) · clients (onboarding.ts = cliente + agendamento; confirmation.ts = mensagem de WhatsApp; values.ts = adesão/parcela) · appointments (calendar/ = agenda dia/semana/mês) · leaders · attachments · activities · goals (metas, recebimentos, tendência) · settings · photos · backup
 src/components/   ui/ (primitivos, toast, avatar, photo-upload, period-picker, zoom) · layout/ (shell, sidebar, tabs, alertas, tema/densidade) · charts/ (SVG/CSS puro)
 src/app/          rotas; páginas são Server Components com `force-dynamic`; API só para upload/download/Excel/lembretes/fotos/backup/ícones
 src/instrumentation.ts  agendador do backup diário (roda com o servidor de pé); installer/ = instalador Windows (PowerShell)
@@ -52,12 +54,17 @@ Regras que mantêm o sistema coerente:
 - **Backup**: `features/backup/service.ts` (criar, listar, restaurar com cópia de segurança, zip importar/exportar, poda); automático diário por `instrumentation.ts` enquanto o servidor roda e pela tarefa agendada do instalador (00:05) mesmo com o app fechado. Pasta `data/backups/` (ou `BACKUP_DIR`).
 - **Compartilhar meta**: `goals/components/share-card.tsx` gera um SVG 1080×1080 só com dados → PNG (download / Web Share); impressão esconde o chrome via `print:hidden`.
 - **Voltar**: use `backHref` no `PageHeader` em toda tela que não é raiz do menu.
+- **Cadastro qualificado**: o formulário do cliente já leva adesão (`adesao_cents`), faixa de parcela (`installment_min/max_cents`) e "quando o cliente vem" (dia + hora). `clients/onboarding.ts` cria/remarca o agendamento com o tipo vindo de `ATTENDANCE_APPOINTMENT_KIND` (presencial → visita, online → reunião); campos vazios na edição não mexem na agenda. Interesse "outro" exige o detalhe, que vira o rótulo do chip (`describeInterest`).
+- **Mensagem de confirmação**: `clients/confirmation.ts` (`buildConfirmationMessage`) é a única fonte do texto; `<ConfirmationMessage>` (página do cliente) e o menu do card copiam/abrem no WhatsApp. O "Consultor" é `settings.profile.name`.
+- **Autenticação**: páginas chamam `requireUser`/`requireAdmin`; ações de líder passam por `assertClientAccess`; rotas de API por `apiAuth`. `proxy.ts` só redireciona quem não tem cookie. Em produção o cookie é `secure` e o primeiro admin exige `SETUP_SECRET`, salvo com `LOCAL_NETWORK_HTTP=1` (o instalador define).
+- **Migrações na Vercel** rodam no build (`vercel-build`), nunca na requisição; local, `getDb()` migra na primeira chamada. Depois de alterar o schema, `npm run db:generate` e commitar `drizzle/` inteiro (SQL + `meta/`), nunca editar o journal à mão.
 - Testes de componente ficam ao lado do componente com `// @vitest-environment jsdom` na primeira linha; o padrão do Vitest é Node.
 
 ## Limitações conhecidas (decisões, não esquecimentos)
 
-- Sem transações: cada serviço faz 2–3 escritas sequenciais (registro + timeline). Em SQLite local single-user o risco é baixo; ao ir para Turso/multiusuário, envolver em `db.transaction`.
-- Sem CSP/autenticação: o app é para a rede local. Ao publicar na internet, adicionar login e CSP com nonce.
+- Sem transações: cada serviço faz 2–3 escritas sequenciais (registro + timeline). Pendência conhecida para o Turso multiusuário: envolver em `db.transaction`.
+- Sem limite de taxa no login e sem redefinição de senha pelo app (só o admin cria acessos). Ver `docs/superpowers/specs/2026-09-02-*` e a auditoria de 2026-09-02 para a lista de pendências.
+- Na Vercel, `PRAGMA foreign_keys` não persiste entre requisições; a exclusão de cliente confia no `ON DELETE CASCADE` do servidor.
 - Push com o app fechado não existe; o `ReminderWatcher` só avisa com uma aba aberta.
 
 Decisões de produto e visual: `docs/superpowers/specs/2026-08-27-relacionador-crm-design.md`.

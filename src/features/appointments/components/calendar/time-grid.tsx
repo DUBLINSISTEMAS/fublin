@@ -12,62 +12,34 @@ import { addMinutes } from "date-fns";
 import { rescheduleAppointmentAction } from "../../actions";
 import { EventChooser } from "./event-chooser";
 import { EventPanel } from "./event-panel";
-import { GRID_HEIGHT_PX, HOUR_HEIGHT_PX, HOUR_START, HOURS, layoutEvents, minutesFromGridStart, PX_PER_MINUTE, snapMinutes, type Positioned } from "./layout";
+import { GRID_HEIGHT_PX, gridDate, HOUR_HEIGHT_PX, HOURS, layoutEvents, minutesFromGridStart, PX_PER_MINUTE, type Positioned } from "./layout";
 import { KIND_BORDER } from "./styles";
 import type { CalendarEvent } from "./types";
+import { useEventDrag, type EventDragHandlers } from "./use-event-drag";
 
 type Props = { days: DayKey[]; events: CalendarEvent[]; today: DayKey; /** Dia escolhido na URL: no celular a semana abre nele. */ focusDay: DayKey; nowIso: string };
 
-type Timed = { start: Date; durationMinutes: number; event: CalendarEvent };
+type Timed = { id: string; start: Date; durationMinutes: number; event: CalendarEvent };
 
 const pad = (n: number) => String(n).padStart(2, "0");
 /** Largura da régua de horas, que fica fixa à esquerda enquanto as colunas rolam. */
 const GUTTER_PX = 56;
-/** Menos que isso é clique, não arrasto. */
-const DRAG_THRESHOLD_PX = 5;
-/** No toque, segurar este tempo parado começa o arrasto (antes disso o dedo rola a tela). */
-const LONG_PRESS_MS = 350;
 /** Deslocamento de cada card numa pilha (clientes no mesmo horário). */
 const STACK_OFFSET_PX = 10;
-
-type Drag = {
-  id: string;
-  durationMinutes: number;
-  /** Onde o dedo/mouse pegou o bloco, em minutos a partir do topo do bloco. */
-  grabMinutes: number;
-  startX: number;
-  startY: number;
-  moved: boolean;
-  /** Posição-alvo enquanto arrasta. */
-  dayIndex: number;
-  minutes: number;
-  columns: { left: number; right: number; top: number }[];
-  /** Pixels da tela por pixel do layout (a interface pode estar em 85%). */
-  scale: number;
-};
-
-type TouchPending = { timer: number; x: number; y: number; el: HTMLElement; onTouchMove: (ev: TouchEvent) => void; activated: boolean };
-
-/** Instante correspondente a um dia da grade + minutos desde o início dela. */
-function gridDate(day: DayKey, minutes: number): Date {
-  return addMinutes(dayBounds(day).start, HOUR_START * 60 + minutes);
-}
 
 /**
  * Grade de horas × dias (estilo Google Agenda): blocos por duração, linha vermelha do
  * "agora", clique num horário vazio abre o cadastro já com dia e hora, arrastar remarca
- * (mouse direto; no toque, segure o bloco), clientes no mesmo horário viram uma pilha
- * com escolha. No celular as colunas rolam de lado com encaixe — um dia de cada vez.
+ * (mouse direto; no toque, segure o bloco — a mecânica toda vive em `useEventDrag`),
+ * clientes no mesmo horário viram uma pilha com escolha. No celular as colunas rolam de
+ * lado com encaixe — um dia de cada vez.
  */
 export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }: Props) {
   const [now, setNow] = useState(() => new Date(nowIso));
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [chooser, setChooser] = useState<CalendarEvent[] | null>(null);
-  const [drag, setDrag] = useState<Drag | null>(null);
   const [, startTransition] = useTransition();
   const scroller = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<Drag | null>(null);
-  const touchRef = useRef<TouchPending | null>(null);
 
   // Estado otimista: o bloco já aparece no horário novo antes do servidor confirmar.
   const [events, setEvents] = useState(serverEvents);
@@ -95,140 +67,43 @@ export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }
     el.scrollTo({ left: Math.max(0, left) });
   }, [focusDay, days]);
 
-  const byDay = new Map<DayKey, Timed[]>();
-  for (const e of events) {
-    const start = fromIso(e.start);
-    const key = dayKey(start);
-    byDay.set(key, [...(byDay.get(key) ?? []), { start, durationMinutes: e.durationMinutes, event: e }]);
-  }
-  const nowTop = minutesFromGridStart(now) * PX_PER_MINUTE;
-  const single = days.length === 1;
-
   function open(event: CalendarEvent, group: CalendarEvent[]) {
     if (group.length > 1) setChooser(group);
     else setSelected(event);
   }
 
-  /** Mede as colunas e arma o arrasto (chamado na hora, no mouse, ou depois da pressão longa, no toque). */
-  function startDrag(el: HTMLElement, p: Positioned<Timed>, clientX: number, clientY: number) {
-    const root = scroller.current;
-    if (!root) return;
-    const columns = days.map((day) => {
-      const rect = root.querySelector<HTMLElement>(`[data-day="${day}"] [data-grid]`)!.getBoundingClientRect();
-      return { left: rect.left, right: rect.right, top: rect.top, height: rect.height };
-    });
-    const scale = columns[0] ? columns[0].height / GRID_HEIGHT_PX : 1;
-    const blockTop = el.getBoundingClientRect().top;
-    dragRef.current = {
-      id: p.item.event.id,
-      durationMinutes: p.item.durationMinutes,
-      grabMinutes: (clientY - blockTop) / scale / PX_PER_MINUTE,
-      startX: clientX,
-      startY: clientY,
-      moved: false,
-      dayIndex: days.indexOf(dayKey(p.item.start)),
-      minutes: minutesFromGridStart(p.item.start),
-      columns,
-      scale,
-    };
-  }
-
-  function clearTouch() {
-    const t = touchRef.current;
-    if (!t) return;
-    window.clearTimeout(t.timer);
-    t.el.removeEventListener("touchmove", t.onTouchMove);
-    touchRef.current = null;
-  }
-
-  function beginDrag(e: React.PointerEvent<HTMLButtonElement>, p: Positioned<Timed>) {
-    if (e.button !== 0) return;
-    const el = e.currentTarget;
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch {
-      /* eventos sintéticos (testes/automação) não têm ponteiro ativo para capturar */
-    }
-    if (e.pointerType === "mouse") {
-      startDrag(el, p, e.clientX, e.clientY);
-      return;
-    }
-    // Toque: só vira arrasto se o dedo ficar parado; mexer antes disso é rolagem normal.
-    clearTouch();
-    const pending: TouchPending = {
-      x: e.clientX,
-      y: e.clientY,
-      el,
-      activated: false,
-      timer: window.setTimeout(() => {
-        pending.activated = true;
-        startDrag(el, p, pending.x, pending.y);
-        if (dragRef.current) dragRef.current.moved = true;
-        setDrag(dragRef.current);
-        navigator.vibrate?.(30);
-      }, LONG_PRESS_MS),
-      onTouchMove: (ev: TouchEvent) => {
-        if (pending.activated) {
-          ev.preventDefault(); // o navegador não pode rolar enquanto o bloco anda com o dedo
-          return;
-        }
-        const t = ev.touches[0];
-        if (t && Math.hypot(t.clientX - pending.x, t.clientY - pending.y) > 8) clearTouch();
-      },
-    };
-    el.addEventListener("touchmove", pending.onTouchMove, { passive: false });
-    touchRef.current = pending;
-  }
-
-  function moveDrag(e: React.PointerEvent<HTMLButtonElement>) {
-    const d = dragRef.current;
-    if (!d) return;
-    if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) < DRAG_THRESHOLD_PX) return;
-    let dayIndex = d.columns.findIndex((c) => e.clientX >= c.left && e.clientX <= c.right);
-    if (dayIndex === -1) dayIndex = e.clientX < d.columns[0].left ? 0 : d.columns.length - 1;
-    const minutes = snapMinutes((e.clientY - d.columns[dayIndex].top) / d.scale / PX_PER_MINUTE - d.grabMinutes, d.durationMinutes);
-    const next = { ...d, moved: true, dayIndex, minutes };
-    dragRef.current = next;
-    setDrag(next);
-  }
-
-  function endDrag(p: Positioned<Timed>, group: CalendarEvent[]) {
-    const touch = touchRef.current;
-    const wasTouchPending = Boolean(touch && !touch.activated);
-    clearTouch();
-    const d = dragRef.current;
-    dragRef.current = null;
-    setDrag(null);
-    if (wasTouchPending || !d) {
-      // Toque curto (sem pressão longa) ou clique: abre.
-      if (wasTouchPending || !d) open(p.item.event, group);
-      return;
-    }
-    if (!d.moved) {
-      open(p.item.event, group);
-      return;
-    }
-    const when = gridDate(days[d.dayIndex], d.minutes);
+  /** Remarca de forma otimista: o bloco já fica no horário novo e volta se o servidor recusar. */
+  function reschedule(p: Positioned<Timed>, when: Date) {
+    const { id, event } = p.item;
     const iso = when.toISOString();
-    if (iso === p.item.event.start) return;
-    const previous = p.item.event.start;
-    setEvents((list) => list.map((ev) => (ev.id === d.id ? { ...ev, start: iso } : ev)));
+    const previous = event.start;
+    setEvents((list) => list.map((ev) => (ev.id === id ? { ...ev, start: iso } : ev)));
     startTransition(async () => {
-      const result = await rescheduleAppointmentAction(d.id, iso);
+      const result = await rescheduleAppointmentAction(id, iso);
       if (!result.ok) {
-        setEvents((list) => list.map((ev) => (ev.id === d.id ? { ...ev, start: previous } : ev)));
+        setEvents((list) => list.map((ev) => (ev.id === id ? { ...ev, start: previous } : ev)));
         toast.error(result.error);
         return;
       }
-      toast.success(`${p.item.event.clientName} remarcado: ${formatRelativeDay(when, now)} às ${formatTime(when)}`);
+      toast.success(`${event.clientName} remarcado: ${formatRelativeDay(when, now)} às ${formatTime(when)}`);
     });
   }
 
-  function cancelDrag() {
-    clearTouch();
-    dragRef.current = null;
-    setDrag(null);
+  const { drag, dragHandlers } = useEventDrag<Timed, CalendarEvent[]>({
+    days,
+    scroller,
+    onOpen: (p, group) => open(p.item.event, group),
+    onDrop: reschedule,
+  });
+
+  const byDay = new Map<DayKey, Timed[]>();
+  for (const e of events) {
+    const start = fromIso(e.start);
+    const key = dayKey(start);
+    byDay.set(key, [...(byDay.get(key) ?? []), { id: e.id, start, durationMinutes: e.durationMinutes, event: e }]);
   }
+  const nowTop = minutesFromGridStart(now) * PX_PER_MINUTE;
+  const single = days.length === 1;
 
   return (
     <div className="rounded-panel bg-surface shadow-panel">
@@ -281,15 +156,7 @@ export function TimeGrid({ days, events: serverEvents, today, focusDay, nowIso }
                     </Link>
                   ))}
                   {positioned.map((p) => (
-                    <EventBlock
-                      key={p.item.event.id}
-                      positioned={p}
-                      dragging={drag?.id === p.item.event.id && drag.moved}
-                      onPointerDown={(e) => beginDrag(e, p)}
-                      onPointerMove={moveDrag}
-                      onPointerUp={() => endDrag(p, groups.get(p.group) ?? [p.item.event])}
-                      onPointerCancel={cancelDrag}
-                    />
+                    <EventBlock key={p.item.id} positioned={p} dragging={drag?.id === p.item.id && drag.moved} handlers={dragHandlers(p, groups.get(p.group) ?? [p.item.event])} />
                   ))}
                   {ghost ? <GhostBlock day={day} minutes={ghost.minutes} durationMinutes={ghost.durationMinutes} /> : null}
                   {isToday ? (
@@ -333,16 +200,9 @@ function GhostBlock({ day, minutes, durationMinutes }: { day: DayKey; minutes: n
   );
 }
 
-type BlockProps = {
-  positioned: Positioned<Timed>;
-  dragging: boolean;
-  onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => void;
-  onPointerMove: (e: React.PointerEvent<HTMLButtonElement>) => void;
-  onPointerUp: () => void;
-  onPointerCancel: () => void;
-};
+type BlockProps = { positioned: Positioned<Timed>; dragging: boolean; handlers: EventDragHandlers };
 
-function EventBlock({ positioned: p, dragging, ...handlers }: BlockProps) {
+function EventBlock({ positioned: p, dragging, handlers }: BlockProps) {
   const { event } = p.item;
   const end = addMinutes(p.item.start, event.durationMinutes);
   const done = event.status === "realizado";

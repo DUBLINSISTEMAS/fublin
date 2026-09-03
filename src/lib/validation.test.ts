@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 import { actionError, formDataToObject, formError, formErrors, formSuccess, formValue, IDLE, OK } from "./result";
-import { idSchema, optionalString, parseForm } from "./validation";
+import { idSchema, MAX_MONEY_CENTS, moneyField, optionalString, parseForm } from "./validation";
 
 function fd(entries: Record<string, string>): FormData {
   const data = new FormData();
@@ -33,6 +33,39 @@ describe("parseForm", () => {
   it("idSchema rejects blank ids", () => {
     expect(parseForm(idSchema, fd({ id: "  " })).ok).toBe(false);
     expect(parseForm(idSchema, fd({ id: "abc" })).ok).toBe(true);
+  });
+});
+
+describe("moneyField", () => {
+  const schema = z.object({ credit: moneyField });
+  const credit = (value: string) => parseForm(schema, fd({ credit: value }));
+
+  it("accepts empty as 'not informed'", () => {
+    for (const blank of ["", "   "]) {
+      const result = credit(blank);
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(result.data.credit).toBeNull();
+    }
+    expect(schema.parse({}).credit).toBeNull();
+  });
+
+  it("converts what the user typed into cents", () => {
+    const result = credit("R$ 300.000,50");
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data.credit).toBe(30000050);
+  });
+
+  it("rejects text that is not a number instead of reading it as empty", () => {
+    for (const garbage of ["abc", "300 reais", "1o0"]) {
+      const result = credit(garbage);
+      expect(result.ok).toBe(false);
+      if (!result.ok) expect(result.fieldErrors.credit).toEqual(["Valor inválido"]);
+    }
+  });
+
+  it("rejects values above the ceiling and text that is too long", () => {
+    expect(credit(String(MAX_MONEY_CENTS)).ok).toBe(false);
+    expect(credit("1".repeat(41)).ok).toBe(false);
   });
 });
 

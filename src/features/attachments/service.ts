@@ -26,7 +26,6 @@ export async function addAttachment(db: Db, storage: Storage, input: NewAttachme
 
   const id = newId();
   const storageKey = `${input.clientId}/${id}.${ext}`;
-  await storage.write(storageKey, input.bytes);
   const row: Attachment = {
     id,
     clientId: input.clientId,
@@ -38,8 +37,18 @@ export async function addAttachment(db: Db, storage: Storage, input: NewAttachme
     storageKey,
     createdAt: toIso(now),
   };
-  await db.insert(attachments).values(row);
-  await logActivity(db, input.clientId, "anexo", `Anexou ${ATTACHMENT_KIND_LABELS[row.kind].toLowerCase()}: ${row.title}`, now);
+  // O arquivo vai primeiro (o banco precisa gravar uma chave que já existe); se o
+  // registro não entrar, o arquivo é desfeito para não virar lixo sem dono.
+  await storage.write(storageKey, input.bytes);
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(attachments).values(row);
+      await logActivity(tx, input.clientId, "anexo", `Anexou ${ATTACHMENT_KIND_LABELS[row.kind].toLowerCase()}: ${row.title}`, now);
+    });
+  } catch (error) {
+    await removeFilesQuietly(storage, [storageKey]);
+    throw error;
+  }
   return row;
 }
 
@@ -49,10 +58,17 @@ export async function getAttachment(db: Db, id: string): Promise<Attachment> {
   return row;
 }
 
+/**
+ * Banco primeiro (linha + timeline na mesma transação), arquivo depois: se a
+ * timeline falhar, a exclusão inteira volta atrás e o arquivo continua com dono —
+ * nunca sobra arquivo órfão nem linha apontando para um arquivo que já sumiu.
+ */
 export async function deleteAttachment(db: Db, storage: Storage, id: string, now: Date = new Date()): Promise<Attachment> {
   const row = await getAttachment(db, id);
-  await db.delete(attachments).where(eq(attachments.id, id));
-  await logActivity(db, row.clientId, "anexo", `Removeu anexo: ${row.title}`, now);
+  await db.transaction(async (tx) => {
+    await tx.delete(attachments).where(eq(attachments.id, id));
+    await logActivity(tx, row.clientId, "anexo", `Removeu anexo: ${row.title}`, now);
+  });
   await removeFilesQuietly(storage, [row.storageKey]);
   return row;
 }

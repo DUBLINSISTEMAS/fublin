@@ -1,3 +1,6 @@
+import { addMinutes } from "date-fns";
+import { dayBounds, type DayKey } from "@/lib/dates";
+
 /** A grade cobre o horário comercial com folga: 07:00 às 20:00, 64px por hora. */
 export const HOUR_START = 7;
 export const HOUR_END = 20;
@@ -22,6 +25,11 @@ export function minutesFromGridStart(date: Date): number {
 export function snapMinutes(minutes: number, durationMinutes: number): number {
   const snapped = Math.round(minutes / SNAP_MINUTES) * SNAP_MINUTES;
   return Math.min(Math.max(snapped, 0), Math.max(0, GRID_MINUTES - durationMinutes));
+}
+
+/** Instante correspondente a um dia da grade + minutos desde o topo dela. */
+export function gridDate(day: DayKey, minutes: number): Date {
+  return addMinutes(dayBounds(day).start, HOUR_START * 60 + minutes);
 }
 
 export type Timed = { start: Date; durationMinutes: number };

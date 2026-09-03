@@ -13,7 +13,15 @@ import { moneyField, parseForm } from "@/lib/validation";
 
 const goalSchema = z.object({
   periodKey: z.string().refine(isValidPeriodKey, "Quinzena inválida"),
-  target: moneyField.refine((v) => v !== null && v > 0, "Informe a meta"),
+  // Validar dentro do transform (com z.NEVER no caminho inválido) faz o Zod estreitar o tipo
+  // para number: quem lê `data.target` depois não precisa de `!`.
+  target: moneyField.transform((v, ctx) => {
+    if (v === null || v <= 0) {
+      ctx.addIssue({ code: "custom", message: "Informe a meta" });
+      return z.NEVER;
+    }
+    return v;
+  }),
 });
 
 /** Define (ou redefine) a meta de uma quinzena. */
@@ -26,8 +34,8 @@ export async function saveGoalAction(_prev: FormState, formData: FormData): Prom
     const now = toIso(new Date());
     await db
       .insert(goals)
-      .values({ periodKey: parsed.data.periodKey, targetCents: parsed.data.target!, createdAt: now, updatedAt: now })
-      .onConflictDoUpdate({ target: goals.periodKey, set: { targetCents: parsed.data.target!, updatedAt: now } });
+      .values({ periodKey: parsed.data.periodKey, targetCents: parsed.data.target, createdAt: now, updatedAt: now })
+      .onConflictDoUpdate({ target: goals.periodKey, set: { targetCents: parsed.data.target, updatedAt: now } });
   } catch (error) {
     return formError(errorMessage(error), undefined, parsed.values);
   }
