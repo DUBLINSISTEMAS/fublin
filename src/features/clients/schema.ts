@@ -7,6 +7,24 @@ import { moneyField as money, optionalString } from "@/lib/validation";
 const dayField = optionalString(z.string().refine(isValidDayKey, "Data inválida"));
 const timeField = optionalString(z.string().refine(isValidTime, "Horário inválido"));
 
+/**
+ * Comissão desta venda em % ("0,5" ou "0.5"). "" = volta ao padrão das configurações (null);
+ * ausente (importação, seed) = não mexe. Mesma distinção de `clearableDay`.
+ */
+const clearablePercent = z
+  .string()
+  .trim()
+  .transform((v, ctx) => {
+    if (v === "") return null;
+    const n = Number(v.replace(",", "."));
+    if (!Number.isFinite(n) || n < 0 || n > 10) {
+      ctx.addIssue({ code: "custom", message: "Use um valor entre 0 e 10" });
+      return z.NEVER;
+    }
+    return n;
+  })
+  .optional();
+
 export const clientInputSchema = z
   .object({
     name: z.string().trim().min(2, "Informe o nome do cliente").max(120, "Nome muito longo"),
@@ -24,6 +42,8 @@ export const clientInputSchema = z
     /** Faixa de parcela que cabe no bolso: "de" e "até" (só o "até" = parcela fixa). */
     installmentMin: money,
     installmentMax: money,
+    /** Comissão própria desta venda (%); "" = padrão das configurações. */
+    commissionRate: clearablePercent,
     attendance: z.enum(ATTENDANCES).default("presencial"),
     status: z.enum(CLIENT_STATUSES).default("novo"),
     priority: z.enum(CLIENT_PRIORITIES).default("normal"),
@@ -84,24 +104,6 @@ const clearableDay = z
   .string()
   .trim()
   .refine((v) => v === "" || isValidDayKey(v), "Data inválida")
-  .optional();
-
-/**
- * Comissão desta venda em % ("0,5" ou "0.5"). "" = volta ao padrão das configurações (null);
- * ausente = não mexe. Mesma distinção de `clearableDay`.
- */
-const clearablePercent = z
-  .string()
-  .trim()
-  .transform((v, ctx) => {
-    if (v === "") return null;
-    const n = Number(v.replace(",", "."));
-    if (!Number.isFinite(n) || n < 0 || n > 10) {
-      ctx.addIssue({ code: "custom", message: "Use um valor entre 0 e 10" });
-      return z.NEVER;
-    }
-    return n;
-  })
   .optional();
 
 /** Dados da aprovação/fechamento editados na página do cliente. */

@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { approvalSchema, clientInputSchema } from "./schema";
 
+describe("clientInputSchema — comissão desta venda", () => {
+  const base = { name: "Ana Souza", phone: "11987654321", interest: "imovel" };
+
+  it("parses the chosen rate, treats empty as default and leaves it undefined when absent", () => {
+    expect(clientInputSchema.parse({ ...base, commissionRate: "0,5" }).commissionRate).toBe(0.5);
+    expect(clientInputSchema.parse({ ...base, commissionRate: "" }).commissionRate).toBeNull();
+    expect(clientInputSchema.parse(base).commissionRate).toBeUndefined();
+  });
+
+  it("rejects an invalid custom percentage", () => {
+    const result = clientInputSchema.safeParse({ ...base, commissionRate: "cinco" });
+    expect(result.success).toBe(false);
+  });
+});
+
 describe("approvalSchema — comissão desta venda", () => {
   const base = { id: "c1", credit: "100.000", adesao: "" };
 

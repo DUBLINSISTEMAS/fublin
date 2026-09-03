@@ -20,3 +20,11 @@ export function dealsCommissionCents(deals: readonly CommissionDeal[], defaultRa
 export function formatPercent(ratePercent: number): string {
   return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 }).format(ratePercent)}%`;
 }
+
+/** "0,5" para um campo de porcentagem digitável; vazio quando a venda usa o padrão. */
+export function percentToInput(ratePercent: number | null): string {
+  return ratePercent === null ? "" : String(ratePercent).replace(".", ",");
+}
+
+/** Taxas prontas no seletor da venda (além do padrão e de "personalizar"). */
+export const COMMISSION_RATE_PRESETS = [0.5, 0.6, 0.8] as const;

@@ -163,6 +163,23 @@ describe("client lifecycle", () => {
     expect(detail?.activities.some((a) => a.content === "Aprovado em: sem data")).toBe(true);
   });
 
+  it("takes the commission rate from the client form on create and edit, keeping it when the form does not send it", async () => {
+    const created = await createClient(db, clientInputSchema.parse({ name: "Ana", phone: "11987654321", interest: "imovel", commissionRate: "0,5" }), now);
+    expect(created.commissionRatePercent).toBe(0.5);
+    const plain = await createClient(db, base, now);
+    expect(plain.commissionRatePercent).toBeNull();
+
+    // Importação/seed não mandam o campo: a taxa fica.
+    const kept = await updateClient(db, created.id, base, now);
+    expect(kept.commissionRatePercent).toBe(0.5);
+
+    const changed = await updateClient(db, created.id, clientInputSchema.parse({ ...base, commissionRate: "0,8" }), now);
+    expect(changed.commissionRatePercent).toBe(0.8);
+
+    const cleared = await updateClient(db, created.id, clientInputSchema.parse({ ...base, commissionRate: "" }), now);
+    expect(cleared.commissionRatePercent).toBeNull();
+  });
+
   it("stores the sale's own commission rate, logs the change and clears it back to the default", async () => {
     const c = await createClient(db, base, now);
 

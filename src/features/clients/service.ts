@@ -27,6 +27,8 @@ function toRow(input: ClientInput) {
     adesaoCents: input.adesao,
     installmentMinCents: input.installmentMin,
     installmentMaxCents: input.installmentMax,
+    // Só o formulário manda a taxa; importação e seed não mexem na que já existe.
+    ...(input.commissionRate !== undefined ? { commissionRatePercent: input.commissionRate } : {}),
     attendance: input.attendance,
     status: input.status,
     priority: input.priority,
@@ -80,13 +82,13 @@ async function createClientTx(db: DbOrTx, input: ClientInput, now: Date): Promis
   const base = { id: newId(), ...toRow(input), createdAt: iso, updatedAt: iso };
   const row = {
     ...base,
+    // Sem taxa no cadastro (importação, seed) a venda nasce no padrão.
+    commissionRatePercent: base.commissionRatePercent ?? null,
     analysisStartedAt: null,
     approvedAt: null,
     closedAt: null,
     lostAt: null,
     lostReason: null,
-    // A taxa própria nasce na aprovação; no cadastro a venda ainda usa o padrão.
-    commissionRatePercent: null,
   } satisfies Client;
   const stamped = { ...row, ...statusStamps(row, input.status, now) };
   await db.insert(clients).values(stamped);

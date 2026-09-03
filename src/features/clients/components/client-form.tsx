@@ -9,6 +9,7 @@ import { MoneyInput } from "@/components/ui/money-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFocusFirstError } from "@/components/ui/use-focus-first-error";
 import type { Client, Leader } from "@/db/schema";
+import { percentToInput } from "@/features/goals/commission";
 import { cn } from "@/lib/cn";
 import { fromIso, toLocalInput } from "@/lib/dates";
 import {
@@ -29,6 +30,7 @@ import {
 } from "@/lib/domain";
 import { centsToInput } from "@/lib/money";
 import { formErrors, formValue, IDLE, type FormState } from "@/lib/result";
+import { CommissionRateField } from "./commission-rate-field";
 
 type Props = {
   action: (prev: FormState, formData: FormData) => Promise<FormState>;
@@ -38,11 +40,13 @@ type Props = {
   initialSchedule?: { day: string; time: string } | null;
   cancelHref: string;
   submitLabel?: string;
+  /** Comissão padrão das configurações, sugerida no seletor da venda. */
+  defaultRatePercent: number;
 };
 
 const LEGEND = "mb-1 text-xs font-semibold uppercase tracking-[0.12em] text-muted";
 
-export function ClientForm({ action, leaders, initial, initialSchedule, cancelHref, submitLabel = "Salvar cliente" }: Props) {
+export function ClientForm({ action, leaders, initial, initialSchedule, cancelHref, submitLabel = "Salvar cliente", defaultRatePercent }: Props) {
   const [state, formAction] = useActionState(action, IDLE);
   const formRef = useRef<HTMLFormElement>(null);
   useFocusFirstError(state, formRef);
@@ -142,6 +146,9 @@ export function ClientForm({ action, leaders, initial, initialSchedule, cancelHr
           <Field label="Parcela até" htmlFor="installmentMax" error={errors.installmentMax}>
             <MoneyInput id="installmentMax" name="installmentMax" defaultValue={value("installmentMax", centsToInput(initial?.installmentMaxCents))} invalid={Boolean(errors.installmentMax)} placeholder="0,00" />
           </Field>
+          <div className="sm:col-span-2">
+            <CommissionRateField defaultRatePercent={defaultRatePercent} initialValue={value("commissionRate", percentToInput(initial?.commissionRatePercent ?? null))} error={errors.commissionRate} />
+          </div>
         </div>
       </fieldset>
 
